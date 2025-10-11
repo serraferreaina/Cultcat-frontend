@@ -1,8 +1,8 @@
-import { View, Text } from 'react-native'
-import { useTranslation } from 'react-i18next'
+import { View, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
 
 export default function Home() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
 
   return (
     <View
@@ -15,5 +15,5 @@ export default function Home() {
     >
       <Text>{t('welcome')} 👋</Text>
     </View>
-  )
+  );
 }

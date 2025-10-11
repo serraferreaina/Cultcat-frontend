@@ -1,16 +1,16 @@
-import React from 'react'
-import { Tabs } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { useTranslation } from 'react-i18next'
+import React from 'react';
+import { Tabs } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 // MaterialCommunityIcons is used for the unique "cat" icon in the profile tab.
-import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 
-const BG = '#F7F0E2'
-const TEXT = '#311C0C'
-const ACCENT = '#C86A2E'
+const BG = '#F7F0E2';
+const TEXT = '#311C0C';
+const ACCENT = '#C86A2E';
 
 export default function TabsLayout() {
-  const { t } = useTranslation()
+  const { t } = useTranslation();
 
   return (
     <Tabs
@@ -76,5 +76,5 @@ export default function TabsLayout() {
         }}
       />
     </Tabs>
-  )
+  );
 }

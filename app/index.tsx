@@ -1,29 +1,29 @@
 // app/welcome.tsx
-import { useEffect, useRef } from 'react'
-import { View, Text, Image, Pressable, Animated, StyleSheet } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { useEffect, useRef } from 'react';
+import { View, Text, Image, Pressable, Animated, StyleSheet } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 //===============================
 // For translations
-import { useTranslation } from 'react-i18next'
-import '../i18n' // make sure i18n.ts is imported once
+import { useTranslation } from 'react-i18next';
+import '../i18n'; // make sure i18n.ts is imported once
 //===============================
 
 export default function Welcome() {
-  const router = useRouter()
-  const { t, i18n } = useTranslation()
+  const router = useRouter();
+  const { t, i18n } = useTranslation();
 
   const goNext = () => {
     // Canvia això si vols passar primer pel login:
     // router.replace("/(auth)/login");
-    router.replace('/(tabs)')
-  }
+    router.replace('/(tabs)');
+  };
 
   const changeLanguage = (lang: 'en' | 'es' | 'ca') => {
-    i18n.changeLanguage(lang)
-  }
+    i18n.changeLanguage(lang);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -67,12 +67,12 @@ export default function Welcome() {
         </Pressable>
       </View>
     </SafeAreaView>
-  )
+  );
 }
 
-const BG = '#F7F0E2' // beige suau del mockup
-const TEXT = '#311C0C' // marró fosc suau
-const ACCENT = '#C86A2E' // taronja marca
+const BG = '#F7F0E2'; // beige suau del mockup
+const TEXT = '#311C0C'; // marró fosc suau
+const ACCENT = '#C86A2E'; // taronja marca
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
@@ -125,4 +125,4 @@ const styles = StyleSheet.create({
   logoWrap: { width: '90%', aspectRatio: 1, alignSelf: 'center', justifyContent: 'center' },
   logo: { width: '70%', height: '70%' },
   color: { color: ACCENT },
-})
+});
