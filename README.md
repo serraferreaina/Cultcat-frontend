@@ -27,4 +27,3 @@ npx expo start
   ```
 
 ---
-
