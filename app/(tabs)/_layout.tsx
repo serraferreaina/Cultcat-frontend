@@ -26,6 +26,26 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
+        name="serach"
+        options={{
+          title: t('search'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="search-outline" color={color} size={size} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
+        name="map"
+        options={{
+          title: t('map'),
+          tabBarIcon: ({ color, size }) => (
+            <Ionicons name="map-outline" color={color} size={size} />
+          ),
+        }}
+      />
+
+      <Tabs.Screen
         name="profile"
         options={{
           title: t('profile'),
