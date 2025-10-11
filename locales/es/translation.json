@@ -1,5 +1,8 @@
 {
   "welcome": "Bienvenido/a",
   "login": "Iniciar sesión",
-  "logout": "Cerrar sesión"
+  "logout": "Cerrar sesión",
+  "cultivate": "¡Culturízate!",
+  "home": "Inicio",
+  "profile": "Perfil"
 }

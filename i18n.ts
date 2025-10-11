@@ -13,7 +13,7 @@ const resources = {
 
 // Get device language
 //const locales = RNLocalize.getLocales();
-const languageTag = 'en';
+const languageTag = 'ca';
 
 i18n.use(initReactI18next).init({
   resources,

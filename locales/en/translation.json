@@ -1,5 +1,8 @@
 {
   "welcome": "Welcome",
   "login": "Login",
-  "logout": "Logout"
+  "logout": "Logout",
+  "cultivate": "Cultivate your culture!",
+  "home": "Home",
+  "profile": "Profile"
 }
