@@ -1,6 +1,12 @@
-import { View, Text } from 'react-native';
+import { View, Text } from 'react-native'
+import { useTranslation } from 'react-i18next'
+
 export default function Home() {
-  return <View style={{ flex:1, alignItems:'center', justifyContent:'center' }}>
-    <Text>Benvingut/da 👋</Text>
-  </View>;
+  const { t } = useTranslation()
+
+  return (
+    <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+      <Text>{t('welcome')} 👋</Text>
+    </View>
+  )
 }

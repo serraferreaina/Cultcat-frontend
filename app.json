@@ -1,6 +1,7 @@
 {
   "expo": {
     "name": "cultcat-frontend",
+    "scheme": "cultcat",
     "slug": "cultcat-frontend",
     "version": "1.0.0",
     "orientation": "portrait",
