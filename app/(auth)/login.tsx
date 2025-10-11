@@ -1,7 +1,7 @@
-import React from 'react'
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native'
+import React from 'react';
+import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 
-export default function Login() { 
+export default function Login() {
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Welcome to CultCat</Text>
@@ -13,7 +13,7 @@ export default function Login() {
         <Text style={styles.buttonText}>Login with Google</Text>
       </TouchableOpacity>
     </View>
-  )    
+  );
 }
 
 const styles = StyleSheet.create({
@@ -35,4 +35,4 @@ const styles = StyleSheet.create({
   },
   secondary: { backgroundColor: '#34A853' },
   buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-})
+});
