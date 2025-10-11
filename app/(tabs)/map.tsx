@@ -1,7 +1,6 @@
 import { View, Text } from 'react-native'
 import { useTranslation } from 'react-i18next'
-
-export default function Home() {
+export default function Map() {
   const { t } = useTranslation()
 
   return (
@@ -13,7 +12,7 @@ export default function Home() {
         backgroundColor: '#F7F0E2',
       }}
     >
-      <Text>{t('welcome')} 👋</Text>
+      <Text>{t('map')}</Text>
     </View>
   )
 }
