@@ -2,6 +2,7 @@ import React from 'react'
 import { Tabs } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useTranslation } from 'react-i18next'
+// MaterialCommunityIcons is used for the unique "cat" icon in the profile tab.
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons'
 
 const BG = '#F7F0E2'
@@ -46,7 +47,7 @@ export default function TabsLayout() {
       />
 
       <Tabs.Screen
-        name="serach"
+        name="search"
         options={{
           title: t('search'),
           tabBarIcon: ({ color, size, focused }) => (

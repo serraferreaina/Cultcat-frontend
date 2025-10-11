@@ -1,6 +1,6 @@
 import { View, Text } from 'react-native'
 import { useTranslation } from 'react-i18next'
-export default function Profile() {
+export default function Search() {
   const { t } = useTranslation()
 
   return (
