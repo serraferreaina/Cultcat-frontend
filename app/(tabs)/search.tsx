@@ -1,18 +1,26 @@
-import { View, Text } from 'react-native';
-import { useTranslation } from 'react-i18next';
-export default function Search() {
-  const { t } = useTranslation();
+// app/(tabs)/cerca.tsx  (exemple)
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
+import { View, StyleSheet, ScrollView } from 'react-native';
+import SearchBar from '../../components/SearchBar';
 
+export default function CercaScreen() {
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F7F0E2',
-      }}
-    >
-      <Text>{t('search')}</Text>
-    </View>
+    <SafeAreaView style={styles.screen}>
+      <StatusBar style="dark" />
+      <ScrollView style={styles.content}>
+        <SearchBar />
+      </ScrollView>
+    </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  screen: {
+    flex: 1,
+    backgroundColor: '#F7F0E2',
+  },
+  content: {
+    paddingTop: 8,
+  },
+});
