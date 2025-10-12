@@ -1,60 +1,105 @@
 // app/welcome.tsx
-import { useEffect, useRef } from 'react';
-import { View, Text, Image, Pressable, Animated, StyleSheet } from 'react-native';
+import { useRef, useState } from 'react';
+import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-
-//===============================
-// For translations
 import { useTranslation } from 'react-i18next';
-import '../i18n'; // make sure i18n.ts is imported once
-//===============================
+import '../i18n';
+import { useTheme } from '../theme/ThemeContext';
+import { LightColors, DarkColors } from '../theme/colors';
 
 export default function Welcome() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
+  const { theme, setTheme } = useTheme();
+  const [showLanguages, setShowLanguages] = useState(false);
 
-  const goNext = () => {
-    // Canvia això si vols passar primer pel login:
-    // router.replace("/(auth)/login");
-    router.replace('/(auth)/login');
+  const effectiveScheme = theme || 'light';
+  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
+
+  const goNext = () => router.replace('/(auth)/login');
+  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+
+  const getLanguageLabel = () => {
+    switch (i18n.language) {
+      case 'en':
+        return 'English';
+      case 'es':
+        return 'Español';
+      case 'ca':
+        return 'Català';
+      default:
+        return 'English';
+    }
   };
 
   const changeLanguage = (lang: 'en' | 'es' | 'ca') => {
     i18n.changeLanguage(lang);
+    setShowLanguages(false);
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Language Selector at top */}
-      <View style={styles.languageContainer}>
-        <Pressable
-          onPress={() => changeLanguage('en')}
-          style={[styles.languageButton, i18n.language === 'en' && styles.activeLanguage]}
-        >
-          <Text style={[styles.languageText, i18n.language === 'en' && styles.activeText]}>EN</Text>
+    <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
+      <View style={styles.topBar}>
+        <Pressable onPress={toggleTheme} style={styles.themeToggle}>
+          <Ionicons
+            name={effectiveScheme === 'dark' ? 'sunny' : 'moon'}
+            size={28}
+            color={Colors.accent}
+          />
         </Pressable>
 
-        <Pressable
-          onPress={() => changeLanguage('es')}
-          style={[styles.languageButton, i18n.language === 'es' && styles.activeLanguage]}
-        >
-          <Text style={[styles.languageText, i18n.language === 'es' && styles.activeText]}>ES</Text>
-        </Pressable>
+        <View style={styles.languageWrapper}>
+          <Pressable
+            onPress={() => setShowLanguages(!showLanguages)}
+            style={[
+              styles.currentLanguageButton,
+              { borderColor: Colors.accent, backgroundColor: Colors.card },
+            ]}
+          >
+            <Text style={[styles.currentLanguageText, { color: Colors.text }]}>
+              {getLanguageLabel()}
+            </Text>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={Colors.accent}
+              style={{ marginLeft: 4 }}
+            />
+          </Pressable>
 
-        <Pressable
-          onPress={() => changeLanguage('ca')}
-          style={[styles.languageButton, i18n.language === 'ca' && styles.activeLanguage]}
-        >
-          <Text style={[styles.languageText, i18n.language === 'ca' && styles.activeText]}>CA</Text>
-        </Pressable>
+          {showLanguages && (
+            <View
+              style={[
+                styles.languageDropdown,
+                { backgroundColor: Colors.card, borderColor: Colors.border },
+              ]}
+            >
+              {['en', 'es', 'ca']
+                .filter((l) => l !== i18n.language)
+                .map((lang) => (
+                  <Pressable
+                    key={lang}
+                    onPress={() => changeLanguage(lang as 'en' | 'es' | 'ca')}
+                    style={styles.languageOption}
+                  >
+                    <Text style={[styles.languageOptionText, { color: Colors.text }]}>
+                      {lang.toUpperCase()}
+                    </Text>
+                  </Pressable>
+                ))}
+            </View>
+          )}
+        </View>
+
+        <View style={styles.themeToggle} />
       </View>
 
       <View style={styles.content}>
-        <Text style={styles.brandTop}>CultCat. </Text>
-        <Text style={styles.tagline}>{t('welcome')}</Text>
-        <Text style={styles.tagline}>{t('cultivate')}</Text>
+        <Text style={[styles.brandTop, { color: Colors.accent }]}>CultCat.</Text>
+        <Text style={[styles.tagline, { color: Colors.text }]}>{t('welcome')}</Text>
+        <Text style={[styles.tagline, { color: Colors.text }]}>{t('cultivate')}</Text>
 
         <Image
           source={require('../assets/cultcat-logo.png')}
@@ -63,49 +108,51 @@ export default function Welcome() {
         />
 
         <Pressable onPress={goNext}>
-          <Ionicons name="arrow-forward-circle" size={80} />
+          <Ionicons name="arrow-forward-circle" size={80} color={Colors.accent} />
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
 
-const BG = '#F7F0E2'; // beige suau del mockup
-const TEXT = '#311C0C'; // marró fosc suau
-const ACCENT = '#C86A2E'; // taronja marca
-
+// styles remain mostly unchanged
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
-  languageContainer: {
+  container: { flex: 1 },
+  topBar: {
     flexDirection: 'row',
-    gap: 10,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
     paddingTop: 15,
     paddingBottom: 25,
   },
-  languageButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: 'rgba(200, 106, 46, 0.1)',
-    borderWidth: 2,
-    borderColor: 'transparent',
-    minWidth: 50,
+  themeToggle: { padding: 8, width: 44 },
+  languageWrapper: { flex: 1, alignItems: 'center', position: 'relative' },
+  currentLanguageButton: {
+    flexDirection: 'row',
     alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 25,
+    borderWidth: 2,
   },
-  activeLanguage: {
-    borderColor: ACCENT,
-    backgroundColor: ACCENT,
+  currentLanguageText: { fontSize: 16, fontWeight: '600' },
+  languageDropdown: {
+    position: 'absolute',
+    top: 50,
+    borderWidth: 2,
+    borderRadius: 15,
+    paddingVertical: 8,
+    minWidth: 140,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+    zIndex: 1000,
   },
-  languageText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: TEXT,
-  },
-  activeText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-  },
+  languageOption: { paddingHorizontal: 20, paddingVertical: 12 },
+  languageOptionText: { fontSize: 16, fontWeight: '500', textAlign: 'center' },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -113,16 +160,7 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     marginTop: -50,
   },
-  brandTop: {
-    fontSize: 50,
-    fontWeight: '900',
-    color: ACCENT,
-    textAlign: 'left',
-    marginTop: 6,
-    paddingTop: 20,
-  },
-  tagline: { fontSize: 30, color: TEXT, textAlign: 'right' },
-  logoWrap: { width: '90%', aspectRatio: 1, alignSelf: 'center', justifyContent: 'center' },
+  brandTop: { fontSize: 50, fontWeight: '900', textAlign: 'left', marginTop: 6, paddingTop: 20 },
+  tagline: { fontSize: 30, textAlign: 'right' },
   logo: { width: '70%', height: '70%' },
-  color: { color: ACCENT },
 });
