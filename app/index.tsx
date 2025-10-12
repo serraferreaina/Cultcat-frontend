@@ -52,7 +52,10 @@ export default function Welcome() {
           resizeMode="contain"
         />
 
-        <NextButton accentColor={Colors.accent} onPress={goNext} />
+        {/* Floating NextButton */}
+        <View style={styles.nextButtonWrapper}>
+          <NextButton accentColor={Colors.accent} onPress={goNext} />
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -66,7 +69,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingTop: 15,
-    paddingBottom: 25,
+    paddingBottom: 75,
   },
   spacer: { width: 44 },
   content: {
@@ -83,6 +86,15 @@ const styles = StyleSheet.create({
     marginTop: 6,
     paddingTop: 20,
   },
-  tagline: { fontSize: 30, textAlign: 'right' },
-  logo: { width: '70%', height: '70%' },
+  tagline: { fontSize: 30, textAlign: 'right', fontWeight: '600' },
+  logo: {
+    width: '70%',
+    height: '70%',
+    marginBottom: 90, // move image up by increasing this value
+  },
+  nextButtonWrapper: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+  },
 });
