@@ -1,18 +1,31 @@
-import { View, Text } from 'react-native';
-import { useTranslation } from 'react-i18next';
-export default function Map() {
-  const { t } = useTranslation();
+import React from 'react';
+import { StyleSheet } from 'react-native';
+import MapView, { Marker } from 'react-native-maps';
 
+export default function MapScreen() {
   return (
-    <View
-      style={{
-        flex: 1,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#F7F0E2',
+    <MapView
+      style={styles.map}
+      //BCN
+      initialRegion={{
+        latitude: 41.3874,
+        longitude: 2.1686,
+        latitudeDelta: 0.08,
+        longitudeDelta: 0.04,
       }}
+      showsCompass
+      showsBuildings
+      showsUserLocation={false}
     >
-      <Text>{t('map')}</Text>
-    </View>
+      <Marker
+        coordinate={{ latitude: 41.3874, longitude: 2.1686 }}
+        title="Barcelona"
+        description="Exemple de marcador"
+      />
+    </MapView>
   );
 }
+
+const styles = StyleSheet.create({
+  map: { flex: 1 },
+});
