@@ -1,99 +1,44 @@
-// app/welcome.tsx
-import { useRef, useState } from 'react';
-import { View, Text, Image, Pressable, StyleSheet } from 'react-native';
+// app/index.tsx
+import { View, Text, Image, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import '../i18n';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
+import { ThemeToggle } from '../components/ThemeToggle';
+import { LanguageSelector } from '../components/LanguageSelector';
+import { NextButton } from '../components/NextButton';
 
 export default function Welcome() {
   const router = useRouter();
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
-  const [showLanguages, setShowLanguages] = useState(false);
 
   const effectiveScheme = theme || 'light';
   const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
 
   const goNext = () => router.replace('/(auth)/login');
   const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-
-  const getLanguageLabel = () => {
-    switch (i18n.language) {
-      case 'en':
-        return 'English';
-      case 'es':
-        return 'Español';
-      case 'ca':
-        return 'Català';
-      default:
-        return 'English';
-    }
-  };
-
-  const changeLanguage = (lang: 'en' | 'es' | 'ca') => {
-    i18n.changeLanguage(lang);
-    setShowLanguages(false);
-  };
+  const changeLanguage = (lang: 'en' | 'es' | 'ca') => i18n.changeLanguage(lang);
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
       <View style={styles.topBar}>
-        <Pressable onPress={toggleTheme} style={styles.themeToggle}>
-          <Ionicons
-            name={effectiveScheme === 'dark' ? 'sunny' : 'moon'}
-            size={28}
-            color={Colors.accent}
-          />
-        </Pressable>
+        <ThemeToggle theme={effectiveScheme} accentColor={Colors.accent} onToggle={toggleTheme} />
 
-        <View style={styles.languageWrapper}>
-          <Pressable
-            onPress={() => setShowLanguages(!showLanguages)}
-            style={[
-              styles.currentLanguageButton,
-              { borderColor: Colors.accent, backgroundColor: Colors.card },
-            ]}
-          >
-            <Text style={[styles.currentLanguageText, { color: Colors.text }]}>
-              {getLanguageLabel()}
-            </Text>
-            <Ionicons
-              name="chevron-forward"
-              size={20}
-              color={Colors.accent}
-              style={{ marginLeft: 4 }}
-            />
-          </Pressable>
+        <LanguageSelector
+          currentLanguage={i18n.language}
+          colors={{
+            accent: Colors.accent,
+            card: Colors.card,
+            text: Colors.text,
+            border: Colors.border,
+          }}
+          onLanguageChange={changeLanguage}
+        />
 
-          {showLanguages && (
-            <View
-              style={[
-                styles.languageDropdown,
-                { backgroundColor: Colors.card, borderColor: Colors.border },
-              ]}
-            >
-              {['en', 'es', 'ca']
-                .filter((l) => l !== i18n.language)
-                .map((lang) => (
-                  <Pressable
-                    key={lang}
-                    onPress={() => changeLanguage(lang as 'en' | 'es' | 'ca')}
-                    style={styles.languageOption}
-                  >
-                    <Text style={[styles.languageOptionText, { color: Colors.text }]}>
-                      {lang.toUpperCase()}
-                    </Text>
-                  </Pressable>
-                ))}
-            </View>
-          )}
-        </View>
-
-        <View style={styles.themeToggle} />
+        <View style={styles.spacer} />
       </View>
 
       <View style={styles.content}>
@@ -107,15 +52,12 @@ export default function Welcome() {
           resizeMode="contain"
         />
 
-        <Pressable onPress={goNext}>
-          <Ionicons name="arrow-forward-circle" size={80} color={Colors.accent} />
-        </Pressable>
+        <NextButton accentColor={Colors.accent} onPress={goNext} />
       </View>
     </SafeAreaView>
   );
 }
 
-// styles remain mostly unchanged
 const styles = StyleSheet.create({
   container: { flex: 1 },
   topBar: {
@@ -126,33 +68,7 @@ const styles = StyleSheet.create({
     paddingTop: 15,
     paddingBottom: 25,
   },
-  themeToggle: { padding: 8, width: 44 },
-  languageWrapper: { flex: 1, alignItems: 'center', position: 'relative' },
-  currentLanguageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 25,
-    borderWidth: 2,
-  },
-  currentLanguageText: { fontSize: 16, fontWeight: '600' },
-  languageDropdown: {
-    position: 'absolute',
-    top: 50,
-    borderWidth: 2,
-    borderRadius: 15,
-    paddingVertical: 8,
-    minWidth: 140,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-    zIndex: 1000,
-  },
-  languageOption: { paddingHorizontal: 20, paddingVertical: 12 },
-  languageOptionText: { fontSize: 16, fontWeight: '500', textAlign: 'center' },
+  spacer: { width: 44 },
   content: {
     flex: 1,
     alignItems: 'center',
@@ -160,7 +76,13 @@ const styles = StyleSheet.create({
     paddingVertical: 20,
     marginTop: -50,
   },
-  brandTop: { fontSize: 50, fontWeight: '900', textAlign: 'left', marginTop: 6, paddingTop: 20 },
+  brandTop: {
+    fontSize: 50,
+    fontWeight: '900',
+    textAlign: 'left',
+    marginTop: 6,
+    paddingTop: 20,
+  },
   tagline: { fontSize: 30, textAlign: 'right' },
   logo: { width: '70%', height: '70%' },
 });
