@@ -1,6 +1,8 @@
+// components/ThemeToggle.tsx
 import { useRef } from 'react';
-import { Pressable, StyleSheet, Animated } from 'react-native';
+import { Pressable, StyleSheet, Animated, Easing } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 interface ThemeToggleProps {
   theme: string;
@@ -12,34 +14,36 @@ export function ThemeToggle({ theme, accentColor, onToggle }: ThemeToggleProps) 
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
-  const handlePress = () => {
-    // Reset rotateAnim to 0 before animating
+  const handlePress = async () => {
+    // Soft haptic feedback
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
+
+    // Reset rotation
     rotateAnim.setValue(0);
 
+    // Combine scale bounce + smooth spin
     Animated.parallel([
       Animated.sequence([
         Animated.spring(scaleAnim, {
-          toValue: 1.3,
+          toValue: 1.25,
+          tension: 120,
+          friction: 6,
           useNativeDriver: true,
-          tension: 100,
-          friction: 15,
         }),
         Animated.spring(scaleAnim, {
           toValue: 1,
+          tension: 120,
+          friction: 6,
           useNativeDriver: true,
-          tension: 100,
-          friction: 3,
         }),
       ]),
       Animated.timing(rotateAnim, {
         toValue: 1,
         duration: 400,
+        easing: Easing.inOut(Easing.ease),
         useNativeDriver: true,
       }),
-    ]).start(() => {
-      // Reset rotateAnim for next press
-      rotateAnim.setValue(0);
-    });
+    ]).start(() => rotateAnim.setValue(0));
 
     onToggle();
   };

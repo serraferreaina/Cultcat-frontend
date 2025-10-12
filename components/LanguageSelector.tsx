@@ -1,7 +1,8 @@
 // components/LanguageSelector.tsx
-import { useState } from 'react';
-import { View, Text, Pressable, StyleSheet } from 'react-native';
+import { useState, useRef, useEffect, useMemo } from 'react';
+import { View, Text, Pressable, StyleSheet, Animated, Easing, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as Haptics from 'expo-haptics';
 
 interface LanguageSelectorProps {
   currentLanguage: string;
@@ -29,47 +30,221 @@ export function LanguageSelector({
 }: LanguageSelectorProps) {
   const [showDropdown, setShowDropdown] = useState(false);
 
-  const getLanguageLabel = () => {
-    return LANGUAGE_LABELS[currentLanguage as keyof typeof LANGUAGE_LABELS] || 'English';
-  };
+  // Animations
+  const chevronRotation = useRef(new Animated.Value(0)).current;
+  const dropdownScale = useRef(new Animated.Value(0.9)).current;
+  const dropdownOpacity = useRef(new Animated.Value(0)).current;
+  const dropdownTranslateY = useRef(new Animated.Value(-5)).current;
+  const buttonScale = useRef(new Animated.Value(1)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
 
-  const handleLanguageSelect = (lang: 'en' | 'es' | 'ca') => {
+  // Create animated values per language
+  const optionScales = useMemo(
+    () =>
+      LANGUAGES.reduce(
+        (acc, lang) => {
+          acc[lang] = new Animated.Value(1);
+          return acc;
+        },
+        {} as Record<(typeof LANGUAGES)[number], Animated.Value>,
+      ),
+    [],
+  );
+
+  // Idle pulse for button
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.03,
+          duration: 2500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 2500,
+          easing: Easing.inOut(Easing.ease),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  useEffect(() => {
+    // Chevron rotation
+    Animated.spring(chevronRotation, {
+      toValue: showDropdown ? 1 : 0,
+      useNativeDriver: true,
+      tension: 100,
+      friction: 8,
+    }).start();
+
+    // Dropdown animations
+    if (showDropdown) {
+      Animated.parallel([
+        Animated.spring(dropdownScale, {
+          toValue: 1,
+          useNativeDriver: true,
+          tension: 90,
+          friction: 7,
+        }),
+        Animated.spring(dropdownTranslateY, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 80,
+          friction: 7,
+        }),
+        Animated.timing(dropdownOpacity, {
+          toValue: 1,
+          duration: 250,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    } else {
+      Animated.parallel([
+        Animated.timing(dropdownScale, {
+          toValue: 0.95,
+          duration: 180,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownTranslateY, {
+          toValue: -8,
+          duration: 180,
+          easing: Easing.out(Easing.ease),
+          useNativeDriver: true,
+        }),
+        Animated.timing(dropdownOpacity, {
+          toValue: 0,
+          duration: 180,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [showDropdown]);
+
+  const handleLanguageSelect = async (lang: 'en' | 'es' | 'ca') => {
+    await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
     onLanguageChange(lang);
     setShowDropdown(false);
   };
 
+  const handleButtonPress = async () => {
+    await Haptics.selectionAsync();
+
+    Animated.sequence([
+      Animated.spring(buttonScale, {
+        toValue: 0.93,
+        friction: 6,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+      Animated.spring(buttonScale, {
+        toValue: 1,
+        friction: 6,
+        tension: 120,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    setShowDropdown((prev) => !prev);
+  };
+
+  const chevronRotate = chevronRotation.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '90deg'],
+  });
+
   return (
     <View style={styles.wrapper}>
-      <Pressable
-        onPress={() => setShowDropdown(!showDropdown)}
-        style={[styles.currentButton, { borderColor: colors.accent, backgroundColor: colors.card }]}
-      >
-        <Text style={[styles.currentText, { color: colors.text }]}>{getLanguageLabel()}</Text>
-        <Ionicons
-          name="chevron-forward"
-          size={20}
-          color={colors.accent}
-          style={{ marginLeft: 4 }}
-        />
-      </Pressable>
-
-      {showDropdown && (
-        <View
-          style={[styles.dropdown, { backgroundColor: colors.card, borderColor: colors.border }]}
+      {/* Main Button */}
+      <Animated.View style={{ transform: [{ scale: Animated.multiply(buttonScale, pulseAnim) }] }}>
+        <Pressable
+          onPress={handleButtonPress}
+          style={[
+            styles.currentButton,
+            {
+              borderColor: colors.accent,
+              backgroundColor: colors.card,
+              shadowOpacity: showDropdown ? 0.3 : 0.15,
+              shadowRadius: showDropdown ? 8 : 4,
+              transform: [{ scale: 1 }],
+            },
+          ]}
         >
-          {LANGUAGES.filter((l) => l !== currentLanguage).map((lang) => (
-            <Pressable key={lang} onPress={() => handleLanguageSelect(lang)} style={styles.option}>
-              <Text style={[styles.optionText, { color: colors.text }]}>{lang.toUpperCase()}</Text>
-            </Pressable>
-          ))}
-        </View>
+          <Text style={[styles.currentText, { color: colors.text }]}>
+            {LANGUAGE_LABELS[currentLanguage as keyof typeof LANGUAGE_LABELS]}
+          </Text>
+          <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
+            <Ionicons
+              name="chevron-forward"
+              size={20}
+              color={colors.accent}
+              style={{ marginLeft: 4 }}
+            />
+          </Animated.View>
+        </Pressable>
+      </Animated.View>
+
+      {/* Dropdown */}
+      {showDropdown && (
+        <Animated.View
+          style={[
+            styles.dropdown,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              opacity: dropdownOpacity,
+              transform: [{ scale: dropdownScale }, { translateY: dropdownTranslateY }],
+            },
+          ]}
+        >
+          {LANGUAGES.filter((l) => l !== currentLanguage).map((lang, index) => {
+            const scale = optionScales[lang];
+            return (
+              <Pressable
+                key={lang}
+                onPressIn={() => {
+                  Animated.spring(scale, {
+                    toValue: 0.94,
+                    useNativeDriver: true,
+                    tension: 200,
+                    friction: 6,
+                  }).start();
+                }}
+                onPressOut={() => {
+                  Animated.spring(scale, {
+                    toValue: 1,
+                    useNativeDriver: true,
+                    tension: 200,
+                    friction: 6,
+                  }).start();
+                }}
+                onPress={() => handleLanguageSelect(lang)}
+                style={styles.option}
+              >
+                <Animated.View style={{ transform: [{ scale }] }}>
+                  <Text style={[styles.optionText, { color: colors.text }]}>
+                    {LANGUAGE_LABELS[lang]}
+                  </Text>
+                </Animated.View>
+              </Pressable>
+            );
+          })}
+        </Animated.View>
       )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrapper: { flex: 1, alignItems: 'center', position: 'relative' },
+  wrapper: {
+    alignItems: 'center',
+    position: 'relative',
+  },
   currentButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -77,22 +252,35 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 25,
     borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 6,
   },
-  currentText: { fontSize: 16, fontWeight: '600' },
+  currentText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   dropdown: {
     position: 'absolute',
-    top: 50,
+    top: 55,
     borderWidth: 2,
     borderRadius: 15,
     paddingVertical: 8,
-    minWidth: 140,
+    minWidth: 160,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowRadius: 10,
+    elevation: 10,
     zIndex: 1000,
   },
-  option: { paddingHorizontal: 20, paddingVertical: 12 },
-  optionText: { fontSize: 16, fontWeight: '500', textAlign: 'center' },
+  option: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  optionText: {
+    fontSize: 16,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
 });
