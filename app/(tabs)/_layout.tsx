@@ -1,9 +1,8 @@
-import React from 'react';
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-// MaterialCommunityIcons is used for the unique "cat" icon in the profile tab.
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useTranslation } from 'react-i18next';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -11,6 +10,7 @@ const ACCENT = '#C86A2E';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets(); // 👈 Obté alçada del notch i barra inferior
 
   return (
     <Tabs
@@ -22,8 +22,8 @@ export default function TabsLayout() {
           backgroundColor: BG,
           borderTopColor: 'rgba(200, 106, 46, 0.2)',
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 12,
+          height: 50 + insets.bottom, // 👈 Afegeix espai segons el dispositiu
+          paddingBottom: 12 + insets.bottom / 2, // 👈 Evita que s’encavalqui
           paddingTop: 4,
         },
         tabBarLabelStyle: {
@@ -45,7 +45,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="search"
         options={{
@@ -55,7 +54,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="map"
         options={{
@@ -65,7 +63,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="profile"
         options={{

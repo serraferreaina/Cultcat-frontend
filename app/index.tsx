@@ -18,7 +18,7 @@ export default function Welcome() {
   const goNext = () => {
     // Canvia això si vols passar primer pel login:
     // router.replace("/(auth)/login");
-    router.replace('/(tabs)');
+    router.replace('/(auth)/login');
   };
 
   const changeLanguage = (lang: 'en' | 'es' | 'ca') => {
