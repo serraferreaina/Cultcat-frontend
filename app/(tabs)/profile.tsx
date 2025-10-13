@@ -4,6 +4,8 @@ import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'rea
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../theme/ThemeContext';
+import { LightColors, DarkColors } from '../../theme/colors';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -24,8 +26,10 @@ const mockUser = {
   },
 };
 
-export default function ProfileScreen() {
+export default function Profile() {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
