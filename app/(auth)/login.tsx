@@ -4,6 +4,7 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GoogleButton from '../../components/GoogleButton';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 
@@ -14,11 +15,13 @@ export default function LoginScreen() {
   const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
 
   const goNext = () => router.replace('/(tabs)');
+  const { t } = useTranslation();
 
   return (
-    <View style={[styles.container, { backgroundColor: Colors.background }]}>
-      <Text style={[styles.brandTop, { color: Colors.accent }]}>CultCat.</Text>
-      <Text style={[styles.title, { color: Colors.text }]}>Inicia sessió</Text>
+    <View style={styles.container}>
+      <Text style={styles.brandTop}>CultCat. </Text>
+      <Text style={styles.title}>{t('Inicia sessió')}</Text>
+
       <GoogleButton />
 
       <TouchableOpacity style={styles.nextButton} onPress={goNext}>

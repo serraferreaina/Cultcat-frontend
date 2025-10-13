@@ -6,5 +6,19 @@
   "home": "Inicio",
   "profile": "Perfil",
   "search": "Buscar",
-  "map": "Mapa"
+  "map": "Mapa",
+  "Inicia sessió": "Iniciar sesión",
+  "Cercar": "Buscar",
+  "Punts": "Puntos",
+  "Esdevenmients passats": "Eventos pasados",
+  "Assistits": "Asistidos",
+  "Assoliments": "Logros",
+  "Amics": "Amigos",
+  "Nivell": "Nivel",
+  "Editar": "Editar",
+  "Compartir": "Compartir",
+  "Insígnies": "Insignias",
+  "Sense insígnies per ara": "Sin insignias por ahora",
+  "Próxims esdeveniments": "Eventos próximos",
+  "No hi ha events pròxims": "No hay eventos próximos"
 }
