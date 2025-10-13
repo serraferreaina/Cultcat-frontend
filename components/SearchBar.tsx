@@ -2,12 +2,14 @@
 import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 
 export default function SearchBar() {
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <Ionicons name="search" size={20} color="#8B6F46" style={styles.icon} />
-      <TextInput placeholder="Buscar" placeholderTextColor="#8B6F46" style={styles.input} />
+      <TextInput placeholder={t('Cercar')} placeholderTextColor="#8B6F46" style={styles.input} />
     </View>
   );
 }

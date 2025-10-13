@@ -4,17 +4,18 @@ import { View, Text, StyleSheet, TouchableOpacity, Pressable } from 'react-nativ
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import GoogleButton from '../../components/GoogleButton';
+import { useTranslation } from 'react-i18next';
 
 export default function LoginScreen() {
   const router = useRouter();
   const goNext = () => {
     router.replace('/(tabs)');
   };
-
+  const { t } = useTranslation();
   return (
     <View style={styles.container}>
       <Text style={styles.brandTop}>CultCat. </Text>
-      <Text style={styles.title}>Inicia sessió</Text>
+      <Text style={styles.title}>{t('Inicia sessió')}</Text>
       <GoogleButton />
 
       {/* Botó temporal per saltar al main app */}
