@@ -8,11 +8,13 @@ import { LightColors, DarkColors } from '../theme/colors';
 
 export default function SearchBar() {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
   return (
     <View style={[styles.container, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
       <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.icon} />
       <TextInput
-        placeholder={t('Cercar')
+        placeholder="Buscar"
         placeholderTextColor={Colors.textSecondary}
         style={[styles.input, { color: Colors.text }]}
       />
