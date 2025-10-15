@@ -29,9 +29,7 @@ export default function SearchDate({ onDateSelect }: { onDateSelect: (date: Date
       >
         <Calendar color={Colors.text} size={20} />
         <Text style={[styles.text, { color: Colors.text }]}>
-          {selectedDate
-            ? selectedDate.toLocaleDateString()
-            : 'Seleccionar fecha'}
+          {selectedDate ? selectedDate.toLocaleDateString() : 'Seleccionar fecha'}
         </Text>
       </TouchableOpacity>
 
