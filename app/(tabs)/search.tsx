@@ -8,7 +8,6 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import React, { useState } from 'react';
 
-
 export default function CercaScreen() {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
@@ -16,7 +15,7 @@ export default function CercaScreen() {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // Filtrar segons data
+    // Boto per filtrar segons data
     console.log('Buscar eventos del:', date.toISOString());
   };
 
