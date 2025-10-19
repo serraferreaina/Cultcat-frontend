@@ -2,13 +2,14 @@
 import React from 'react';
 import { View, TextInput, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 
 export default function SearchBar() {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
-
   return (
     <View style={[styles.container, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
       <Ionicons name="search" size={20} color={Colors.textSecondary} style={styles.icon} />
