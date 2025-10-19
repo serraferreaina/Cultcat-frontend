@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Image, FlatList } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
@@ -10,45 +10,166 @@ export default function Home() {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  const [selectedValue, setSelectedValue] = useState('paraTi');
-  const [dropdownVisible, setDropdownVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(3);
+  const [selectedFeed, setSelectedFeed] = useState('paraTi');
+  const [isDropdownVisible, setIsDropdownVisible] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(3);
+  const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
 
-  const options = [
-    { label: 'Para ti', value: 'paraTi' },
-    { label: 'Siguiendo', value: 'siguiendo' },
+  const feedOptions = [
+    { label: t('Para ti'), value: 'paraTi' },
+    { label: t('Siguiendo'), value: 'siguiendo' },
   ];
 
-  const handleBellPress = () => setUnreadCount(0);
+  const notifications = () => setUnreadNotifications(0);
 
-  const toggleDropdown = () => {
-    if (selectedValue == 'siguiendo') {
-      setSelectedValue('paraTi');
+  const dropdown = () => {
+    if (selectedFeed === 'siguiendo') {
+      setSelectedFeed('paraTi');
     } else {
-      setDropdownVisible(!dropdownVisible);
+      setIsDropdownVisible(!isDropdownVisible);
     }
   };
 
-  const dropdownOptions = options.filter((o) => o.value !== selectedValue);
+  const availableFeedOptions = feedOptions.filter((o) => o.value !== selectedFeed);
 
-  const displayLabel =
-    selectedValue === 'siguiendo'
-      ? `< ${options.find((o) => o.value === selectedValue)?.label}`
-      : options.find((o) => o.value === selectedValue)?.label;
+  const selectedFeedLabel =
+    selectedFeed === 'siguiendo'
+      ? `< ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
+      : feedOptions.find((o) => o.value === selectedFeed)?.label;
 
-  const handleSelect = (value: string) => {
-    setSelectedValue(value);
-    setDropdownVisible(false);
+  const selectFeed = (value: string) => {
+    setSelectedFeed(value);
+    setIsDropdownVisible(false);
+  };
+
+  const posts = [
+    {
+      id: '1',
+      title: 'Cómics. Sueños e historia.',
+      imageUrl: require('../../assets/cartell_comics.jpg'),
+      rating: 4.5,
+      reviews: 87,
+    },
+    {
+      id: '2',
+      title: 'La palanca',
+      imageUrl: require('../../assets/la_palanca.jpg'),
+      rating: 4.0,
+      reviews: 42,
+    },
+  ];
+
+  const savedEvent = (postId: string) => {
+    setSavedEvents((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  };
+
+  const renderPost = ({ item }: any) => {
+    const isSaved = savedEvents[item.id] || false;
+
+    return (
+      <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
+        {/*Event*/}
+        <View style={styles.cardHeader}>
+          <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
+            {item.title}
+          </Text>
+          <TouchableOpacity style={[styles.button, { backgroundColor: Colors.accent }]}>
+            <Text style={[styles.buttonText, { color: Colors.card }]}>{t('Quiero ir')}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/*Image*/}
+        <Image source={item.imageUrl} style={styles.image} />
+
+        <View style={styles.cardFooter}>
+          <View style={styles.leftFooter}>
+            {/*Save event*/}
+            <TouchableOpacity style={styles.iconButton} onPress={() => savedEvent(item.id)}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={isSaved ? Colors.text : Colors.text}
+              />
+            </TouchableOpacity>
+
+            {/*Coments*/}
+            <View style={styles.comments}>
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+              <Text style={[styles.commentCount, { color: Colors.text }]}>{item.reviews}</Text>
+            </View>
+
+            {/*Share*/}
+            <TouchableOpacity style={styles.iconButton}>
+              <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          {/*Ratings*/}
+          <View style={{ alignItems: 'flex-end' }}>
+            <TouchableOpacity
+              style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+              onPress={() => console.log('Escribir reseña')}
+            >
+              <Ionicons
+                name="create-outline"
+                size={14}
+                color={Colors.card}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
+                {t('Escribir reseña')}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.ratingContainer}>
+              {[...Array(5)].map((_, i) => {
+                let iconName: 'star' | 'star-half' = 'star';
+                let starColor = Colors.star_inactive;
+
+                if (i < Math.floor(item.rating)) starColor = Colors.star;
+                else if (i < item.rating) {
+                  iconName = 'star-half';
+                  starColor = Colors.star;
+                }
+
+                return <Ionicons key={i} name={iconName} size={16} color={starColor} />;
+              })}
+              <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>
+                {item.rating.toFixed(1)}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/*Wants to go*/}
+        <View style={[styles.participants, { marginLeft: 12 }]}>
+          <View style={styles.participantImages}>
+            <Image
+              source={require('../../assets/foto_perfil2.webp')}
+              style={[styles.participantImage, {borderColor: Colors.border}]}
+            />
+            <Image
+              source={require('../../assets/foto_perfil1.jpg')}
+              style={[styles.participantImage, {borderColor: Colors.border}]}
+            />
+          </View>
+          <Text style={[styles.participantText, { color: Colors.text }]}>
+            {t('Quieren ir')} <Text style={{ fontWeight: '700' }}>adaaap</Text>{' '}
+            {t('y más personas')}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.background }]}>
       <View style={styles.header}>
-        <TouchableOpacity style={styles.dropdownButton} onPress={toggleDropdown}>
-          <Text style={[styles.title, { color: Colors.text }]}>{displayLabel}</Text>
-          {selectedValue !== 'siguiendo' && (
+        <TouchableOpacity style={styles.dropdownButton} onPress={dropdown}>
+          <Text style={[styles.title, { color: Colors.text }]}>{selectedFeedLabel}</Text>
+          {selectedFeed !== 'siguiendo' && (
             <Ionicons
-              name={dropdownVisible ? 'chevron-up' : 'chevron-down'}
+              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
               size={20}
               color={Colors.text}
             />
@@ -56,33 +177,37 @@ export default function Home() {
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={handleBellPress} style={styles.iconButton}>
+          {/*Notifications*/}
+          <TouchableOpacity onPress={notifications} style={styles.iconButton}>
             <Ionicons name="notifications-outline" size={26} color={Colors.text} />
-            {unreadCount > 0 && (
+            {unreadNotifications > 0 && (
               <View style={[styles.badge, { backgroundColor: Colors.accentHover }]}>
-                <Text style={[styles.badgeText, { color: Colors.text }]}>{unreadCount}</Text>
+                <Text style={[styles.badgeText, { color: Colors.text }]}>
+                  {unreadNotifications}
+                </Text>
               </View>
             )}
           </TouchableOpacity>
 
+          {/*Chat*/}
           <TouchableOpacity style={styles.iconButton}>
             <Ionicons name="chatbubble-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
-      {dropdownVisible && (
+      {isDropdownVisible && (
         <View
           style={[
             styles.dropdown,
             { backgroundColor: Colors.background, borderColor: Colors.text },
           ]}
         >
-          {dropdownOptions.map((option) => (
+          {availableFeedOptions.map((option) => (
             <TouchableOpacity
               key={option.value}
               style={styles.dropdownItem}
-              onPress={() => handleSelect(option.value)}
+              onPress={() => selectFeed(option.value)}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                 {option.value === 'siguiendo' && (
@@ -94,12 +219,24 @@ export default function Home() {
           ))}
         </View>
       )}
+
+      {/* List of publications*/}
+      {selectedFeed === 'paraTi' && (
+        <FlatList
+          data={posts}
+          keyExtractor={(item) => item.id}
+          renderItem={renderPost}
+          contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
+        />
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: {
+    flex: 1,
+  },
   header: {
     marginTop: 60,
     paddingHorizontal: 20,
@@ -112,8 +249,40 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
   },
-  title: { fontSize: 20, fontWeight: '700' },
-  iconButton: { padding: 6 },
+  dropdown: {
+    position: 'absolute',
+    top: 100,
+    left: 20,
+    width: 140,
+    borderWidth: 1,
+    borderRadius: 8,
+    zIndex: 999,
+  },
+  dropdownItem: {
+    padding: 10,
+  },
+  card: {
+    marginHorizontal: 20,
+    marginBottom: 20,
+    borderRadius: 12,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  image: {
+    width: '100%',
+    height: 200,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  iconButton: {
+    padding: 6,
+  },
   badge: {
     position: 'absolute',
     top: 2,
@@ -124,18 +293,87 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badgeText: { fontSize: 10, fontWeight: 'bold' },
-  dropdown: {
-    position: 'absolute',
-    top: 100,
-    left: 20,
-    width: 120,
-    borderWidth: 1,
-    borderRadius: 6,
-    overflow: 'hidden',
-    zIndex: 999,
+  badgeText: {
+    fontSize: 10,
+    fontWeight: 'bold',
   },
-  dropdownItem: {
-    padding: 10,
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+  },
+  ratingText: {
+    fontSize: 13,
+  },
+  button: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+  },
+  buttonText: {
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+  },
+  leftFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  comments: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  commentCount: {
+    fontSize: 13,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+  },
+  participants: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    gap: 8,
+  },
+  participantImages: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  participantImage: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    marginLeft: -8,
+  },
+  participantText: {
+    fontSize: 13,
+    flexShrink: 1,
+  },
+  reviewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    marginBottom: 6,
+  },
+  reviewButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
   },
 });
