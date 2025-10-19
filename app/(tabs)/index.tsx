@@ -146,11 +146,11 @@ export default function Home() {
           <View style={styles.participantImages}>
             <Image
               source={require('../../assets/foto_perfil2.webp')}
-              style={[styles.participantImage, {borderColor: Colors.border}]}
+              style={[styles.participantImage, { borderColor: Colors.border }]}
             />
             <Image
               source={require('../../assets/foto_perfil1.jpg')}
-              style={[styles.participantImage, {borderColor: Colors.border}]}
+              style={[styles.participantImage, { borderColor: Colors.border }]}
             />
           </View>
           <Text style={[styles.participantText, { color: Colors.text }]}>
