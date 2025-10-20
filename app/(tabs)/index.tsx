@@ -50,7 +50,8 @@ export default function Home() {
       imageUrl: require('../../assets/cartell_comics.jpg'),
       rating: 4.5,
       reviews: 87,
-      description: 'Exposición: "Comicos, Sueños e historia". Esta exposición se acerca al cómico como herramienta',
+      description:
+        'Exposición: "Comicos, Sueños e historia". Esta exposición se acerca al cómico como herramienta',
     },
     {
       id: '2',
@@ -58,7 +59,8 @@ export default function Home() {
       imageUrl: require('../../assets/la_palanca.jpg'),
       rating: 4.0,
       reviews: 42,
-      description: 'La 5a edición de La Palanca, el Festival de Circo Contemporáneo de Esparreguera tendrá lugar del',
+      description:
+        'La 5a edición de La Palanca, el Festival de Circo Contemporáneo de Esparreguera tendrá lugar del',
     },
   ];
 
@@ -162,11 +164,7 @@ export default function Home() {
           </Text>
         </View>
         {/* Description */}
-        <Text
-          style={[styles.descriptionText, { color: Colors.text }]}
-        >
-          {item.description}
-        </Text>
+        <Text style={[styles.descriptionText, { color: Colors.text }]}>{item.description}</Text>
         <TouchableOpacity onPress={() => setCompletEvent(!showCompletEvent)}>
           <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
         </TouchableOpacity>
