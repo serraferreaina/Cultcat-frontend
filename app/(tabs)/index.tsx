@@ -14,6 +14,7 @@ export default function Home() {
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
+  const [showCompletEvent, setCompletEvent] = useState(false);
 
   const feedOptions = [
     { label: t('Para ti'), value: 'paraTi' },
@@ -45,10 +46,11 @@ export default function Home() {
   const posts = [
     {
       id: '1',
-      title: 'Cómics. Sueños e historia.',
+      title: 'Comicos. Sueños e historia.',
       imageUrl: require('../../assets/cartell_comics.jpg'),
       rating: 4.5,
       reviews: 87,
+      description: 'Exposición: "Comicos, Sueños e historia". Esta exposición se acerca al cómico como herramienta',
     },
     {
       id: '2',
@@ -56,6 +58,7 @@ export default function Home() {
       imageUrl: require('../../assets/la_palanca.jpg'),
       rating: 4.0,
       reviews: 42,
+      description: 'La 5a edición de La Palanca, el Festival de Circo Contemporáneo de Esparreguera tendrá lugar del',
     },
   ];
 
@@ -158,6 +161,15 @@ export default function Home() {
             {t('y más personas')}
           </Text>
         </View>
+        {/* Description */}
+        <Text
+          style={[styles.descriptionText, { color: Colors.text }]}
+        >
+          {item.description}
+        </Text>
+        <TouchableOpacity onPress={() => setCompletEvent(!showCompletEvent)}>
+          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
+        </TouchableOpacity>
       </View>
     );
   };
@@ -375,5 +387,17 @@ const styles = StyleSheet.create({
   reviewButtonText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  descriptionText: {
+    fontSize: 14,
+    marginTop: 4,
+    marginHorizontal: 12,
+    marginBottom: 12,
+  },
+  seeMore: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 12,
+    marginBottom: 12,
   },
 });
