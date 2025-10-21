@@ -17,8 +17,8 @@ export default function Home() {
   const [showCompletEvent, setCompletEvent] = useState(false);
 
   const feedOptions = [
-    { label: t('Para ti'), value: 'paraTi' },
-    { label: t('Siguiendo'), value: 'siguiendo' },
+    { label: t('For you'), value: 'paraTi' },
+    { label: t('Following'), value: 'siguiendo' },
   ];
 
   const notifications = () => setUnreadNotifications(0);
@@ -79,7 +79,7 @@ export default function Home() {
             {item.title}
           </Text>
           <TouchableOpacity style={[styles.button, { backgroundColor: Colors.accent }]}>
-            <Text style={[styles.buttonText, { color: Colors.card }]}>{t('Quiero ir')}</Text>
+            <Text style={[styles.buttonText, { color: Colors.card }]}>{t('Want to go')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -93,7 +93,7 @@ export default function Home() {
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color={isSaved ? Colors.text : Colors.text}
+                color={Colors.text}
               />
             </TouchableOpacity>
 
@@ -113,7 +113,7 @@ export default function Home() {
           <View style={{ alignItems: 'flex-end' }}>
             <TouchableOpacity
               style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-              onPress={() => console.log('Escribir reseña')}
+              onPress={() => console.log('Write review')}
             >
               <Ionicons
                 name="create-outline"
@@ -122,7 +122,7 @@ export default function Home() {
                 style={{ marginRight: 4 }}
               />
               <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
-                {t('Escribir reseña')}
+                {t('Write review')}
               </Text>
             </TouchableOpacity>
 
@@ -159,14 +159,14 @@ export default function Home() {
             />
           </View>
           <Text style={[styles.participantText, { color: Colors.text }]}>
-            {t('Quieren ir')} <Text style={{ fontWeight: '700' }}>adaaap</Text>{' '}
-            {t('y más personas')}
+            {t('Wants to go')} <Text style={{ fontWeight: '700' }}>adaaap</Text>{' '}
+            {t('And more people')}
           </Text>
         </View>
         {/* Description */}
         <Text style={[styles.descriptionText, { color: Colors.text }]}>{item.description}</Text>
         <TouchableOpacity onPress={() => setCompletEvent(!showCompletEvent)}>
-          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
+          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
         </TouchableOpacity>
       </View>
     );
