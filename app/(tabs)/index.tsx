@@ -15,6 +15,11 @@ export default function Home() {
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
   const [showCompletEvent, setCompletEvent] = useState(false);
+  const [goingEvents, setGoingEvents] = useState<{ [key: string]: boolean }>({});
+
+  const selectGoingEvent = (postId: string) => {
+    setGoingEvents((prev) => ({ ...prev, [postId]: !prev[postId] }));
+  };
 
   const feedOptions = [
     { label: t('For you'), value: 'paraTi' },
@@ -78,8 +83,23 @@ export default function Home() {
           <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
             {item.title}
           </Text>
-          <TouchableOpacity style={[styles.button, { backgroundColor: Colors.accent }]}>
-            <Text style={[styles.buttonText, { color: Colors.card }]}>{t('Want to go')}</Text>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              {
+                backgroundColor: goingEvents[item.id] ? Colors.going : Colors.accent,
+              },
+            ]}
+            onPress={() => selectGoingEvent(item.id)}
+          >
+            <Text
+              style={[
+                styles.buttonText,
+                { color: goingEvents[item.id] ? Colors.card : Colors.text },
+              ]}
+            >
+              {goingEvents[item.id] ? t('I will attend') : t('Want to go')}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -150,11 +170,11 @@ export default function Home() {
         <View style={[styles.participants, { marginLeft: 12 }]}>
           <View style={styles.participantImages}>
             <Image
-              source={require('../../assets/foto_perfil2.webp')}
+              source={require('../../assets/foto_perfil1.jpg')}
               style={[styles.participantImage, { borderColor: Colors.border }]}
             />
             <Image
-              source={require('../../assets/foto_perfil1.jpg')}
+              source={require('../../assets/foto_perfil2.webp')}
               style={[styles.participantImage, { borderColor: Colors.border }]}
             />
           </View>
