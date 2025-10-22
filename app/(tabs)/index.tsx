@@ -4,11 +4,13 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
 export default function Home() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
 
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
@@ -80,10 +82,12 @@ export default function Home() {
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
         {/*Event*/}
         <View style={styles.cardHeader}>
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
           <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
             {item.title}
           </Text>
-          <TouchableOpacity
+        </TouchableOpacity>
+        <TouchableOpacity
             style={[
               styles.button,
               {
@@ -104,7 +108,9 @@ export default function Home() {
         </View>
 
         {/*Image*/}
-        <Image source={item.imageUrl} style={styles.image} />
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+          <Image source={item.imageUrl} style={styles.image} />
+        </TouchableOpacity>
 
         <View style={styles.cardFooter}>
           <View style={styles.leftFooter}>
@@ -185,8 +191,10 @@ export default function Home() {
         </View>
         {/* Description */}
         <Text style={[styles.descriptionText, { color: Colors.text }]}>{item.description}</Text>
-        <TouchableOpacity onPress={() => setCompletEvent(!showCompletEvent)}>
-          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
+
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
+
         </TouchableOpacity>
       </View>
     );
