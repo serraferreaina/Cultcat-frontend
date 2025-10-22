@@ -82,12 +82,12 @@ export default function Home() {
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
         {/*Event*/}
         <View style={styles.cardHeader}>
-        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-          <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
-            {item.title}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
+          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+            <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[
               styles.button,
               {
@@ -194,7 +194,6 @@ export default function Home() {
 
         <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
           <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
-
         </TouchableOpacity>
       </View>
     );
