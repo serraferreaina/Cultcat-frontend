@@ -99,7 +99,7 @@ export default function Home() {
             <Text
               style={[
                 styles.buttonText,
-                { color: goingEvents[item.id] ? Colors.card : Colors.text },
+                { color: goingEvents[item.id] ? Colors.card : Colors.card },
               ]}
             >
               {goingEvents[item.id] ? t('I will attend') : t('Want to go')}
