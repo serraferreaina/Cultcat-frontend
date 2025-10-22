@@ -14,12 +14,12 @@ export default function EventDetail() {
     1: {
       title: 'Cómics. Sueños e historia.',
       description: 'Exposició sobre la història del còmic...',
-      image: require('../assets/cartell_comics.jpg'),
+      image: require('../../assets/cartell_comics.jpg'),
     },
     2: {
       title: 'La palanca',
       description: 'Instal·lació artística que explora l’equilibri...',
-      image: require('../assets/la_palanca.jpg'),
+      image: require('../../assets/la_palanca.jpg'),
     },
   };
 

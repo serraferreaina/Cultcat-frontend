@@ -77,7 +77,7 @@ export default function Home() {
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
         {/*Event*/}
         <View style={styles.cardHeader}>
-          <TouchableOpacity onPress={() => router.push(`/event/${item.id}`)}>
+          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
             <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
               {item.title}
             </Text>
@@ -89,7 +89,7 @@ export default function Home() {
         </View>
 
         {/*Image*/}
-        <TouchableOpacity onPress={() => router.push(`/event/${item.id}`)}>
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
           <Image source={item.imageUrl} style={styles.image} />
         </TouchableOpacity>
 
@@ -172,7 +172,7 @@ export default function Home() {
         </View>
         {/* Description */}
         <Text style={[styles.descriptionText, { color: Colors.text }]}>{item.description}</Text>
-        <TouchableOpacity onPress={() => router.push(`/event/${item.id}`)}>
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
           <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('Ver más...')}</Text>
         </TouchableOpacity>
       </View>
