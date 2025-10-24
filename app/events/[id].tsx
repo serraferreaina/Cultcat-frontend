@@ -14,6 +14,13 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 
+interface EventData {
+  id: number;
+  titol: string;
+  descripcio: string;
+  enllacos: Record<string, string>;
+}
+
 export default function EventDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -59,6 +66,8 @@ export default function EventDetail() {
     );
   }
 
+  const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: Colors.background }]}>
       <Image source={event.image} style={styles.image} />
@@ -67,9 +76,14 @@ export default function EventDetail() {
         <Text style={[styles.description, { color: Colors.text }]}>
           {event.descripcio?.trim() || t('No description available')}
         </Text>
-        <TouchableOpacity onPress={() => Linking.openURL(event.link)}>
-          <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
-        </TouchableOpacity>
+
+        {typeof Link === 'string' && Link.trim() !== '' && (
+          <TouchableOpacity onPress={() => Linking.openURL(Link)}>
+            <Text style={[styles.link, { color: Colors.link, marginTop: 20 }]}>
+              {t('More information')}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </ScrollView>
   );
