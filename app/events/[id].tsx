@@ -1,4 +1,14 @@
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Linking,
+  ActivityIndicator,
+} from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
@@ -11,28 +21,40 @@ export default function EventDetail() {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  // Dades simulades — en el futur vindran d’una API
-  const events = {
-    1: {
-      title: 'Cómics. Sueños e historia.',
-      description: 'Exposició sobre la història del còmic...',
-      image: require('../../assets/cartell_comics.jpg'),
-      link: 'https://www.youtube.com/watch?v=lKsZESVLYPE/',
-    },
-    2: {
-      title: 'La palanca',
-      description: 'Instal·lació artística que explora l’equilibri...',
-      image: require('../../assets/la_palanca.jpg'),
-      link: 'https://www.youtube.com/watch?v=lKsZESVLYPE/',
-    },
-  };
+  const [event, setEvent] = useState<any>(null);
+  const [load, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  const event = events[Number(id) as keyof typeof events];
+  useEffect(() => {
+    const fetchEvent = async () => {
+      try {
+        const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`);
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setEvent(data);
+      } catch (err: any) {
+        console.error('Error loading event:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  if (!event) {
+    fetchEvent();
+  }, [eventId]);
+
+  if (load) {
     return (
-      <View style={[styles.container, { backgroundColor: Colors.background }]}>
-        <Text style={{ color: Colors.text }}>Event no trobat.</Text>
+      <View style={[styles.center, { backgroundColor: Colors.background }]}>
+        <ActivityIndicator size="large" color={Colors.accent} />
+      </View>
+    );
+  }
+
+  if (error || !event) {
+    return (
+      <View style={[styles.center, { backgroundColor: Colors.background }]}>
+        <Text style={{ color: Colors.text }}>{t('Error loading event')}</Text>
       </View>
     );
   }
@@ -42,8 +64,9 @@ export default function EventDetail() {
       <Image source={event.image} style={styles.image} />
       <View style={styles.content}>
         <Text style={[styles.title, { color: Colors.text }]}>{event.title}</Text>
-        <Text style={[styles.description, { color: Colors.text }]}>{event.description}</Text>
-
+        <Text style={[styles.description, { color: Colors.text }]}>
+          {event.descripcio?.trim() || t('No description available')}
+        </Text>
         <TouchableOpacity onPress={() => Linking.openURL(event.link)}>
           <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
         </TouchableOpacity>
@@ -59,4 +82,5 @@ const styles = StyleSheet.create({
   title: { fontSize: 22, fontWeight: '700', marginBottom: 10 },
   description: { fontSize: 16, lineHeight: 22 },
   link: { fontSize: 16, textDecorationLine: 'underline' },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 });
