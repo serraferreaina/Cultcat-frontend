@@ -29,5 +29,8 @@
   "See more...": "See more...",
   "Want to go": "I want to go",
   "I will attend": "I will attend",
-  "More information": "More information..."
+  "More information": "More information...",
+  "Event without title": "Event without title",
+  "Error loading events": "Error loading events",
+  "No description available": "No description available"
 }
