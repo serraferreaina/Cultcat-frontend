@@ -29,5 +29,8 @@
   "See more...": "Veure més...",
   "Want to go": "Vull anar",
   "I will attend": "Assistiré",
-  "More information": "Més informació..."
+  "More information": "Més informació...",
+  "Event without title": "Esdeveniment sense títol",
+  "Error loading events": "Error al carregar esdeveniments",
+  "No description available": "No hi ha descripció disponible"
 }
