@@ -2,6 +2,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useRouter } from 'expo-router';
 import GoogleButton from '../../components/GoogleButton';
 import { useTranslation } from 'react-i18next';
@@ -13,19 +14,26 @@ export default function LoginScreen() {
   const { theme } = useTheme();
   const effectiveScheme = theme || 'light';
   const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
-
-  const goNext = () => router.replace('/(tabs)');
   const { t } = useTranslation();
+
+  const BACKEND_LOGIN_URL = 'http://nattech.fib.upc.edu:40490/login';
+
+  const handleGoogleLogin = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(BACKEND_LOGIN_URL);
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Error durant el login amb Google:', error);
+    }
+  };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.brandTop}>CultCat. </Text>
+      <Text style={styles.brandTop}>CultCat.</Text>
       <Text style={styles.title}>{t('Inicia sessió')}</Text>
 
-      <GoogleButton />
-
-      <TouchableOpacity style={styles.nextButton} onPress={goNext}>
-        <Ionicons name="arrow-forward-circle" size={80} color={Colors.accent} />
+      <TouchableOpacity>
+        <GoogleButton onPress={handleGoogleLogin} />
       </TouchableOpacity>
     </View>
   );

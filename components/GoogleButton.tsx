@@ -1,15 +1,19 @@
-// components/GoogleButton.tsx
 import React from 'react';
-import { TouchableOpacity, Text, Image, StyleSheet, View } from 'react-native';
+import { TouchableOpacity, Text, Image, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 
-export default function GoogleButton() {
+interface GoogleButtonProps {
+  onPress?: () => void;
+}
+
+export default function GoogleButton({ onPress }: GoogleButtonProps) {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   return (
     <TouchableOpacity
+      onPress={onPress}
       style={[styles.button, { backgroundColor: Colors.card, borderColor: Colors.border }]}
     >
       <Image source={require('../assets/googleLogo.png')} style={styles.icon} />
@@ -32,13 +36,6 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
     elevation: 2,
   },
-  icon: {
-    width: 20,
-    height: 20,
-    marginRight: 10,
-  },
-  text: {
-    fontSize: 20,
-    fontWeight: '500',
-  },
+  icon: { width: 20, height: 20, marginRight: 10 },
+  text: { fontSize: 20, fontWeight: '500' },
 });
