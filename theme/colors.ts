@@ -14,6 +14,8 @@ export const LightColors = {
   shadow: 'rgba(0,0,0,0.1)', // shadow color for cards / modals
   star: '#FFD700',
   star_inactive: '#rgba(185, 185, 185, 1)',
+  going: '#4CAF50',
+  link: '#007AFF',
 };
 
 export const DarkColors = {
@@ -28,4 +30,6 @@ export const DarkColors = {
   shadow: 'rgba(0,0,0,0.5)', // shadow color for cards / modals
   star: '#FFD700',
   star_inactive: '#rgba(185, 185, 185, 1)',
+  going: '#4CAF50',
+  link: '#007AFF',
 };

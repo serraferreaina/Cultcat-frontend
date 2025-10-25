@@ -1,85 +1,178 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image, FlatList } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  StyleSheet,
+  Image,
+  FlatList,
+  ActivityIndicator,
+  Dimensions,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+
+interface Events {
+  id: number;
+  titol: string;
+  descripcio: string | null;
+  imgApp: string | null;
+  imatges: string | null;
+  //videos: string | null; Veure com implementar vídeos més endavant
+}
+interface PointsImages {
+  images: string[];
+}
+
+const Images: React.FC<PointsImages> = ({ images }) => {
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const [currentIndex, setCurrentIndex] = useState(0);
+
+  const activateScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const index = Math.round(event.nativeEvent.contentOffset.x / 375);
+    setCurrentIndex(index);
+  };
+
+  return (
+    <View>
+      <FlatList
+        data={images}
+        keyExtractor={(_, i) => `image-${i}`}
+        renderItem={({ item }) => (
+          <Image source={{ uri: item }} style={{ width: 375, height: 250 }} />
+        )}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onScroll={activateScroll}
+        scrollEventThrottle={16}
+      />
+      {images.length > 1 && ( // Només mostra els punts si hi ha més d'una imatge
+        <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 8 }}>
+          {images.map((_, i) => (
+            <View
+              key={i}
+              style={{
+                width: 8,
+                height: 8,
+                borderRadius: 4,
+                marginHorizontal: 4,
+                backgroundColor: i === currentIndex ? Colors.accent : Colors.border,
+              }}
+            />
+          ))}
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default function Home() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
 
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
+  const [goingEvents, setGoingEvents] = useState<{ [key: string]: boolean }>({});
+  const [events, setEvents] = useState<Events[]>([]);
+  const [load, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const feedOptions = [
-    { label: t('Para ti'), value: 'paraTi' },
-    { label: t('Siguiendo'), value: 'siguiendo' },
+    { label: t('For you'), value: 'paraTi' },
+    { label: t('Following'), value: 'siguiendo' },
   ];
+  const availableFeedOptions = feedOptions.filter((o) => o.value !== selectedFeed);
+  const selectedFeedLabel =
+    selectedFeed === 'siguiendo'
+      ? `← ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
+      : feedOptions.find((o) => o.value === selectedFeed)?.label;
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setEvents(data);
+      } catch (err: any) {
+        console.error('Error al cargar eventos:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  const selectGoingEvent = (eventId: number) => {
+    setGoingEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
+  };
+
+  const savedEvent = (eventId: number) => {
+    setSavedEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
+  };
 
   const notifications = () => setUnreadNotifications(0);
 
   const dropdown = () => {
-    if (selectedFeed === 'siguiendo') {
-      setSelectedFeed('paraTi');
-    } else {
-      setIsDropdownVisible(!isDropdownVisible);
-    }
+    if (selectedFeed === 'siguiendo') setSelectedFeed('paraTi');
+    else setIsDropdownVisible(!isDropdownVisible);
   };
-
-  const availableFeedOptions = feedOptions.filter((o) => o.value !== selectedFeed);
-
-  const selectedFeedLabel =
-    selectedFeed === 'siguiendo'
-      ? `< ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
-      : feedOptions.find((o) => o.value === selectedFeed)?.label;
 
   const selectFeed = (value: string) => {
     setSelectedFeed(value);
     setIsDropdownVisible(false);
   };
 
-  const posts = [
-    {
-      id: '1',
-      title: 'Cómics. Sueños e historia.',
-      imageUrl: require('../../assets/cartell_comics.jpg'),
-      rating: 4.5,
-      reviews: 87,
-    },
-    {
-      id: '2',
-      title: 'La palanca',
-      imageUrl: require('../../assets/la_palanca.jpg'),
-      rating: 4.0,
-      reviews: 42,
-    },
-  ];
-
-  const savedEvent = (postId: string) => {
-    setSavedEvents((prev) => ({ ...prev, [postId]: !prev[postId] }));
-  };
-
-  const renderPost = ({ item }: any) => {
+  const renderPost = ({ item }: { item: Events }) => {
     const isSaved = savedEvents[item.id] || false;
+
+    const images =
+      item.imatges && item.imatges.trim() !== ''
+        ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
+        : item.imgApp && item.imgApp.trim() !== ''
+          ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
+          : ['https://via.placeholder.com/300x200/FFFFFF/FFFFFF?text='];
 
     return (
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
         {/*Event*/}
         <View style={styles.cardHeader}>
-          <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
-            {item.title}
-          </Text>
-          <TouchableOpacity style={[styles.button, { backgroundColor: Colors.accent }]}>
-            <Text style={[styles.buttonText, { color: Colors.card }]}>{t('Quiero ir')}</Text>
+          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+            <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
+              {item.titol
+                ? item.titol.length > 25
+                  ? item.titol.slice(0, 25) + '…'
+                  : item.titol
+                : t('Event without title')}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.button,
+              { backgroundColor: goingEvents[item.id] ? Colors.going : Colors.accent },
+            ]}
+            onPress={() => selectGoingEvent(item.id)}
+          >
+            <Text style={[styles.buttonText, { color: Colors.card }]}>
+              {goingEvents[item.id] ? t('I will attend') : t('Want to go')}
+            </Text>
           </TouchableOpacity>
         </View>
 
         {/*Image*/}
-        <Image source={item.imageUrl} style={styles.image} />
+        <Images images={images} />
 
         <View style={styles.cardFooter}>
           <View style={styles.leftFooter}>
@@ -88,14 +181,14 @@ export default function Home() {
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={20}
-                color={isSaved ? Colors.text : Colors.text}
+                color={Colors.text}
               />
             </TouchableOpacity>
 
             {/*Coments*/}
             <View style={styles.comments}>
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-              <Text style={[styles.commentCount, { color: Colors.text }]}>{item.reviews}</Text>
+              <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
             </View>
 
             {/*Share*/}
@@ -103,12 +196,10 @@ export default function Home() {
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
-
-          {/*Ratings*/}
           <View style={{ alignItems: 'flex-end' }}>
             <TouchableOpacity
               style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-              onPress={() => console.log('Escribir reseña')}
+              onPress={() => console.log('Write review')}
             >
               <Ionicons
                 name="create-outline"
@@ -117,50 +208,56 @@ export default function Home() {
                 style={{ marginRight: 4 }}
               />
               <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
-                {t('Escribir reseña')}
+                {t('Write review')}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.ratingContainer}>
-              {[...Array(5)].map((_, i) => {
-                let iconName: 'star' | 'star-half' = 'star';
-                let starColor = Colors.star_inactive;
-
-                if (i < Math.floor(item.rating)) starColor = Colors.star;
-                else if (i < item.rating) {
-                  iconName = 'star-half';
-                  starColor = Colors.star;
-                }
-
-                return <Ionicons key={i} name={iconName} size={16} color={starColor} />;
-              })}
-              <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>
-                {item.rating.toFixed(1)}
-              </Text>
+              {[...Array(5)].map((_, i) => (
+                <Ionicons
+                  key={i}
+                  name="star-outline"
+                  size={16}
+                  color={Colors.star_inactive || Colors.text}
+                />
+              ))}
+              <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>0.0</Text>
             </View>
           </View>
         </View>
 
-        {/*Wants to go*/}
-        <View style={[styles.participants, { marginLeft: 12 }]}>
-          <View style={styles.participantImages}>
-            <Image
-              source={require('../../assets/foto_perfil2.webp')}
-              style={[styles.participantImage, { borderColor: Colors.border }]}
-            />
-            <Image
-              source={require('../../assets/foto_perfil1.jpg')}
-              style={[styles.participantImage, { borderColor: Colors.border }]}
-            />
-          </View>
-          <Text style={[styles.participantText, { color: Colors.text }]}>
-            {t('Quieren ir')} <Text style={{ fontWeight: '700' }}>adaaap</Text>{' '}
-            {t('y más personas')}
-          </Text>
-        </View>
+        {/*Description*/}
+        <Text
+          style={[styles.descriptionText, { color: Colors.text }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
+        >
+          {item.descripcio || t('No description available')}
+        </Text>
+
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
+        </TouchableOpacity>
       </View>
     );
   };
+
+  if (load)
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={{ color: Colors.text, marginTop: 10 }}></Text>
+      </View>
+    );
+
+  if (error)
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Text style={{ color: Colors.text }}>
+          {t('Error loading events')}: {error}
+        </Text>
+      </View>
+    );
 
   return (
     <View style={[styles.container, { backgroundColor: Colors.background }]}>
@@ -220,11 +317,11 @@ export default function Home() {
         </View>
       )}
 
-      {/* List of publications*/}
+      {/* List of events*/}
       {selectedFeed === 'paraTi' && (
         <FlatList
-          data={posts}
-          keyExtractor={(item) => item.id}
+          data={events}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={renderPost}
           contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
         />
@@ -270,6 +367,13 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 12,
+    gap: 8,
+  },
   image: {
     width: '100%',
     height: 200,
@@ -306,15 +410,6 @@ const styles = StyleSheet.create({
   ratingText: {
     fontSize: 13,
   },
-  button: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  buttonText: {
-    fontWeight: '600',
-    fontSize: 13,
-  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -334,35 +429,20 @@ const styles = StyleSheet.create({
   commentCount: {
     fontSize: 13,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    gap: 8,
-  },
-  participants: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  button: {
+    paddingVertical: 6,
     paddingHorizontal: 12,
-    paddingBottom: 12,
-    gap: 8,
+    borderRadius: 20,
   },
-  participantImages: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginRight: 8,
-  },
-  participantImage: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 1,
-    marginLeft: -8,
-  },
-  participantText: {
+  buttonText: {
+    fontWeight: '600',
     fontSize: 13,
-    flexShrink: 1,
+  },
+  descriptionText: {
+    fontSize: 14,
+    marginTop: 4,
+    marginHorizontal: 12,
+    marginBottom: 12,
   },
   reviewButton: {
     flexDirection: 'row',
@@ -375,5 +455,11 @@ const styles = StyleSheet.create({
   reviewButtonText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  seeMore: {
+    fontSize: 14,
+    fontWeight: '600',
+    marginHorizontal: 12,
+    marginBottom: 12,
   },
 });
