@@ -13,6 +13,7 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { router } from 'expo-router';
 
 interface EventData {
   id: number;
@@ -89,9 +90,21 @@ export default function EventDetail() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: Colors.background, paddingTop: 50 }]}>
-      <Text style={[styles.title, { color: Colors.text, marginHorizontal: 20, marginBottom: 8 }]}>
-        {event.titol}
-      </Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 30,
+          marginHorizontal: 20,
+          marginBottom: 8,
+        }}
+      >
+        <TouchableOpacity onPress={() => router.back()}>
+          <Text style={[styles.title, { color: Colors.text }]}>←</Text>
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: Colors.text, marginLeft: 10 }]}>{event.titol}</Text>
+      </View>
+
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
       <View style={styles.content}>
