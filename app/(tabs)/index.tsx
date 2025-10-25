@@ -152,8 +152,8 @@ export default function Home() {
           <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
             <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
               {item.titol
-                ? item.titol.length > 25
-                  ? item.titol.slice(0, 25) + '…'
+                ? item.titol.length > 20
+                  ? item.titol.slice(0, 20) + '…'
                   : item.titol
                 : t('Event without title')}
             </Text>
