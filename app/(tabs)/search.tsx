@@ -1,21 +1,33 @@
 // app/(tabs)/cerca.tsx
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Modal } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  Modal,
+  Image,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import SearchBar from '../../components/SearchBar';
 import { useTranslation } from 'react-i18next';
 import SearchDate from '../../components/SearchDate';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native'; // icones pels botons
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import { useRouter } from 'expo-router';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const router = useRouter();
 
   //Estat del modal d'opcions
   const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
@@ -27,6 +39,10 @@ export default function CercaScreen() {
   const [ageRange, setAgeRange] = useState<[number, number]>([18, 40]); // rang per defecte
 
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
+
+  const [events, setEvents] = useState<any[]>([]);
+  const [load, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -47,6 +63,52 @@ export default function CercaScreen() {
   };
 
   const topics = ['Deporte', 'Música', 'Lectura'];
+
+  useEffect(() => {
+    const fetchEvents = async () => {
+      try {
+        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
+        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+        const data = await res.json();
+        setEvents(data);
+      } catch (err: any) {
+        console.error('Error al cargar eventos:', err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchEvents();
+  }, []);
+
+  const eventsWithImage = events.filter(
+    (item) =>
+      (item.imatges && item.imatges.trim() !== '') || (item.imgApp && item.imgApp.trim() !== ''),
+  );
+
+  const EventCard = ({ item }: { item: any }) => {
+    const images: string[] =
+      item.imatges && item.imatges.trim() !== ''
+        ? item.imatges
+            .split(',')
+            .map((url: string) => `https://agenda.cultura.gencat.cat${url.trim()}`)
+        : item.imgApp && item.imgApp.trim() !== ''
+          ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
+          : ['https://via.placeholder.com/300x200/FFFFFF/000000?text=Sense+imatge'];
+
+    const imageToShow = images[0];
+
+    return (
+      <TouchableOpacity
+        style={styles.eventCard}
+        onPress={() => router.push(`../events/${item.id}`)}
+      >
+        <Image source={{ uri: imageToShow }} style={styles.eventImage} />
+      </TouchableOpacity>
+    );
+  };
+
+  const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
@@ -266,6 +328,34 @@ export default function CercaScreen() {
             </View>
           </View>
         </Modal>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: '600',
+            marginVertical: 16,
+            marginLeft: 12,
+            color: Colors.text,
+          }}
+        >
+          {t('All events')}
+        </Text>
+
+        {load ? (
+          <ActivityIndicator size="large" color={Colors.accent} />
+        ) : error ? (
+          <Text style={{ color: Colors.text, textAlign: 'center' }}>
+            {t('Error loading events')}: {error}
+          </Text>
+        ) : (
+          <FlatList
+            data={eventsWithImage}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEvent}
+            numColumns={3}
+            contentContainerStyle={styles.eventsGrid}
+            scrollEnabled={false}
+          />
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -379,5 +469,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 10,
     fontWeight: '500',
+  },
+  eventsGrid: {
+    paddingHorizontal: 8,
+    paddingBottom: 20,
+    gap: 8,
+  },
+  eventCard: {
+    flex: 1,
+    aspectRatio: 1,
+    margin: 4,
+    borderRadius: 8,
+    overflow: 'hidden',
+  },
+  eventImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
 });
