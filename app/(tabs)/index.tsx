@@ -95,7 +95,7 @@ export default function Home() {
   const availableFeedOptions = feedOptions.filter((o) => o.value !== selectedFeed);
   const selectedFeedLabel =
     selectedFeed === 'siguiendo'
-      ? `< ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
+      ? `← ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
       : feedOptions.find((o) => o.value === selectedFeed)?.label;
 
   useEffect(() => {

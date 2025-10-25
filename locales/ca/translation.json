@@ -32,5 +32,13 @@
   "More information": "Més informació...",
   "Event without title": "Esdeveniment sense títol",
   "Error loading events": "Error al carregar esdeveniments",
-  "No description available": "No hi ha descripció disponible"
+  "No description available": "No hi ha descripció disponible",
+  "Space": "Espai: ",
+  "Address": "Adreça: ",
+  "Location": "Ubicació: ",
+  "Modality": "Modalitat: ",
+  "Schedule": "Horari: ",
+  "Tickets": "Entrades: ",
+  "Telephone": "Telèfon: ",
+  "Email": "Correu electrònic: "
 }
