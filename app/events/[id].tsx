@@ -9,11 +9,11 @@ import {
   Linking,
   ActivityIndicator,
 } from 'react-native';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import { router } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
 
 interface EventData {
   id: number;
@@ -43,9 +43,12 @@ export default function EventDetail() {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  const [event, setEvent] = useState<any>(null);
+  const [event, setEvent] = useState<EventData | null>(null);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const [goingEvents, setGoingEvents] = useState<{ [key: string]: boolean }>({});
+  const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -64,6 +67,17 @@ export default function EventDetail() {
 
     fetchEvent();
   }, [eventId]);
+
+  const toggleGoing = (id: number) => {
+    setGoingEvents((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const toggleSaveEvent = (id: number) => {
+    setSavedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const isGoing = event ? !!goingEvents[event.id] : false;
+  const isSaved = event ? !!savedEvents[event.id] : false;
 
   if (load) {
     return (
@@ -107,73 +121,223 @@ export default function EventDetail() {
 
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
-      <View style={styles.content}>
-        <Text style={[styles.title, { color: Colors.text }]}>{event.title}</Text>
-        <Text style={[styles.description, { color: Colors.text }]}>
-          {event.descripcio?.trim() || t('No description available')}
-        </Text>
+      <View
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          marginTop: 15,
+          justifyContent: 'space-between',
+        }}
+      >
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+          onPress={() => event && toggleGoing(event.id)}
+        >
+          <Text style={[styles.buttonText, { color: Colors.card }]}>
+            {isGoing ? t('I will attend') : t('Want to go')}
+          </Text>
+        </TouchableOpacity>
 
-        {event.espai && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
-          </Text>
-        )}
-        {event.direccio && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
-          </Text>
-        )}
-        {event.localitat && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
-          </Text>
-        )}
-        {event.modalitat && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
-          </Text>
-        )}
-        {event.infoHorari && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
-          </Text>
-        )}
-        {event.infoEntrades && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
-          </Text>
-        )}
-        {event.telefon && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
-          </Text>
-        )}
-        {event.email && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
-          </Text>
-        )}
-
-        {typeof Link === 'string' && Link.trim() !== '' && (
-          <TouchableOpacity onPress={() => Linking.openURL(Link)}>
-            <Text style={[styles.link, { color: Colors.link, marginTop: 20 }]}>
-              {t('More information')}
-            </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
+          {/* Save event */}
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => event && toggleSaveEvent(event.id)}
+          >
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={Colors.text}
+            />
           </TouchableOpacity>
-        )}
+
+          {/* Comments */}
+          <View style={styles.comments}>
+            <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+            <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
+          </View>
+
+          {/* Share */}
+          <TouchableOpacity style={styles.iconButton}>
+            <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text style={[styles.description, { color: Colors.text, marginTop: 15 }]}>
+        {event.descripcio?.trim() || t('No description available')}
+      </Text>
+
+      {/* Details */}
+      {event.espai && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
+        </Text>
+      )}
+      {event.direccio && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
+        </Text>
+      )}
+      {event.localitat && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
+        </Text>
+      )}
+      {event.modalitat && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
+        </Text>
+      )}
+      {event.infoHorari && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
+        </Text>
+      )}
+      {event.infoEntrades && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
+        </Text>
+      )}
+      {event.telefon && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
+        </Text>
+      )}
+      {event.email && (
+        <Text style={[styles.detail, { color: Colors.text }]}>
+          📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
+        </Text>
+      )}
+
+      {/* Link */}
+      {typeof Link === 'string' && Link.trim() !== '' && (
+        <TouchableOpacity onPress={() => Linking.openURL(Link)}>
+          <Text style={[styles.link, { color: Colors.link, marginTop: 20 }]}>
+            {t('More information')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
+      <View style={{ alignItems: 'flex-end' }}>
+        <TouchableOpacity
+          style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+          onPress={() => console.log('Write review')}
+        >
+          <Ionicons
+            name="create-outline"
+            size={14}
+            color={Colors.card}
+            style={{ marginRight: 4 }}
+          />
+          <Text style={[styles.reviewButtonText, { color: Colors.card }]}>{t('Write review')}</Text>
+        </TouchableOpacity>
+
+        <View style={styles.ratingContainer}>
+          {[...Array(5)].map((_, i) => (
+            <Ionicons
+              key={i}
+              name="star-outline"
+              size={16}
+              color={Colors.star_inactive || Colors.text}
+            />
+          ))}
+          <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>0.0</Text>
+        </View>
       </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  image: { width: '100%', height: 250 },
-  content: { padding: 20, paddingTop: 5 },
-  title: { fontSize: 22, fontWeight: '700', marginBottom: 10 },
-  description: { fontSize: 16, lineHeight: 22, marginBottom: 20 },
-  link: { fontSize: 16, textDecorationLine: 'underline' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  detail: { fontSize: 15, marginBottom: 5 },
-  detailLabel: { fontWeight: '600' },
+  container: {
+    flex: 1,
+  },
+  image: {
+    width: '100%',
+    height: 250,
+  },
+  content: {
+    padding: 20,
+    paddingTop: 5,
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginBottom: 10,
+  },
+  description: {
+    fontSize: 16,
+    lineHeight: 22,
+    marginBottom: 20,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  link: {
+    fontSize: 16,
+    textDecorationLine: 'underline',
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  detail: {
+    fontSize: 15,
+    marginBottom: 5,
+    marginLeft: 10,
+    marginRight: 10,
+  },
+  detailLabel: {
+    fontWeight: '600',
+  },
+  button: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    marginLeft: 20,
+  },
+  buttonText: {
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  ratingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    gap: 4,
+    marginBottom: 100,
+    marginRight: 10,
+  },
+  ratingText: {
+    fontSize: 13,
+  },
+  reviewButton: {
+    marginTop: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 4,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    marginBottom: 6,
+    marginRight: 10,
+  },
+  reviewButtonText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  iconButton: {
+    padding: 6,
+    marginRight: 10,
+  },
+  comments: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  commentCount: {
+    fontSize: 13,
+  },
 });
