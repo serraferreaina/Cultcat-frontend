@@ -98,12 +98,59 @@ export default function CercaScreen() {
 
     const imageToShow = images[0];
 
+    const title = item.titol || 'Sense títol';
+    const espai = item.espai || null;
+    const horari = item.infoHorari || null;
+    const modalitat = item.modalitat || null;
+    const localitat = item.localitat || null;
+    const infoEntrades = item.infoEntrades || null;
+    const direccio = item.direccio || null;
+
     return (
       <TouchableOpacity
-        style={styles.eventCard}
+        style={[styles.eventRow, { backgroundColor: Colors.card }]}
         onPress={() => router.push(`../events/${item.id}`)}
       >
-        <Image source={{ uri: imageToShow }} style={styles.eventImage} />
+        <Image source={{ uri: imageToShow }} style={styles.eventImageSide} />
+
+        <View style={styles.eventInfo}>
+          <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
+            {title}
+          </Text>
+
+          <View style={styles.labelContainer}>
+            {espai && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{espai}</Text>
+              </View>
+            )}
+            {horari && horari.length <= 4 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{horari}</Text>
+              </View>
+            )}
+            {modalitat && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{modalitat}</Text>
+              </View>
+            )}
+            {localitat && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{localitat}</Text>
+              </View>
+            )}
+            {infoEntrades && infoEntrades.length <= 30 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{infoEntrades}</Text>
+              </View>
+            )}
+            {direccio && direccio.length <= 15 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{direccio}</Text>
+              </View>
+            )}
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -351,8 +398,7 @@ export default function CercaScreen() {
             data={eventsWithImage}
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderEvent}
-            numColumns={3}
-            contentContainerStyle={styles.eventsGrid}
+            contentContainerStyle={styles.eventsList}
             scrollEnabled={false}
           />
         )}
@@ -486,5 +532,48 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  eventsList: {
+    paddingHorizontal: 8,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 4,
+    elevation: 2,
+  },
+  eventImageSide: {
+    width: 120,
+    height: 120,
+    resizeMode: 'cover',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  eventInfo: {
+    flex: 1,
+    padding: 10,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  label: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  labelText: {
+    fontSize: 12,
+    fontWeight: '500',
   },
 });
