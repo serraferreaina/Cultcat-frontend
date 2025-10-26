@@ -22,6 +22,7 @@ import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import { useEventStatus } from '../../context/EventStatus';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -29,7 +30,6 @@ export default function CercaScreen() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const router = useRouter();
-  const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
 
   //Estat del modal d'opcions
   const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
@@ -45,10 +45,7 @@ export default function CercaScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const toggleSaveEvent = (id: number) => {
-    setSavedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -105,7 +102,7 @@ export default function CercaScreen() {
   }, []);
 
   const EventCard = ({ item }: { item: any }) => {
-    const [going, setGoing] = useState(false);
+    const isGoing = !!goingEvents[item.id];
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
@@ -181,11 +178,10 @@ export default function CercaScreen() {
               marginTop: 10,
             }}
           >
-            {/* Esquerra: icones */}
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={[styles.iconButton, { marginRight: 12 }]}
-                onPress={() => toggleSaveEvent(item.id)}
+                onPress={() => toggleSaved(item.id)}
               >
                 <Ionicons
                   name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -204,13 +200,12 @@ export default function CercaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Dreta: botó "Want to go" */}
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: going ? Colors.going : Colors.accent }]}
-              onPress={() => setGoing((prev) => !prev)}
+              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+              onPress={() => toggleGoing(item.id)}
             >
               <Text style={[styles.buttonText, { color: Colors.card }]}>
-                {going ? t('I will attend') : t('Want to go')}
+                {isGoing ? t('I will attend') : t('Want to go')}
               </Text>
             </TouchableOpacity>
           </View>

@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+import { useEventStatus } from '../../context/EventStatus';
 
 interface EventData {
   id: number;
@@ -46,9 +47,7 @@ export default function EventDetail() {
   const [event, setEvent] = useState<EventData | null>(null);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [goingEvents, setGoingEvents] = useState<{ [key: string]: boolean }>({});
-  const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -68,17 +67,6 @@ export default function EventDetail() {
     fetchEvent();
   }, [eventId]);
 
-  const toggleGoing = (id: number) => {
-    setGoingEvents((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const toggleSaveEvent = (id: number) => {
-    setSavedEvents((prev) => ({ ...prev, [id]: !prev[id] }));
-  };
-
-  const isGoing = event ? !!goingEvents[event.id] : false;
-  const isSaved = event ? !!savedEvents[event.id] : false;
-
   if (load) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
@@ -94,6 +82,9 @@ export default function EventDetail() {
       </View>
     );
   }
+
+  const isGoing = !!goingEvents[event!.id];
+  const isSaved = !!savedEvents[event!.id];
 
   const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
   const imageUri = event.imgApp
@@ -131,7 +122,7 @@ export default function EventDetail() {
       >
         <TouchableOpacity
           style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-          onPress={() => event && toggleGoing(event.id)}
+          onPress={() => toggleGoing(event.id)}
         >
           <Text style={[styles.buttonText, { color: Colors.card }]}>
             {isGoing ? t('I will attend') : t('Want to go')}
@@ -140,10 +131,7 @@ export default function EventDetail() {
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
           {/* Save event */}
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => event && toggleSaveEvent(event.id)}
-          >
+          <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(event.id)}>
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
               size={20}
@@ -171,42 +159,58 @@ export default function EventDetail() {
       {/* Details */}
       {event.espai && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
+          <Text>🏛️ </Text>
+          <Text style={styles.detailLabel}>{t('Space')}</Text>
+          <Text> {event.espai}</Text>
         </Text>
       )}
       {event.direccio && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
+          <Text>📍 </Text>
+          <Text style={styles.detailLabel}>{t('Address')}</Text>
+          <Text> {event.direccio}</Text>
         </Text>
       )}
       {event.localitat && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
+          <Text>🏙️ </Text>
+          <Text style={styles.detailLabel}>{t('Location')}</Text>
+          <Text> {event.localitat}</Text>
         </Text>
       )}
       {event.modalitat && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
+          <Text>💡 </Text>
+          <Text style={styles.detailLabel}>{t('Modality')}</Text>
+          <Text> {event.modalitat}</Text>
         </Text>
       )}
       {event.infoHorari && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
+          <Text>⏰ </Text>
+          <Text style={styles.detailLabel}>{t('Schedule')}</Text>
+          <Text> {event.infoHorari}</Text>
         </Text>
       )}
       {event.infoEntrades && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
+          <Text>🎟️ </Text>
+          <Text style={styles.detailLabel}>{t('Tickets')}</Text>
+          <Text> {event.infoEntrades}</Text>
         </Text>
       )}
       {event.telefon && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
+          <Text>☎️ </Text>
+          <Text style={styles.detailLabel}>{t('Telephone')}</Text>
+          <Text> {event.telefon}</Text>
         </Text>
       )}
       {event.email && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
+          <Text>📧 </Text>
+          <Text style={styles.detailLabel}>{t('Email')}</Text>
+          <Text> {event.email}</Text>
         </Text>
       )}
 
