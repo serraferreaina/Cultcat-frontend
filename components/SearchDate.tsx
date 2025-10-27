@@ -5,8 +5,10 @@ import DateTimePickerModal from 'react-native-modal-datetime-picker';
 import { Calendar } from 'lucide-react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
+import { useTranslation } from 'react-i18next';
 
 export default function SearchDate({ onDateSelect }: { onDateSelect: (date: Date) => void }) {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
@@ -29,13 +31,13 @@ export default function SearchDate({ onDateSelect }: { onDateSelect: (date: Date
       >
         <Calendar color={Colors.text} size={20} />
         <Text style={[styles.text, { color: Colors.text }]}>
-          {selectedDate ? selectedDate.toLocaleDateString() : 'Seleccionar fecha'}
+          {selectedDate ? selectedDate.toLocaleDateString() : t('Date')}
         </Text>
       </TouchableOpacity>
 
       <DateTimePickerModal
         isVisible={isPickerVisible}
-        mode="date" // 👈 solo fecha
+        mode="date" //solo fecha
         onConfirm={handleConfirm}
         onCancel={() => setPickerVisible(false)}
         display="inline" // o "calendar" en Android para una vista más visual

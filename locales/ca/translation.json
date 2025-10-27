@@ -35,7 +35,7 @@
   "No description available": "No hi ha descripció disponible",
   "Space": "Espai: ",
   "Address": "Adreça: ",
-  "Location": "Ubicació: ",
+  "Location": "Ubicació",
   "Modality": "Modalitat: ",
   "Schedule": "Horari: ",
   "Tickets": "Entrades: ",
@@ -55,5 +55,6 @@
   "Filter by age": "Filtrar per edat",
   "Age between": "Edat entre",
   "and": "i",
-  "years": "anys"
+  "years": "anys",
+  "Date": "Data"
 }
