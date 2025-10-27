@@ -49,7 +49,7 @@ export default function CercaScreen() {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // Boto per filtrar segons data
+    // log que indica que es vol filtrar segons data
     console.log('Buscar events del:', date.toISOString());
   };
 
@@ -62,10 +62,11 @@ export default function CercaScreen() {
 
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
+    // log que indica que es vol filtrar per temàtiques
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
 
-  const topics = ['Deporte', 'Música', 'Lectura'];
+  const topics = [t('Sports'), t('Music'), t('Reading')];
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -233,7 +234,7 @@ export default function CercaScreen() {
           {/* Botó ubicació */}
           <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
             <MapPin color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>Ubicación</Text>
+            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Location')}</Text>
           </TouchableOpacity>
 
           {/* Botó data */}
@@ -244,7 +245,7 @@ export default function CercaScreen() {
           {/* Botó guardats */}
           <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
             <Bookmark color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>Guardados</Text>
+            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Saved')}</Text>
           </TouchableOpacity>
 
           {/* Botó altres */}
@@ -253,7 +254,7 @@ export default function CercaScreen() {
             onPress={() => setIsOptionsModalVisible(true)}
           >
             <SlidersHorizontal color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>Otros</Text>
+            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
           </TouchableOpacity>
         </ScrollView>
 
@@ -274,7 +275,8 @@ export default function CercaScreen() {
           <View style={styles.modalOverlay}>
             <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
               <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: Colors.text }]}>Filtrar por...</Text>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
+
                 <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
                   <X color={Colors.text} size={20} />
                 </TouchableOpacity>
@@ -287,7 +289,7 @@ export default function CercaScreen() {
                   setIsAgeModalVisible(true); // obrir modal del rang d'edat
                 }}
               >
-                <Text style={[styles.optionText, { color: Colors.text }]}>Edad</Text>
+                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Age')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -297,17 +299,20 @@ export default function CercaScreen() {
                   setIsTopicsModalVisible(true);
                 }}
               >
-                <Text style={[styles.optionText, { color: Colors.text }]}>Temática</Text>
+                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Topic')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => {
+                  {
+                    /* log de que s'ha triat filtrar per duracio */
+                  }
                   console.log('Filtrar por duración');
                   setIsOptionsModalVisible(false);
                 }}
               >
-                <Text style={[styles.optionText, { color: Colors.text }]}>Duración</Text>
+                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Duration')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -325,8 +330,9 @@ export default function CercaScreen() {
               {/* Header */}
               <View style={styles.modalHeader}>
                 <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                  Filtrar per temàtica
+                  {t('Filter by topic')}
                 </Text>
+
                 <TouchableOpacity onPress={handleCloseModal}>
                   <X color={Colors.text} size={20} />
                 </TouchableOpacity>
@@ -374,7 +380,9 @@ export default function CercaScreen() {
                   setIsTopicsModalVisible(false);
                 }}
               >
-                <Text style={[styles.searchButtonText, { color: Colors.background }]}>Buscar</Text>
+                <Text style={[styles.searchButtonText, { color: Colors.background }]}>
+                  {t('search')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -391,7 +399,9 @@ export default function CercaScreen() {
             <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
               {/* Header */}
               <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: Colors.text }]}>Filtrar por edad</Text>
+                <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                  {t('Filter by age')}
+                </Text>
                 <TouchableOpacity onPress={() => setIsAgeModalVisible(false)}>
                   <X color={Colors.text} size={20} />
                 </TouchableOpacity>
@@ -399,7 +409,7 @@ export default function CercaScreen() {
 
               {/* Texto del rango */}
               <Text style={[styles.ageValue, { color: Colors.text }]}>
-                Edad entre: {ageRange[0]} y {ageRange[1]} años
+                {t('Age between')} {ageRange[0]} {t('and')} {ageRange[1]} {t('years')}
               </Text>
 
               {/* Slider de rango */}
@@ -429,7 +439,9 @@ export default function CercaScreen() {
                   setIsAgeModalVisible(false);
                 }}
               >
-                <Text style={[styles.searchButtonText, { color: Colors.background }]}>Buscar</Text>
+                <Text style={[styles.searchButtonText, { color: Colors.background }]}>
+                  {t('search')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>

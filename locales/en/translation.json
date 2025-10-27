@@ -41,5 +41,19 @@
   "Tickets": "Tickets: ",
   "Telephone": "Telephone: ",
   "Email": "Email: ",
-  "Showing date": "Showing events of:"
+  "Showing date": "Showing events of:",
+  "Saved": "Saved",
+  "Others": "Others",
+  "Filter by": "Filter by",
+  "Age": "Age",
+  "Topic": "Topic",
+  "Duration": "Duration",
+  "Filter by topic": "Filter by topic",
+  "Sports": "Sports",
+  "Music": "Music",
+  "Reading": "Reading",
+  "Filter by age": "Filter by age",
+  "Age between": "Age between",
+  "and": "and",
+  "years": "years"
 }
