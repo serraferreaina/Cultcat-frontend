@@ -7,7 +7,6 @@ import {
   Image,
   FlatList,
   ActivityIndicator,
-  Dimensions,
   NativeScrollEvent,
   NativeSyntheticEvent,
 } from 'react-native';
@@ -16,6 +15,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useEventStatus } from '../../context/EventStatus';
 
 interface Events {
   id: number;
@@ -25,6 +25,7 @@ interface Events {
   imatges: string | null;
   //videos: string | null; Veure com implementar vídeos més endavant
 }
+
 interface PointsImages {
   images: string[];
 }
@@ -53,7 +54,7 @@ const Images: React.FC<PointsImages> = ({ images }) => {
         onScroll={activateScroll}
         scrollEventThrottle={16}
       />
-      {images.length > 1 && ( // Només mostra els punts si hi ha més d'una imatge
+      {images.length > 1 && (
         <View style={{ flexDirection: 'row', justifyContent: 'center', marginVertical: 8 }}>
           {images.map((_, i) => (
             <View
@@ -79,11 +80,12 @@ export default function Home() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
+  // **Usar contexto en lugar de estados locales**
+  const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
+
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
-  const [savedEvents, setSavedEvents] = useState<{ [key: string]: boolean }>({});
-  const [goingEvents, setGoingEvents] = useState<{ [key: string]: boolean }>({});
   const [events, setEvents] = useState<Events[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -114,14 +116,6 @@ export default function Home() {
     };
     fetchEvents();
   }, []);
-
-  const selectGoingEvent = (eventId: number) => {
-    setGoingEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
-  };
-
-  const savedEvent = (eventId: number) => {
-    setSavedEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
-  };
 
   const notifications = () => setUnreadNotifications(0);
 
@@ -163,7 +157,7 @@ export default function Home() {
               styles.button,
               { backgroundColor: goingEvents[item.id] ? Colors.going : Colors.accent },
             ]}
-            onPress={() => selectGoingEvent(item.id)}
+            onPress={() => toggleGoing(item.id)}
           >
             <Text style={[styles.buttonText, { color: Colors.card }]}>
               {goingEvents[item.id] ? t('I will attend') : t('Want to go')}
@@ -176,8 +170,7 @@ export default function Home() {
 
         <View style={styles.cardFooter}>
           <View style={styles.leftFooter}>
-            {/*Save event*/}
-            <TouchableOpacity style={styles.iconButton} onPress={() => savedEvent(item.id)}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={20}
@@ -246,7 +239,6 @@ export default function Home() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.accent} />
-        <Text style={{ color: Colors.text, marginTop: 10 }}></Text>
       </View>
     );
 
@@ -317,15 +309,12 @@ export default function Home() {
         </View>
       )}
 
-      {/* List of events*/}
-      {selectedFeed === 'paraTi' && (
-        <FlatList
-          data={events}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderPost}
-          contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
-        />
-      )}
+      <FlatList
+        data={events}
+        keyExtractor={(item) => item.id.toString()}
+        renderItem={renderPost}
+        contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
+      />
     </View>
   );
 }

@@ -18,9 +18,11 @@ import SearchDate from '../../components/SearchDate';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import React, { useState, useEffect } from 'react';
-import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native'; // icones pels botons
+import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
+import { Ionicons } from '@expo/vector-icons';
+import { useEventStatus } from '../../context/EventStatus';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -43,6 +45,7 @@ export default function CercaScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -63,6 +66,23 @@ export default function CercaScreen() {
   };
 
   const topics = ['Deporte', 'Música', 'Lectura'];
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+
+  const loadMoreEvents = async () => {
+    if (loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const res = await fetch(`http://nattech.fib.upc.edu:40490/events?page=${page + 1}`);
+      const data = await res.json();
+      setEvents((prev) => [...prev, ...data]);
+      setPage(page + 1);
+    } catch (err) {
+      console.error('Error al cargar más eventos:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  };
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -72,7 +92,7 @@ export default function CercaScreen() {
         const data = await res.json();
         setEvents(data);
       } catch (err: any) {
-        console.error('Error al cargar eventos:', err);
+        console.error(t('Error loading events'), err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -81,12 +101,9 @@ export default function CercaScreen() {
     fetchEvents();
   }, []);
 
-  const eventsWithImage = events.filter(
-    (item) =>
-      (item.imatges && item.imatges.trim() !== '') || (item.imgApp && item.imgApp.trim() !== ''),
-  );
-
   const EventCard = ({ item }: { item: any }) => {
+    const isGoing = !!goingEvents[item.id];
+
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
         ? item.imatges
@@ -98,12 +115,101 @@ export default function CercaScreen() {
 
     const imageToShow = images[0];
 
+    const title = item.titol || t('Event without title');
+    const espai = item.espai || null;
+    const horari = item.infoHorari || null;
+    const modalitat = item.modalitat || null;
+    const localitat = item.localitat || null;
+    const infoEntrades = item.infoEntrades || null;
+    const direccio = item.direccio || null;
+
+    const isSaved = !!savedEvents[item.id];
+
     return (
       <TouchableOpacity
-        style={styles.eventCard}
+        style={[styles.eventRow, { backgroundColor: Colors.card }]}
         onPress={() => router.push(`../events/${item.id}`)}
       >
-        <Image source={{ uri: imageToShow }} style={styles.eventImage} />
+        <Image source={{ uri: imageToShow }} style={styles.eventImageSide} />
+
+        <View style={styles.eventInfo}>
+          <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
+            {title}
+          </Text>
+
+          <View style={styles.labelContainer}>
+            {espai && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{espai}</Text>
+              </View>
+            )}
+            {horari && horari.length <= 4 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{horari}</Text>
+              </View>
+            )}
+            {modalitat && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{modalitat}</Text>
+              </View>
+            )}
+            {localitat && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{localitat}</Text>
+              </View>
+            )}
+            {infoEntrades && infoEntrades.length <= 30 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{infoEntrades}</Text>
+              </View>
+            )}
+            {direccio && direccio.length <= 15 && (
+              <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+                <Text style={[styles.labelText, { color: Colors.accent }]}>{direccio}</Text>
+              </View>
+            )}
+          </View>
+
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              marginTop: 10,
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity
+                style={[styles.iconButton, { marginRight: 12 }]}
+                onPress={() => toggleSaved(item.id)}
+              >
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={20}
+                  color={Colors.text}
+                />
+              </TouchableOpacity>
+
+              <View style={[styles.comments, { marginRight: 12 }]}>
+                <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+                <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
+              </View>
+
+              <TouchableOpacity style={[styles.iconButton, { marginRight: 12 }]}>
+                <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+              onPress={() => toggleGoing(item.id)}
+            >
+              <Text style={[styles.buttonText, { color: Colors.card }]}>
+                {isGoing ? t('I will attend') : t('Want to go')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
       </TouchableOpacity>
     );
   };
@@ -113,7 +219,7 @@ export default function CercaScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      <ScrollView style={styles.content}>
+      <ScrollView style={[styles.content, { paddingBottom: 0, marginBottom: 0 }]}>
         {/* Barra de cerca */}
         <SearchBar />
 
@@ -328,35 +434,34 @@ export default function CercaScreen() {
             </View>
           </View>
         </Modal>
-        <Text
-          style={{
-            fontSize: 18,
-            fontWeight: '600',
-            marginVertical: 16,
-            marginLeft: 12,
-            color: Colors.text,
-          }}
-        >
-          {t('All events')}
-        </Text>
-
-        {load ? (
-          <ActivityIndicator size="large" color={Colors.accent} />
-        ) : error ? (
-          <Text style={{ color: Colors.text, textAlign: 'center' }}>
-            {t('Error loading events')}: {error}
-          </Text>
-        ) : (
-          <FlatList
-            data={eventsWithImage}
-            keyExtractor={(item) => item.id.toString()}
-            renderItem={renderEvent}
-            numColumns={3}
-            contentContainerStyle={styles.eventsGrid}
-            scrollEnabled={false}
-          />
-        )}
       </ScrollView>
+
+      <FlatList
+        data={events}
+        keyExtractor={(item, index) => `${item.id}-${index}`}
+        renderItem={renderEvent}
+        contentContainerStyle={styles.eventsList}
+        onEndReached={loadMoreEvents}
+        onEndReachedThreshold={0.5}
+        ListHeaderComponent={
+          <>
+            <Text
+              style={{
+                fontSize: 18,
+                fontWeight: '600',
+                marginTop: 12,
+                marginLeft: 12,
+                color: Colors.text,
+              }}
+            >
+              {t('All events')}
+            </Text>
+          </>
+        }
+        ListFooterComponent={
+          loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
+        }
+      />
     </SafeAreaView>
   );
 }
@@ -386,9 +491,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: 12,
     minWidth: 120, //amplada min perque tots els botons es vegin be
+    marginBottom: 10,
   },
   dateButtonWrapper: {
     minWidth: 120,
+    marginBottom: 10,
   },
   filterText: {
     fontSize: 14,
@@ -486,5 +593,70 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     resizeMode: 'cover',
+  },
+  eventsList: {
+    paddingHorizontal: 8,
+    paddingBottom: 20,
+    gap: 10,
+  },
+  eventRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderRadius: 12,
+    overflow: 'hidden',
+    marginVertical: 4,
+    elevation: 2,
+  },
+  eventImageSide: {
+    width: 120,
+    height: 120,
+    resizeMode: 'cover',
+    borderTopLeftRadius: 12,
+    borderBottomLeftRadius: 12,
+  },
+  eventInfo: {
+    flex: 1,
+    padding: 10,
+  },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+  },
+  labelContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  label: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  labelText: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  button: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 10,
+  },
+  buttonText: {
+    fontWeight: '400',
+    fontSize: 12,
+  },
+  iconButton: {
+    padding: 6,
+    marginRight: 10,
+  },
+  comments: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  commentCount: {
+    fontSize: 13,
   },
 });
