@@ -35,7 +35,7 @@
   "No description available": "No description available",
   "Space": "Space: ",
   "Address": "Address: ",
-  "Location": "Location: ",
+  "Location": "Location",
   "Modality": "Modality: ",
   "Schedule": "Schedule: ",
   "Tickets": "Tickets: ",
@@ -55,5 +55,6 @@
   "Filter by age": "Filter by age",
   "Age between": "Age between",
   "and": "and",
-  "years": "years"
+  "years": "years",
+  "Date": "Date"
 }

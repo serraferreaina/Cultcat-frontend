@@ -35,7 +35,7 @@
   "No description available": "No hay descripción disponible",
   "Space": "Espacio: ",
   "Address": "Dirección: ",
-  "Location": "Ubicación: ",
+  "Location": "Ubicación",
   "Modality": "Modalidad: ",
   "Schedule": "Horario: ",
   "Tickets": "Entradas: ",
@@ -55,5 +55,6 @@
   "Filter by age": "Filtrar por edad",
   "Age between": "Edad entre",
   "and": "y",
-  "years": "años"
+  "years": "años",
+  "Date": "Fecha"
 }
