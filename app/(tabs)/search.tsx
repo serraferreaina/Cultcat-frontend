@@ -50,6 +50,7 @@ export default function CercaScreen() {
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
     // log que indica que es vol filtrar segons data
+    // log que indica que es vol filtrar segons data
     console.log('Buscar events del:', date.toISOString());
   };
 
@@ -62,6 +63,7 @@ export default function CercaScreen() {
 
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
+    // log que indica que es vol filtrar per temàtiques
     // log que indica que es vol filtrar per temàtiques
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
@@ -305,6 +307,9 @@ export default function CercaScreen() {
               <TouchableOpacity
                 style={styles.optionItem}
                 onPress={() => {
+                  {
+                    /* log de que s'ha triat filtrar per duracio */
+                  }
                   {
                     /* log de que s'ha triat filtrar per duracio */
                   }
