@@ -222,236 +222,232 @@ export default function CercaScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      <ScrollView style={[styles.content, { paddingBottom: 0, marginBottom: 0 }]}>
-        {/* Barra de cerca */}
-        <SearchBar />
+      {/* Barra de cerca */}
+      <SearchBar />
 
-        {/* Scroll horizontal */}
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.filtersScroll}
-          contentContainerStyle={styles.filtersRow}
+      {/* Scroll horizontal */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filtersScroll}
+        contentContainerStyle={styles.filtersRow}
+      >
+        {/* Botó ubicació */}
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
+          <MapPin color={Colors.text} size={18} />
+          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Location')}</Text>
+        </TouchableOpacity>
+
+        {/* Botó data */}
+        <View style={styles.dateButtonWrapper}>
+          <SearchDate onDateSelect={handleDateSelect} />
+        </View>
+
+        {/* Botó guardats */}
+        <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
+          <Bookmark color={Colors.text} size={18} />
+          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Saved')}</Text>
+        </TouchableOpacity>
+
+        {/* Botó altres */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: Colors.card }]}
+          onPress={() => setIsOptionsModalVisible(true)}
         >
-          {/* Botó ubicació */}
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
-            <MapPin color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Location')}</Text>
-          </TouchableOpacity>
+          <SlidersHorizontal color={Colors.text} size={18} />
+          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
+        </TouchableOpacity>
+      </ScrollView>
 
-          {/* Botó data */}
-          <View style={styles.dateButtonWrapper}>
-            <SearchDate onDateSelect={handleDateSelect} />
-          </View>
+      {/* Data seleccionada */}
+      {selectedDate && (
+        <Text style={[styles.dateText, { color: Colors.text }]}>
+          {t('Showing date')} {selectedDate.toLocaleDateString()}
+        </Text>
+      )}
 
-          {/* Botó guardats */}
-          <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
-            <Bookmark color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Saved')}</Text>
-          </TouchableOpacity>
+      {/* Modal d'altres*/}
+      <Modal
+        visible={isOptionsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsOptionsModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
 
-          {/* Botó altres */}
-          <TouchableOpacity
-            style={[styles.filterButton, { backgroundColor: Colors.card }]}
-            onPress={() => setIsOptionsModalVisible(true)}
-          >
-            <SlidersHorizontal color={Colors.text} size={18} />
-            <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
-          </TouchableOpacity>
-        </ScrollView>
-
-        {/* Data seleccionada */}
-        {selectedDate && (
-          <Text style={[styles.dateText, { color: Colors.text }]}>
-            {t('Showing date')} {selectedDate.toLocaleDateString()}
-          </Text>
-        )}
-
-        {/* Modal d'altres*/}
-        <Modal
-          visible={isOptionsModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsOptionsModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
-
-                <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
-                  <X color={Colors.text} size={20} />
-                </TouchableOpacity>
-              </View>
-
-              <TouchableOpacity
-                style={styles.optionItem}
-                onPress={() => {
-                  setIsOptionsModalVisible(false);
-                  setIsAgeModalVisible(true); // obrir modal del rang d'edat
-                }}
-              >
-                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Age')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.optionItem}
-                onPress={() => {
-                  setIsOptionsModalVisible(false);
-                  setIsTopicsModalVisible(true);
-                }}
-              >
-                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Topic')}</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={styles.optionItem}
-                onPress={() => {
-                  {
-                    /* log de que s'ha triat filtrar per duracio */
-                  }
-                  {
-                    /* log de que s'ha triat filtrar per duracio */
-                  }
-                  console.log('Filtrar por duración');
-                  setIsOptionsModalVisible(false);
-                }}
-              >
-                <Text style={[styles.optionText, { color: Colors.text }]}>{t('Duration')}</Text>
+              <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
+                <X color={Colors.text} size={20} />
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                setIsOptionsModalVisible(false);
+                setIsAgeModalVisible(true); // obrir modal del rang d'edat
+              }}
+            >
+              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Age')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                setIsOptionsModalVisible(false);
+                setIsTopicsModalVisible(true);
+              }}
+            >
+              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Topic')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.optionItem}
+              onPress={() => {
+                {
+                  /* log de que s'ha triat filtrar per duracio */
+                }
+                {
+                  /* log de que s'ha triat filtrar per duracio */
+                }
+                console.log('Filtrar por duración');
+                setIsOptionsModalVisible(false);
+              }}
+            >
+              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Duration')}</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        {/* Modal de tematiques*/}
-        <Modal
-          visible={isTopicsModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={handleCloseModal}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                  {t('Filter by topic')}
-                </Text>
-
-                <TouchableOpacity onPress={handleCloseModal}>
-                  <X color={Colors.text} size={20} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Lista de temáticas */}
-              <View style={styles.topicsContainer}>
-                {topics.map((topic) => {
-                  const isSelected = selectedTopics.includes(topic);
-                  return (
-                    <TouchableOpacity
-                      key={topic}
-                      style={[
-                        styles.topicButton,
-                        {
-                          backgroundColor: isSelected ? Colors.accent : Colors.background,
-                          borderColor: Colors.accent,
-                        },
-                      ]}
-                      onPress={() => toggleTopic(topic)}
-                    >
-                      <Text
-                        style={[
-                          styles.topicText,
-                          {
-                            color: isSelected ? Colors.background : Colors.text,
-                          },
-                        ]}
-                      >
-                        {topic}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Boto confirmar la busqueda*/}
-              <TouchableOpacity
-                style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-                onPress={() => {
-                  console.log('Buscar eventos con filtros:', {
-                    fecha: selectedDate,
-                    tematicas: selectedTopics,
-                  });
-                  setIsTopicsModalVisible(false);
-                }}
-              >
-                <Text style={[styles.searchButtonText, { color: Colors.background }]}>
-                  {t('search')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </Modal>
-
-        {/* Modal rang d'edat*/}
-        <Modal
-          visible={isAgeModalVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setIsAgeModalVisible(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-              {/* Header */}
-              <View style={styles.modalHeader}>
-                <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                  {t('Filter by age')}
-                </Text>
-                <TouchableOpacity onPress={() => setIsAgeModalVisible(false)}>
-                  <X color={Colors.text} size={20} />
-                </TouchableOpacity>
-              </View>
-
-              {/* Texto del rango */}
-              <Text style={[styles.ageValue, { color: Colors.text }]}>
-                {t('Age between')} {ageRange[0]} {t('and')} {ageRange[1]} {t('years')}
+      {/* Modal de tematiques*/}
+      <Modal
+        visible={isTopicsModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={handleCloseModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Filter by topic')}
               </Text>
 
-              {/* Slider de rango */}
-              <View style={styles.sliderContainer}>
-                <MultiSlider
-                  values={ageRange}
-                  min={0}
-                  max={100}
-                  step={1}
-                  sliderLength={250}
-                  onValuesChange={(values) => setAgeRange(values as [number, number])}
-                  selectedStyle={{ backgroundColor: Colors.accent }}
-                  unselectedStyle={{ backgroundColor: Colors.border }}
-                  markerStyle={{
-                    backgroundColor: Colors.accent,
-                    height: 20,
-                    width: 20,
-                  }}
-                />
-              </View>
-
-              {/* Botón de buscar */}
-              <TouchableOpacity
-                style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-                onPress={() => {
-                  console.log('Filtrar eventos por edad:', ageRange);
-                  setIsAgeModalVisible(false);
-                }}
-              >
-                <Text style={[styles.searchButtonText, { color: Colors.background }]}>
-                  {t('search')}
-                </Text>
+              <TouchableOpacity onPress={handleCloseModal}>
+                <X color={Colors.text} size={20} />
               </TouchableOpacity>
             </View>
+
+            {/* Lista de temáticas */}
+            <View style={styles.topicsContainer}>
+              {topics.map((topic) => {
+                const isSelected = selectedTopics.includes(topic);
+                return (
+                  <TouchableOpacity
+                    key={topic}
+                    style={[
+                      styles.topicButton,
+                      {
+                        backgroundColor: isSelected ? Colors.accent : Colors.background,
+                        borderColor: Colors.accent,
+                      },
+                    ]}
+                    onPress={() => toggleTopic(topic)}
+                  >
+                    <Text
+                      style={[
+                        styles.topicText,
+                        {
+                          color: isSelected ? Colors.background : Colors.text,
+                        },
+                      ]}
+                    >
+                      {topic}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {/* Boto confirmar la busqueda*/}
+            <TouchableOpacity
+              style={[styles.searchButton, { backgroundColor: Colors.accent }]}
+              onPress={() => {
+                console.log('Buscar eventos con filtros:', {
+                  fecha: selectedDate,
+                  tematicas: selectedTopics,
+                });
+                setIsTopicsModalVisible(false);
+              }}
+            >
+              <Text style={[styles.searchButtonText, { color: Colors.background }]}>
+                {t('search')}
+              </Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
-      </ScrollView>
+        </View>
+      </Modal>
+
+      {/* Modal rang d'edat*/}
+      <Modal
+        visible={isAgeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsAgeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
+            {/* Header */}
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by age')}</Text>
+              <TouchableOpacity onPress={() => setIsAgeModalVisible(false)}>
+                <X color={Colors.text} size={20} />
+              </TouchableOpacity>
+            </View>
+
+            {/* Texto del rango */}
+            <Text style={[styles.ageValue, { color: Colors.text }]}>
+              {t('Age between')} {ageRange[0]} {t('and')} {ageRange[1]} {t('years')}
+            </Text>
+
+            {/* Slider de rango */}
+            <View style={styles.sliderContainer}>
+              <MultiSlider
+                values={ageRange}
+                min={0}
+                max={100}
+                step={1}
+                sliderLength={250}
+                onValuesChange={(values) => setAgeRange(values as [number, number])}
+                selectedStyle={{ backgroundColor: Colors.accent }}
+                unselectedStyle={{ backgroundColor: Colors.border }}
+                markerStyle={{
+                  backgroundColor: Colors.accent,
+                  height: 20,
+                  width: 20,
+                }}
+              />
+            </View>
+
+            {/* Botón de buscar */}
+            <TouchableOpacity
+              style={[styles.searchButton, { backgroundColor: Colors.accent }]}
+              onPress={() => {
+                console.log('Filtrar eventos por edad:', ageRange);
+                setIsAgeModalVisible(false);
+              }}
+            >
+              <Text style={[styles.searchButtonText, { color: Colors.background }]}>
+                {t('search')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={events}
