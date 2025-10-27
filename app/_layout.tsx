@@ -7,7 +7,6 @@ export default function RootLayout() {
   return (
     <ThemeProvider>
       <EventStatusProvider>
-        {' '}
         {/* envolver toda la app con esto */}
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
