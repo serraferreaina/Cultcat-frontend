@@ -68,7 +68,6 @@ export default function CercaScreen() {
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
 
-  const topics = [t('Sports'), t('Music'), t('Reading')];
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -300,7 +299,7 @@ export default function CercaScreen() {
                 setIsTopicsModalVisible(true);
               }}
             >
-              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Topic')}</Text>
+              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Category')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -322,7 +321,7 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      {/* Modal de tematiques*/}
+      {/* Modal de categories*/}
       <Modal
         visible={isTopicsModalVisible}
         transparent
@@ -334,7 +333,7 @@ export default function CercaScreen() {
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                {t('Filter by topic')}
+                {t('Filter by category')}
               </Text>
 
               <TouchableOpacity onPress={handleCloseModal}>
@@ -342,13 +341,43 @@ export default function CercaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Lista de temáticas */}
+            {/* Lista de categorias */}
             <View style={styles.topicsContainer}>
-              {topics.map((topic) => {
-                const isSelected = selectedTopics.includes(topic);
+              {[
+                'concerts',
+                'infantil',
+                'musica',
+                'espectacles',
+                'teatre',
+                'activitats-virtuals',
+                'arts-visuals',
+                'rutes-i-visites',
+                'exposicions',
+                'divulgacio',
+                'dansa',
+                'circ',
+                'conferencies',
+                'cursos',
+                'cinema',
+                'llibres-i-lletres',
+                'festivals-i-mostres',
+                'tradicional-i-popular',
+                'cicles',
+                'zz-altres-ambits',
+                'carnavals',
+                'fires-i-mercats',
+                'gastronomia',
+                'festes',
+                'commemoracions',
+                'setmana-santa',
+                'gegants',
+                'sardanes',
+                'nadal',
+              ].map((category) => {
+                const isSelected = selectedTopics.includes(category);
                 return (
                   <TouchableOpacity
-                    key={topic}
+                    key={category}
                     style={[
                       styles.topicButton,
                       {
@@ -356,7 +385,7 @@ export default function CercaScreen() {
                         borderColor: Colors.accent,
                       },
                     ]}
-                    onPress={() => toggleTopic(topic)}
+                    onPress={() => toggleTopic(category)}
                   >
                     <Text
                       style={[
@@ -366,7 +395,7 @@ export default function CercaScreen() {
                         },
                       ]}
                     >
-                      {topic}
+                      {t(category)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -492,8 +521,8 @@ const styles = StyleSheet.create({
   filtersRow: {
     flexDirection: 'row', // tots els botons en una fila
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 8,
   },
   filterButton: {
     flexDirection: 'row',
@@ -503,12 +532,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    minWidth: 120, //amplada min perque tots els botons es vegin be
-    marginBottom: 10,
+    marginHorizontal: 4,
   },
   dateButtonWrapper: {
-    minWidth: 120,
-    marginBottom: 10,
+    marginHorizontal: 4,
   },
   filterText: {
     fontSize: 14,
