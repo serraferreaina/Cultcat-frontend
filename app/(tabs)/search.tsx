@@ -46,10 +46,10 @@ export default function CercaScreen() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+  const [isFiltered, setIsFiltered] = useState(false);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // log que indica que es vol filtrar segons data
     // log que indica que es vol filtrar segons data
     console.log('Buscar events del:', date.toISOString());
   };
@@ -63,7 +63,6 @@ export default function CercaScreen() {
 
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
-    // log que indica que es vol filtrar per temàtiques
     // log que indica que es vol filtrar per temàtiques
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
@@ -87,6 +86,8 @@ export default function CercaScreen() {
   };
 
   useEffect(() => {
+    if (isFiltered) return; // si hi ha filtre no carreguem tots els esdeveniments
+
     const fetchEvents = async () => {
       try {
         const res = await fetch('http://nattech.fib.upc.edu:40490/events');
@@ -101,7 +102,7 @@ export default function CercaScreen() {
       }
     };
     fetchEvents();
-  }, []);
+  }, [isFiltered]);
 
   const EventCard = ({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
@@ -214,6 +215,37 @@ export default function CercaScreen() {
         </View>
       </TouchableOpacity>
     );
+  };
+
+  const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
+
+  const handleSearchByTopics = async () => {
+    setIsTopicsModalVisible(false); // tanquem modal
+    setLoading(true); // activem loading
+    setNoEventsMessage(null);
+    try {
+      const query = selectedTopics.map((cat) => `category=${cat}`).join('&');
+      const url = query
+        ? `http://nattech.fib.upc.edu:40490/events?${query}`
+        : `http://nattech.fib.upc.edu:40490/events`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+
+      if (data.length === 0) {
+        setEvents([]);
+        setNoEventsMessage(t('No events for selected categories'));
+      } else {
+        setEvents(data);
+        setNoEventsMessage(null);
+      }
+    } catch (err: any) {
+      console.error('Error fetching filtered events:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
@@ -405,12 +437,43 @@ export default function CercaScreen() {
             {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-              onPress={() => {
-                console.log('Buscar eventos con filtros:', {
-                  fecha: selectedDate,
-                  tematicas: selectedTopics,
-                });
-                setIsTopicsModalVisible(false);
+              onPress={async () => {
+                try {
+                  setLoading(true);
+                  setNoEventsMessage(null);
+
+                  let url = 'http://nattech.fib.upc.edu:40490/events';
+
+                  // Si hay categorías seleccionadas → añadimos query params
+                  if (selectedTopics.length > 0) {
+                    const queryParams = selectedTopics
+                      .map((cat) => `categoria=${encodeURIComponent(cat)}`)
+                      .join('&');
+                    url += `?${queryParams}`;
+                  }
+
+                  const res = await fetch(url);
+                  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+                  const data = await res.json();
+
+                  if (data.length === 0) {
+                    setEvents([]);
+                    setNoEventsMessage(t('No events for selected categories'));
+                  } else {
+                    setEvents(data);
+                    setNoEventsMessage(null);
+                  }
+
+                  // marcar si hay filtro activo
+                  setIsFiltered(selectedTopics.length > 0);
+                } catch (err) {
+                  console.error('Error fetching filtered events:', err);
+                  setNoEventsMessage(t('No events for selected categories'));
+                } finally {
+                  setLoading(false);
+                  setIsTopicsModalVisible(false);
+                }
               }}
             >
               <Text style={[styles.searchButtonText, { color: Colors.background }]}>
@@ -496,7 +559,7 @@ export default function CercaScreen() {
                 color: Colors.text,
               }}
             >
-              {t('All events')}
+              {isFiltered ? t('Filtered events') : t('All events')}
             </Text>
           </>
         }
@@ -504,6 +567,12 @@ export default function CercaScreen() {
           loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
         }
       />
+
+      {!load && events.length === 0 && noEventsMessage !== '' && (
+        <Text style={{ textAlign: 'center', marginTop: 20, color: Colors.text }}>
+          {noEventsMessage}
+        </Text>
+      )}
     </SafeAreaView>
   );
 }
