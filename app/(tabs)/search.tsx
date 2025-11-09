@@ -71,7 +71,7 @@ export default function CercaScreen() {
   const [loadingMore, setLoadingMore] = useState(false);
 
   const loadMoreEvents = async () => {
-    if (loadingMore) return;
+    if (loadingMore || isFiltered) return;
     setLoadingMore(true);
     try {
       const res = await fetch(`http://nattech.fib.upc.edu:40490/events?page=${page + 1}`);
@@ -104,7 +104,7 @@ export default function CercaScreen() {
     fetchEvents();
   }, [isFiltered]);
 
-  const EventCard = ({ item }: { item: any }) => {
+  const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
 
     const images: string[] =
@@ -215,19 +215,27 @@ export default function CercaScreen() {
         </View>
       </TouchableOpacity>
     );
-  };
+  });
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
   const handleSearchByTopics = async () => {
-    setIsTopicsModalVisible(false); // tanquem modal
-    setLoading(true); // activem loading
+    setIsTopicsModalVisible(false);
+    setLoading(true);
     setNoEventsMessage(null);
+    setEvents([]);
+
     try {
-      const query = selectedTopics.map((cat) => `category=${cat}`).join('&');
-      const url = query
-        ? `http://nattech.fib.upc.edu:40490/events?${query}`
-        : `http://nattech.fib.upc.edu:40490/events`;
+      let url = 'http://nattech.fib.upc.edu:40490/events';
+
+      if (selectedTopics.length === 1) {
+        url += `?categoria=${selectedTopics[0]}`;
+      } else if (selectedTopics.length > 1) {
+        const query = selectedTopics.join(',');
+        url += `?categories=${query}`;
+      }
+
+      console.log('URL de búsqueda:', url);
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -240,9 +248,12 @@ export default function CercaScreen() {
         setEvents(data);
         setNoEventsMessage(null);
       }
+
+      setIsFiltered(true); // activa el filtro
     } catch (err: any) {
       console.error('Error fetching filtered events:', err);
       setError(err.message);
+      setNoEventsMessage(t('No events for selected categories'));
     } finally {
       setLoading(false);
     }
@@ -437,44 +448,7 @@ export default function CercaScreen() {
             {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-              onPress={async () => {
-                try {
-                  setLoading(true);
-                  setNoEventsMessage(null);
-
-                  let url = 'http://nattech.fib.upc.edu:40490/events';
-
-                  // Si hay categorías seleccionadas → añadimos query params
-                  if (selectedTopics.length > 0) {
-                    const queryParams = selectedTopics
-                      .map((cat) => `categoria=${encodeURIComponent(cat)}`)
-                      .join('&');
-                    url += `?${queryParams}`;
-                  }
-
-                  const res = await fetch(url);
-                  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-                  const data = await res.json();
-
-                  if (data.length === 0) {
-                    setEvents([]);
-                    setNoEventsMessage(t('No events for selected categories'));
-                  } else {
-                    setEvents(data);
-                    setNoEventsMessage(null);
-                  }
-
-                  // marcar si hay filtro activo
-                  setIsFiltered(selectedTopics.length > 0);
-                } catch (err) {
-                  console.error('Error fetching filtered events:', err);
-                  setNoEventsMessage(t('No events for selected categories'));
-                } finally {
-                  setLoading(false);
-                  setIsTopicsModalVisible(false);
-                }
-              }}
+              onPress={handleSearchByTopics}
             >
               <Text style={[styles.searchButtonText, { color: Colors.background }]}>
                 {t('search')}
