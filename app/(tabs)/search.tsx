@@ -46,10 +46,10 @@ export default function CercaScreen() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+  const [isFiltered, setIsFiltered] = useState(false);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // log que indica que es vol filtrar segons data
     // log que indica que es vol filtrar segons data
     console.log('Buscar events del:', date.toISOString());
   };
@@ -64,11 +64,9 @@ export default function CercaScreen() {
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
     // log que indica que es vol filtrar per temàtiques
-    // log que indica que es vol filtrar per temàtiques
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
 
-  const topics = [t('Sports'), t('Music'), t('Reading')];
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -88,6 +86,8 @@ export default function CercaScreen() {
   };
 
   useEffect(() => {
+    if (isFiltered) return; // si hi ha filtre no carreguem tots els esdeveniments
+
     const fetchEvents = async () => {
       try {
         const res = await fetch('http://nattech.fib.upc.edu:40490/events');
@@ -102,7 +102,7 @@ export default function CercaScreen() {
       }
     };
     fetchEvents();
-  }, []);
+  }, [isFiltered]);
 
   const EventCard = ({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
@@ -217,6 +217,37 @@ export default function CercaScreen() {
     );
   };
 
+  const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
+
+  const handleSearchByTopics = async () => {
+    setIsTopicsModalVisible(false); // tanquem modal
+    setLoading(true); // activem loading
+    setNoEventsMessage(null);
+    try {
+      const query = selectedTopics.map((cat) => `category=${cat}`).join('&');
+      const url = query
+        ? `http://nattech.fib.upc.edu:40490/events?${query}`
+        : `http://nattech.fib.upc.edu:40490/events`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+
+      if (data.length === 0) {
+        setEvents([]);
+        setNoEventsMessage(t('No events for selected categories'));
+      } else {
+        setEvents(data);
+        setNoEventsMessage(null);
+      }
+    } catch (err: any) {
+      console.error('Error fetching filtered events:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
   return (
@@ -300,7 +331,7 @@ export default function CercaScreen() {
                 setIsTopicsModalVisible(true);
               }}
             >
-              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Topic')}</Text>
+              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Category')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -322,7 +353,7 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      {/* Modal de tematiques*/}
+      {/* Modal de categories*/}
       <Modal
         visible={isTopicsModalVisible}
         transparent
@@ -334,7 +365,7 @@ export default function CercaScreen() {
             {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: Colors.text }]}>
-                {t('Filter by topic')}
+                {t('Filter by category')}
               </Text>
 
               <TouchableOpacity onPress={handleCloseModal}>
@@ -342,13 +373,43 @@ export default function CercaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Lista de temáticas */}
+            {/* Lista de categorias */}
             <View style={styles.topicsContainer}>
-              {topics.map((topic) => {
-                const isSelected = selectedTopics.includes(topic);
+              {[
+                'concerts',
+                'infantil',
+                'musica',
+                'espectacles',
+                'teatre',
+                'activitats-virtuals',
+                'arts-visuals',
+                'rutes-i-visites',
+                'exposicions',
+                'divulgacio',
+                'dansa',
+                'circ',
+                'conferencies',
+                'cursos',
+                'cinema',
+                'llibres-i-lletres',
+                'festivals-i-mostres',
+                'tradicional-i-popular',
+                'cicles',
+                'zz-altres-ambits',
+                'carnavals',
+                'fires-i-mercats',
+                'gastronomia',
+                'festes',
+                'commemoracions',
+                'setmana-santa',
+                'gegants',
+                'sardanes',
+                'nadal',
+              ].map((category) => {
+                const isSelected = selectedTopics.includes(category);
                 return (
                   <TouchableOpacity
-                    key={topic}
+                    key={category}
                     style={[
                       styles.topicButton,
                       {
@@ -356,7 +417,7 @@ export default function CercaScreen() {
                         borderColor: Colors.accent,
                       },
                     ]}
-                    onPress={() => toggleTopic(topic)}
+                    onPress={() => toggleTopic(category)}
                   >
                     <Text
                       style={[
@@ -366,7 +427,7 @@ export default function CercaScreen() {
                         },
                       ]}
                     >
-                      {topic}
+                      {t(category)}
                     </Text>
                   </TouchableOpacity>
                 );
@@ -376,12 +437,43 @@ export default function CercaScreen() {
             {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-              onPress={() => {
-                console.log('Buscar eventos con filtros:', {
-                  fecha: selectedDate,
-                  tematicas: selectedTopics,
-                });
-                setIsTopicsModalVisible(false);
+              onPress={async () => {
+                try {
+                  setLoading(true);
+                  setNoEventsMessage(null);
+
+                  let url = 'http://nattech.fib.upc.edu:40490/events';
+
+                  // Si hay categorías seleccionadas → añadimos query params
+                  if (selectedTopics.length > 0) {
+                    const queryParams = selectedTopics
+                      .map((cat) => `categoria=${encodeURIComponent(cat)}`)
+                      .join('&');
+                    url += `?${queryParams}`;
+                  }
+
+                  const res = await fetch(url);
+                  if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+                  const data = await res.json();
+
+                  if (data.length === 0) {
+                    setEvents([]);
+                    setNoEventsMessage(t('No events for selected categories'));
+                  } else {
+                    setEvents(data);
+                    setNoEventsMessage(null);
+                  }
+
+                  // marcar si hay filtro activo
+                  setIsFiltered(selectedTopics.length > 0);
+                } catch (err) {
+                  console.error('Error fetching filtered events:', err);
+                  setNoEventsMessage(t('No events for selected categories'));
+                } finally {
+                  setLoading(false);
+                  setIsTopicsModalVisible(false);
+                }
               }}
             >
               <Text style={[styles.searchButtonText, { color: Colors.background }]}>
@@ -467,7 +559,7 @@ export default function CercaScreen() {
                 color: Colors.text,
               }}
             >
-              {t('All events')}
+              {isFiltered ? t('Filtered events') : t('All events')}
             </Text>
           </>
         }
@@ -475,6 +567,12 @@ export default function CercaScreen() {
           loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
         }
       />
+
+      {!load && events.length === 0 && noEventsMessage !== '' && (
+        <Text style={{ textAlign: 'center', marginTop: 20, color: Colors.text }}>
+          {noEventsMessage}
+        </Text>
+      )}
     </SafeAreaView>
   );
 }
@@ -492,8 +590,8 @@ const styles = StyleSheet.create({
   filtersRow: {
     flexDirection: 'row', // tots els botons en una fila
     alignItems: 'center',
-    paddingHorizontal: 12,
-    gap: 8,
+    justifyContent: 'flex-start',
+    paddingHorizontal: 8,
   },
   filterButton: {
     flexDirection: 'row',
@@ -503,12 +601,10 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    minWidth: 120, //amplada min perque tots els botons es vegin be
-    marginBottom: 10,
+    marginHorizontal: 4,
   },
   dateButtonWrapper: {
-    minWidth: 120,
-    marginBottom: 10,
+    marginHorizontal: 4,
   },
   filterText: {
     fontSize: 14,
