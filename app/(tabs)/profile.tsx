@@ -1,11 +1,12 @@
 // app/(tabs)/profile.tsx
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { LanguageSelector } from '../../components/LanguageSelector';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -27,9 +28,13 @@ const mockUser = {
 };
 
 export default function Profile() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const [showMenu, setShowMenu] = useState(false);
+  const [language, setLanguage] = useState(i18n.language);
+  const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -39,9 +44,59 @@ export default function Profile() {
           <View style={styles.headerIcons}>
             <Ionicons name="calendar-outline" size={22} color={TEXT} />
             <Ionicons name="bookmarks-outline" size={22} color={TEXT} style={{ marginLeft: 12 }} />
-            <Ionicons name="menu-outline" size={24} color={TEXT} style={{ marginLeft: 12 }} />
+            <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
+              <Ionicons name="menu-outline" size={24} color={TEXT} style={{ marginLeft: 12 }} />
+            </TouchableOpacity>
           </View>
         </View>
+
+        {showMenu && (
+          <View style={styles.menuContainer}>
+            {!showLanguageSelector ? (
+              <>
+                <Text style={styles.menuTitle}>{t('Options')}</Text>
+
+                {/* Boto de idioma*/}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => setShowLanguageSelector(true)}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="language-outline" size={18} color={ACCENT} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Language')}</Text>
+                  </View>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <>
+                {/* Boto de atras*/}
+                <TouchableOpacity
+                  onPress={() => setShowLanguageSelector(false)}
+                  style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
+                >
+                  <Ionicons name="chevron-back" size={22} color={TEXT} />
+                  <Text style={[styles.menuTitle, { marginLeft: 6 }]}>{t('Language')}</Text>
+                </TouchableOpacity>
+
+                <LanguageSelector
+                  currentLanguage={language}
+                  onLanguageChange={(lang) => {
+                    setLanguage(lang);
+                    i18n.changeLanguage(lang);
+                    setShowLanguageSelector(false);
+                    setShowMenu(false);
+                  }}
+                  colors={{
+                    accent: ACCENT,
+                    card: CARD,
+                    text: TEXT,
+                    border: '#E4D8C8',
+                  }}
+                />
+              </>
+            )}
+          </View>
+        )}
 
         {/* Perfil básico */}
         <View style={styles.card}>
@@ -157,6 +212,36 @@ const styles = StyleSheet.create({
     color: TEXT,
   },
   headerIcons: { flexDirection: 'row', alignItems: 'center' },
+
+  menuContainer: {
+    position: 'absolute',
+    right: 16,
+    top: 50,
+    backgroundColor: CARD,
+    padding: 14,
+    borderRadius: 14,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 10,
+    elevation: 6,
+    zIndex: 1000,
+    minWidth: 200,
+  },
+  menuTitle: {
+    color: TEXT,
+    fontWeight: '700',
+    fontSize: 15,
+    marginBottom: 8,
+  },
+  menuItem: {
+    paddingVertical: 12,
+  },
+  menuItemText: {
+    color: TEXT,
+    fontSize: 15,
+    fontWeight: '500',
+  },
 
   card: {
     backgroundColor: CARD,
