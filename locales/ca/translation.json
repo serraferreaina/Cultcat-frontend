@@ -88,5 +88,8 @@
   "nadal": "Nadal",
   "No events for selected categories": "No hi ha events per les categories seleccionades",
   "Options": "Opcions",
-  "Language": "Idioma"
+  "Language": "Idioma",
+  "calendar": "Calendari",
+  "today": "Avui",
+  "noEvents": "No hi ha esdeveniments per aquest dia"
 }

@@ -88,5 +88,8 @@
   "nadal": "Navidad",
   "No events for selected categories": "No hay eventos para las categorias seleccionadas",
   "Options": "Opciones",
-  "Language": "Idioma"
+  "Language": "Idioma",
+  "calendar": "Calendario",
+  "today": "Hoy",
+  "noEvents": "No hay eventos para este día"
 }
