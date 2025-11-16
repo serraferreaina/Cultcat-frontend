@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
+import { useRouter } from 'expo-router'; // 👈 Added import
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -34,6 +35,7 @@ export default function Profile() {
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const router = useRouter(); // 👈 Added router hook
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -42,7 +44,11 @@ export default function Profile() {
         <View style={styles.headerRow}>
           <Text style={styles.username}>{mockUser.username}</Text>
           <View style={styles.headerIcons}>
-            <Ionicons name="calendar-outline" size={22} color={TEXT} />
+            {/* 👇 Added TouchableOpacity to navigate to /calendar */}
+            <TouchableOpacity onPress={() => router.push('/calendar')}>
+              <Ionicons name="calendar-outline" size={22} color={TEXT} />
+            </TouchableOpacity>
+
             <Ionicons name="bookmarks-outline" size={22} color={TEXT} style={{ marginLeft: 12 }} />
             <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
               <Ionicons name="menu-outline" size={24} color={TEXT} style={{ marginLeft: 12 }} />
