@@ -35,7 +35,7 @@ export default function Profile() {
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
-  const router = useRouter(); // 👈 Added router hook
+  const router = useRouter();
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
@@ -44,7 +44,6 @@ export default function Profile() {
         <View style={styles.headerRow}>
           <Text style={styles.username}>{mockUser.username}</Text>
           <View style={styles.headerIcons}>
-            {/* 👇 Added TouchableOpacity to navigate to /calendar */}
             <TouchableOpacity onPress={() => router.push('/calendar')}>
               <Ionicons name="calendar-outline" size={22} color={TEXT} />
             </TouchableOpacity>

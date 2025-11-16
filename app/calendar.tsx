@@ -7,18 +7,19 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 // --- Mock events (unchanged) ---
-const eventsData = {
-  '2025-11-15': [
-    { id: 1, time: '09:00', title: "Reunió d'equip", color: '#7057FF' },
-    { id: 2, time: '14:30', title: 'Presentació client', color: '#C86A2E' },
-  ],
-  '2025-11-20': [{ id: 3, time: '10:00', title: 'Workshop disseny', color: '#4CAF50' }],
-  '2025-11-25': [
-    { id: 4, time: '11:00', title: 'Revisió projecte', color: '#FF5722' },
-    { id: 5, time: '15:00', title: 'Cafè amb col·laboradors', color: '#2196F3' },
-    { id: 6, time: '18:00', title: 'Classe de ioga', color: '#9C27B0' },
-  ],
-};
+const eventsData: { [key: string]: { id: number; time: string; title: string; color: string }[] } =
+  {
+    '2025-11-15': [
+      { id: 1, time: '09:00', title: "Reunió d'equip", color: '#7057FF' },
+      { id: 2, time: '14:30', title: 'Presentació client', color: '#C86A2E' },
+    ],
+    '2025-11-20': [{ id: 3, time: '10:00', title: 'Workshop disseny', color: '#4CAF50' }],
+    '2025-11-25': [
+      { id: 4, time: '11:00', title: 'Revisió projecte', color: '#FF5722' },
+      { id: 5, time: '15:00', title: 'Cafè amb col·laboradors', color: '#2196F3' },
+      { id: 6, time: '18:00', title: 'Classe de ioga', color: '#9C27B0' },
+    ],
+  };
 
 export default function CalendarScreen() {
   const router = useRouter();
@@ -118,11 +119,6 @@ export default function CalendarScreen() {
             </View>
           )}
         </ScrollView>
-
-        {/* Add button */}
-        <TouchableOpacity style={styles.addButton}>
-          <Ionicons name="add" size={24} color="#fff" />
-        </TouchableOpacity>
       </View>
     </SafeAreaView>
   );
@@ -222,21 +218,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#8B7355',
     marginTop: 12,
-  },
-  addButton: {
-    position: 'absolute',
-    right: 16,
-    bottom: 16,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#7057FF',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
 });
