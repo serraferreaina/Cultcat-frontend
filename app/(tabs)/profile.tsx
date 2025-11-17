@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
-import { useRouter } from 'expo-router'; // 👈 Added import
+import { useRouter } from 'expo-router';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -17,7 +17,7 @@ const CARD = '#FFF';
 
 const mockUser = {
   username: 'tonigratacos',
-  avatar: 'https://i.pravatar.cc/200?img=12', // placeholder
+  avatar: 'https://i.pravatar.cc/200?img=12',
   description: 'bcn | Ingeniería informática',
   points: 750,
   level: 2,
@@ -40,17 +40,12 @@ export default function Profile() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header: nombre + acciones (calendar/bookmark/menu placeholder) */}
+        {/* Header: nombre + menu */}
         <View style={styles.headerRow}>
           <Text style={styles.username}>{mockUser.username}</Text>
           <View style={styles.headerIcons}>
-            <TouchableOpacity onPress={() => router.push('/calendar')}>
-              <Ionicons name="calendar-outline" size={22} color={TEXT} />
-            </TouchableOpacity>
-
-            <Ionicons name="bookmarks-outline" size={22} color={TEXT} style={{ marginLeft: 12 }} />
             <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
-              <Ionicons name="menu-outline" size={24} color={TEXT} style={{ marginLeft: 12 }} />
+              <Ionicons name="menu-outline" size={24} color={TEXT} />
             </TouchableOpacity>
           </View>
         </View>
@@ -61,7 +56,47 @@ export default function Profile() {
               <>
                 <Text style={styles.menuTitle}>{t('Options')}</Text>
 
-                {/* Boto de idioma*/}
+                {/* Calendari */}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push('/calendar');
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="calendar-outline" size={18} color={ACCENT} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Calendari')}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Guardats */}
+                <TouchableOpacity style={styles.menuItem}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="bookmarks-outline" size={18} color={ACCENT} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Guardats')}</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Configuració */}
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push('/userconfig');
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="settings-outline" size={18} color={ACCENT} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>
+                      {t('Configuració')}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+
+                <View style={styles.menuDivider} />
+
+                {/* Idioma */}
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => setShowLanguageSelector(true)}
@@ -103,7 +138,7 @@ export default function Profile() {
           </View>
         )}
 
-        {/* Perfil básico */}
+        {/* Perfil básic */}
         <View style={styles.card}>
           <View style={styles.topRow}>
             <View>
@@ -231,7 +266,7 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
     zIndex: 1000,
-    minWidth: 200,
+    minWidth: 220,
   },
   menuTitle: {
     color: TEXT,
@@ -246,6 +281,11 @@ const styles = StyleSheet.create({
     color: TEXT,
     fontSize: 15,
     fontWeight: '500',
+  },
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#E4D8C8',
+    marginVertical: 8,
   },
 
   card: {
