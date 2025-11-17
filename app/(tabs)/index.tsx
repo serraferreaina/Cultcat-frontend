@@ -16,6 +16,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEventStatus } from '../../context/EventStatus';
+import CommentSection from '../../components/CommentSection';
 
 interface Events {
   id: number;
@@ -80,7 +81,6 @@ export default function Home() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  // **Usar contexto en lugar de estados locales**
   const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
 
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
@@ -89,6 +89,8 @@ export default function Home() {
   const [events, setEvents] = useState<Events[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [activeEventId, setActiveEventId] = useState<number | null>(null);
 
   const feedOptions = [
     { label: t('For you'), value: 'paraTi' },
@@ -137,7 +139,7 @@ export default function Home() {
         ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
         : item.imgApp && item.imgApp.trim() !== ''
           ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
-          : ['https://via.placeholder.com/300x200/FFFFFF/FFFFFF?text='];
+          : ['https://via.placeholder.com/300x200'];
 
     return (
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
@@ -178,11 +180,15 @@ export default function Home() {
               />
             </TouchableOpacity>
 
-            {/*Coments*/}
-            <View style={styles.comments}>
+            {/* Comentaris */}
+            <TouchableOpacity
+              onPress={() => {
+                setActiveEventId(item.id);
+                setModalOpen(true);
+              }}
+            >
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-              <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
-            </View>
+            </TouchableOpacity>
 
             {/*Share*/}
             <TouchableOpacity style={styles.iconButton}>
@@ -314,6 +320,11 @@ export default function Home() {
         keyExtractor={(item) => item.id.toString()}
         renderItem={renderPost}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
+      />
+      <CommentSection
+        eventId={activeEventId ?? 0}
+        visible={modalOpen}
+        onClose={() => setModalOpen(false)}
       />
     </View>
   );
@@ -450,5 +461,54 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginHorizontal: 12,
     marginBottom: 12,
+  },
+  modalBackground: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  modalContainer: {
+    height: '70%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    padding: 16,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  commentItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginVertical: 8,
+  },
+  commentAuthor: {
+    fontWeight: '600',
+    fontSize: 13,
+  },
+  commentInputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+  },
+  commentInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+  },
+  sendButton: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
   },
 });

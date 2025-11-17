@@ -15,6 +15,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
+import CommentSection from '../../components/CommentSection';
 
 interface EventData {
   id: number;
@@ -48,6 +49,7 @@ export default function EventDetail() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+  const [modalOpen, setModalOpen] = useState(false);
 
   useEffect(() => {
     const fetchEvent = async () => {
@@ -140,10 +142,9 @@ export default function EventDetail() {
           </TouchableOpacity>
 
           {/* Comments */}
-          <View style={styles.comments}>
+          <TouchableOpacity style={styles.comments} onPress={() => setModalOpen(true)}>
             <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-            <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
-          </View>
+          </TouchableOpacity>
 
           {/* Share */}
           <TouchableOpacity style={styles.iconButton}>
@@ -249,6 +250,8 @@ export default function EventDetail() {
           <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>0.0</Text>
         </View>
       </View>
+
+      <CommentSection eventId={event.id} visible={modalOpen} onClose={() => setModalOpen(false)} />
     </ScrollView>
   );
 }

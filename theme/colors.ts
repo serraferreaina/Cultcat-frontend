@@ -16,6 +16,8 @@ export const LightColors = {
   star_inactive: '#rgba(185, 185, 185, 1)',
   going: '#4CAF50',
   link: '#007AFF',
+  muted: '#777777',
+  backdrop: 'rgba(0,0,0,0.4)',
 };
 
 export const DarkColors = {
@@ -32,4 +34,6 @@ export const DarkColors = {
   star_inactive: '#rgba(185, 185, 185, 1)',
   going: '#4CAF50',
   link: '#007AFF',
+  muted: '#AAAAAA',
+  backdrop: 'rgba(0,0,0,0.6)',
 };
