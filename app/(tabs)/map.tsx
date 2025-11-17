@@ -87,8 +87,7 @@ export default function MapScreen() {
           showsUserLocation={true}
           showsCompass
           showsBuildings
-        >
-        </MapView>
+        ></MapView>
       )}
     </View>
   );
