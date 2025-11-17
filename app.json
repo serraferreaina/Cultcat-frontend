@@ -29,6 +29,16 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "plugins": ["expo-router", "expo-web-browser"]
+    "plugins": [
+      "expo-router",
+      "expo-web-browser",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Permet que l'aplicació accedeixi a la teva ubicació.",
+          "isIosBackgroundLocationEnabled": false
+        }
+      ]
+    ]
   }
 }
