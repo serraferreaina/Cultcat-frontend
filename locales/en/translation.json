@@ -87,5 +87,10 @@
   "gegants": "Giants",
   "sardanes": "Sardanes",
   "nadal": "Christmas",
-  "No events for selected categories": "No events for selected categories"
+  "No events for selected categories": "No events for selected categories",
+  "Options": "Options",
+  "Language": "Language",
+  "calendar": "Calendar",
+  "today": "Today",
+  "noEvents": "No events for this day"
 }
