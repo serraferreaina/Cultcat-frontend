@@ -91,5 +91,6 @@
   "Language": "Idioma",
   "calendar": "Calendari",
   "today": "Avui",
-  "noEvents": "No hi ha esdeveniments per aquest dia"
+  "noEvents": "No hi ha esdeveniments per aquest dia",
+  "Close": "Tancar"
 }

@@ -91,5 +91,6 @@
   "Language": "Idioma",
   "calendar": "Calendario",
   "today": "Hoy",
-  "noEvents": "No hay eventos para este día"
+  "noEvents": "No hay eventos para este día",
+  "Close": "Cerrar"
 }
