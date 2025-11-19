@@ -17,6 +17,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
+import ReviewSection from '../../components/ReviewSection';
+import type { Review } from '../../components/ReviewSection';
 
 interface Events {
   id: number;
@@ -89,8 +91,15 @@ export default function Home() {
   const [events, setEvents] = useState<Events[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Comentaris
   const [modalOpen, setModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
+
+  // Ressenyes
+  const [reviewsByEvent, setReviewsByEvent] = useState<Record<number, Review[]>>({});
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [activeReviewEventId, setActiveReviewEventId] = useState<number | null>(null);
 
   const feedOptions = [
     { label: t('For you'), value: 'paraTi' },
@@ -141,9 +150,16 @@ export default function Home() {
           ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
           : ['https://via.placeholder.com/300x200'];
 
+    const eventReviews = reviewsByEvent[item.id] ?? [];
+    const averageRating =
+      eventReviews.length > 0
+        ? eventReviews.reduce((sum, r) => sum + r.rating, 0) / eventReviews.length
+        : 0;
+    const roundedRating = Math.round(averageRating);
+
     return (
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
-        {/*Event*/}
+        {/* Event */}
         <View style={styles.cardHeader}>
           <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
             <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
@@ -167,7 +183,7 @@ export default function Home() {
           </TouchableOpacity>
         </View>
 
-        {/*Image*/}
+        {/* Image */}
         <Images images={images} />
 
         <View style={styles.cardFooter}>
@@ -190,42 +206,28 @@ export default function Home() {
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
 
-            {/*Share*/}
+            {/* Share */}
             <TouchableOpacity style={styles.iconButton}>
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
+
+          {/* Ressenyes */}
           <View style={{ alignItems: 'flex-end' }}>
             <TouchableOpacity
-              style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-              onPress={() => console.log('Write review')}
+              style={styles.reviewButton}
+              onPress={() => {
+                setActiveReviewEventId(item.id);
+                setReviewVisible(true);
+              }}
             >
-              <Ionicons
-                name="create-outline"
-                size={14}
-                color={Colors.card}
-                style={{ marginRight: 4 }}
-              />
-              <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
-                {t('Write review')}
-              </Text>
+              <Ionicons name="create-outline" size={20} color="white" />
+              <Text style={styles.reviewButtonText}>Escriure ressenya</Text>
             </TouchableOpacity>
-
-            <View style={styles.ratingContainer}>
-              {[...Array(5)].map((_, i) => (
-                <Ionicons
-                  key={i}
-                  name="star-outline"
-                  size={16}
-                  color={Colors.star_inactive || Colors.text}
-                />
-              ))}
-              <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>0.0</Text>
-            </View>
           </View>
         </View>
 
-        {/*Description*/}
+        {/* Description */}
         <Text
           style={[styles.descriptionText, { color: Colors.text }]}
           numberOfLines={2}
@@ -272,7 +274,7 @@ export default function Home() {
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {/*Notifications*/}
+          {/* Notifications */}
           <TouchableOpacity onPress={notifications} style={styles.iconButton}>
             <Ionicons name="notifications-outline" size={26} color={Colors.text} />
             {unreadNotifications > 0 && (
@@ -284,7 +286,7 @@ export default function Home() {
             )}
           </TouchableOpacity>
 
-          {/*Chat*/}
+          {/* Chat */}
           <TouchableOpacity style={styles.iconButton}>
             <Ionicons name="chatbubble-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
@@ -321,11 +323,52 @@ export default function Home() {
         renderItem={renderPost}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
       />
+
+      {/* Modal de comentaris */}
       <CommentSection
         eventId={activeEventId ?? 0}
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
       />
+
+      {/* Modal de ressenyes */}
+      {activeReviewEventId !== null && (
+        <ReviewSection
+          visible={reviewVisible}
+          initialReviews={
+            activeReviewEventId !== null ? (reviewsByEvent[activeReviewEventId] ?? []) : []
+          }
+          onClose={() => setReviewVisible(false)}
+          onSubmit={(rating, payload) => {
+            // --- CASE 1: DELETE ---
+            if (rating === -1) {
+              const reviewId = Number(payload);
+
+              setReviewsByEvent((prev) => ({
+                ...prev,
+                [activeReviewEventId!]: prev[activeReviewEventId!].filter((r) => r.id !== reviewId),
+              }));
+              return;
+            }
+
+            // --- CASE 2: ADD REVIEW ---
+            const newReview = {
+              id: Date.now(),
+              rating,
+              comment: payload,
+              date: new Date().toISOString(),
+              likes: 0,
+              likedByMe: false,
+              author: 'Tu',
+            };
+
+            setReviewsByEvent((prev) => ({
+              ...prev,
+              [activeReviewEventId!]: [newReview, ...(prev[activeReviewEventId!] ?? [])],
+            }));
+          }}
+        />
+      )}
     </View>
   );
 }
@@ -447,13 +490,16 @@ const styles = StyleSheet.create({
   reviewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    marginBottom: 6,
+    backgroundColor: '#d96c29',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 20,
+    alignSelf: 'flex-start',
+    marginTop: 10,
   },
   reviewButtonText: {
-    fontSize: 12,
+    color: 'white',
+    marginLeft: 6,
     fontWeight: '600',
   },
   seeMore: {
