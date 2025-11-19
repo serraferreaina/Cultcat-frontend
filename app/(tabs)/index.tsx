@@ -26,7 +26,6 @@ interface Events {
   descripcio: string | null;
   imgApp: string | null;
   imatges: string | null;
-  //videos: string | null; Veure com implementar vídeos més endavant
 }
 
 interface PointsImages {

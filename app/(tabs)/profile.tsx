@@ -71,7 +71,13 @@ export default function Profile() {
                 </TouchableOpacity>
 
                 {/* Guardats */}
-                <TouchableOpacity style={styles.menuItem}>
+                <TouchableOpacity
+                  style={styles.menuItem}
+                  onPress={() => {
+                    setShowMenu(false);
+                    router.push('/save_events');
+                  }}
+                >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="bookmarks-outline" size={18} color={ACCENT} />
                     <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Guardats')}</Text>
