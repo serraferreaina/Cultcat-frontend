@@ -16,6 +16,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
+import ReviewSection, { Review } from '../../components/ReviewSection';
 
 interface EventData {
   id: number;
@@ -49,8 +50,19 @@ export default function EventDetail() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+
+  // COMENTARIS
   const [modalOpen, setModalOpen] = useState(false);
 
+  // RESSENYES
+  const [reviewsByEvent, setReviewsByEvent] = useState<Record<number, Review[]>>({});
+  const [reviewVisible, setReviewVisible] = useState(false);
+  const [activeReviewEventId, setActiveReviewEventId] = useState<number | null>(null);
+
+  // Usuari actual (placeholder)
+  const [currentUser] = useState({ id: 1, username: 'Usuari' });
+
+  // FETCH DE L’ESDEVENIMENT
   useEffect(() => {
     const fetchEvent = async () => {
       try {
@@ -58,6 +70,10 @@ export default function EventDetail() {
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
         const data = await res.json();
         setEvent(data);
+
+        // Inicialitza array buit per les reviews d’aquest event
+        setActiveReviewEventId(data.id);
+        setReviewsByEvent((prev) => (prev[data.id] ? prev : { ...prev, [data.id]: [] }));
       } catch (err: any) {
         console.error('Error loading event:', err);
         setError(err.message);
@@ -97,15 +113,8 @@ export default function EventDetail() {
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: Colors.background, paddingTop: 50 }]}>
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginTop: 30,
-          marginHorizontal: 20,
-          marginBottom: 8,
-        }}
-      >
+      {/* BACK BUTTON + TITLE */}
+      <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[styles.title, { color: Colors.text }]}>←</Text>
         </TouchableOpacity>
@@ -114,14 +123,8 @@ export default function EventDetail() {
 
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
-      <View
-        style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginTop: 15,
-          justifyContent: 'space-between',
-        }}
-      >
+      {/* BUTTONS */}
+      <View style={styles.topButtons}>
         <TouchableOpacity
           style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
           onPress={() => toggleGoing(event.id)}
@@ -131,8 +134,7 @@ export default function EventDetail() {
           </Text>
         </TouchableOpacity>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
-          {/* Save event */}
+        <View style={styles.iconsRow}>
           <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(event.id)}>
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -141,93 +143,74 @@ export default function EventDetail() {
             />
           </TouchableOpacity>
 
-          {/* Comments */}
-          <TouchableOpacity style={styles.comments} onPress={() => setModalOpen(true)}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => setModalOpen(true)}>
             <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
 
-          {/* Share */}
           <TouchableOpacity style={styles.iconButton}>
             <Ionicons name="share-social-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
         </View>
       </View>
 
-      <Text style={[styles.description, { color: Colors.text, marginTop: 15 }]}>
+      <Text style={[styles.description, { color: Colors.text }]}>
         {event.descripcio?.trim() || t('No description available')}
       </Text>
 
-      {/* Details */}
+      {/* DETALLS */}
       {event.espai && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>🏛️ </Text>
-          <Text style={styles.detailLabel}>{t('Space')}</Text>
-          <Text> {event.espai}</Text>
+          🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
         </Text>
       )}
       {event.direccio && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>📍 </Text>
-          <Text style={styles.detailLabel}>{t('Address')}</Text>
-          <Text> {event.direccio}</Text>
+          📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
         </Text>
       )}
       {event.localitat && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>🏙️ </Text>
-          <Text style={styles.detailLabel}>{t('Location')}</Text>
-          <Text> {event.localitat}</Text>
+          🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
         </Text>
       )}
       {event.modalitat && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>💡 </Text>
-          <Text style={styles.detailLabel}>{t('Modality')}</Text>
-          <Text> {event.modalitat}</Text>
+          💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
         </Text>
       )}
       {event.infoHorari && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>⏰ </Text>
-          <Text style={styles.detailLabel}>{t('Schedule')}</Text>
-          <Text> {event.infoHorari}</Text>
+          ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
         </Text>
       )}
       {event.infoEntrades && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>🎟️ </Text>
-          <Text style={styles.detailLabel}>{t('Tickets')}</Text>
-          <Text> {event.infoEntrades}</Text>
+          🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
         </Text>
       )}
       {event.telefon && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>☎️ </Text>
-          <Text style={styles.detailLabel}>{t('Telephone')}</Text>
-          <Text> {event.telefon}</Text>
+          ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
         </Text>
       )}
       {event.email && (
         <Text style={[styles.detail, { color: Colors.text }]}>
-          <Text>📧 </Text>
-          <Text style={styles.detailLabel}>{t('Email')}</Text>
-          <Text> {event.email}</Text>
+          📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
         </Text>
       )}
 
-      {/* Link */}
+      {/* LINK EXTRA */}
       {typeof Link === 'string' && Link.trim() !== '' && (
         <TouchableOpacity onPress={() => Linking.openURL(Link)}>
-          <Text style={[styles.link, { color: Colors.link, marginTop: 20 }]}>
-            {t('More information')}
-          </Text>
+          <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
         </TouchableOpacity>
       )}
 
+      {/* BOTO RESSENYA */}
       <View style={{ alignItems: 'flex-end' }}>
         <TouchableOpacity
           style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-          onPress={() => console.log('Write review')}
+          onPress={() => setReviewVisible(true)}
         >
           <Ionicons
             name="create-outline"
@@ -237,42 +220,61 @@ export default function EventDetail() {
           />
           <Text style={[styles.reviewButtonText, { color: Colors.card }]}>{t('Write review')}</Text>
         </TouchableOpacity>
-
-        <View style={styles.ratingContainer}>
-          {[...Array(5)].map((_, i) => (
-            <Ionicons
-              key={i}
-              name="star-outline"
-              size={16}
-              color={Colors.star_inactive || Colors.text}
-            />
-          ))}
-          <Text style={[styles.ratingText, { color: Colors.text, marginLeft: 4 }]}>0.0</Text>
-        </View>
       </View>
 
+      {/* COMMENT MODAL */}
       <CommentSection eventId={event.id} visible={modalOpen} onClose={() => setModalOpen(false)} />
+
+      {/* REVIEW MODAL */}
+      {activeReviewEventId !== null && (
+        <ReviewSection
+          visible={reviewVisible}
+          initialReviews={reviewsByEvent[activeReviewEventId] ?? []}
+          onClose={() => setReviewVisible(false)}
+          onSubmit={(rating, payload) => {
+            // CASE DELETE
+            if (rating === -1) {
+              const reviewId = Number(payload);
+              setReviewsByEvent((prev) => ({
+                ...prev,
+                [activeReviewEventId]: prev[activeReviewEventId].filter((r) => r.id !== reviewId),
+              }));
+              return;
+            }
+
+            // CASE ADD
+            const newReview: Review = {
+              id: Date.now(),
+              rating,
+              comment: payload,
+              date: new Date().toISOString(),
+              likes: 0,
+              likedByMe: false,
+              author: currentUser.username,
+            };
+
+            setReviewsByEvent((prev) => ({
+              ...prev,
+              [activeReviewEventId]: [newReview, ...(prev[activeReviewEventId] ?? [])],
+            }));
+          }}
+        />
+      )}
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
+  container: { flex: 1 },
+  image: { width: '100%', height: 250 },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 30,
+    marginHorizontal: 20,
+    marginBottom: 8,
   },
-  image: {
-    width: '100%',
-    height: 250,
-  },
-  content: {
-    padding: 20,
-    paddingTop: 5,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: '700',
-    marginBottom: 10,
-  },
+  title: { fontSize: 22, fontWeight: '700' },
   description: {
     fontSize: 16,
     lineHeight: 22,
@@ -283,13 +285,8 @@ const styles = StyleSheet.create({
   link: {
     fontSize: 16,
     textDecorationLine: 'underline',
+    marginTop: 20,
     marginLeft: 10,
-    marginRight: 10,
-  },
-  center: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   detail: {
     fontSize: 15,
@@ -299,6 +296,17 @@ const styles = StyleSheet.create({
   },
   detailLabel: {
     fontWeight: '600',
+  },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 15,
+    justifyContent: 'space-between',
   },
   button: {
     paddingVertical: 8,
@@ -310,16 +318,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
   },
-  ratingContainer: {
+  iconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-    marginBottom: 100,
-    marginRight: 10,
+    gap: 15,
   },
-  ratingText: {
-    fontSize: 13,
+  iconButton: {
+    padding: 6,
+    marginRight: 10,
   },
   reviewButton: {
     marginTop: 20,
@@ -334,17 +340,5 @@ const styles = StyleSheet.create({
   reviewButtonText: {
     fontSize: 12,
     fontWeight: '600',
-  },
-  iconButton: {
-    padding: 6,
-    marginRight: 10,
-  },
-  comments: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  commentCount: {
-    fontSize: 13,
   },
 });
