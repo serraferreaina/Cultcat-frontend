@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection, { Review } from '../../components/ReviewSection';
+import { Share } from 'react-native';
 
 interface EventData {
   id: number;
@@ -147,7 +148,16 @@ export default function EventDetail() {
             <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => {
+              const url = `https://tu-app.com/event/${event.id}`;
+              Share.share({
+                message: `Mira este evento: ${url}`,
+                url,
+              });
+            }}
+          >
             <Ionicons name="share-social-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
         </View>

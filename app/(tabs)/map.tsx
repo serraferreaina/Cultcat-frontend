@@ -20,6 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useEventStatus } from '../../context/EventStatus';
+import { Share } from 'react-native';
 
 interface EventItem {
   id: number;
@@ -245,7 +246,16 @@ export default function MapScreen() {
                         </Text>
                       </View>
 
-                      <TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.iconButton}
+                        onPress={() => {
+                          const url = `https://tu-app.com/event/${selectedEvent.id}`;
+                          Share.share({
+                            message: `Mira este evento: ${url}`,
+                            url,
+                          });
+                        }}
+                      >
                         <Ionicons name="share-social-outline" size={20} color={Colors.text} />
                       </TouchableOpacity>
                     </View>
