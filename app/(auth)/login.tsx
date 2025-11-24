@@ -35,6 +35,23 @@ export default function LoginScreen() {
       <TouchableOpacity>
         <GoogleButton onPress={handleGoogleLogin} />
       </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          marginTop: 20,
+          padding: 12,
+          backgroundColor: '#444',
+          borderRadius: 8,
+        }}
+        onPress={() => {
+          if (!global.authToken) {
+            global.authToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
+          }
+          router.replace('/(tabs)');
+        }}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>DEV LOGIN</Text>
+      </TouchableOpacity>
     </View>
   );
 }
