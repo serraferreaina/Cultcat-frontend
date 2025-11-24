@@ -23,6 +23,7 @@ import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
+import { Share } from 'react-native';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -198,7 +199,16 @@ export default function CercaScreen() {
                 <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
               </View>
 
-              <TouchableOpacity style={[styles.iconButton, { marginRight: 12 }]}>
+              <TouchableOpacity
+                style={styles.iconButton}
+                onPress={() => {
+                  const url = `https://tu-app.com/event/${item.id}`;
+                  Share.share({
+                    message: `Mira este evento: ${url}`,
+                    url,
+                  });
+                }}
+              >
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>

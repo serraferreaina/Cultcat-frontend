@@ -19,6 +19,7 @@ import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import type { Review } from '../../components/ReviewSection';
+import { Share } from 'react-native';
 
 interface Events {
   id: number;
@@ -206,7 +207,16 @@ export default function Home() {
             </TouchableOpacity>
 
             {/* Share */}
-            <TouchableOpacity style={styles.iconButton}>
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={() => {
+                const url = `https://tu-app.com/event/${item.id}`;
+                Share.share({
+                  message: `Mira este evento: ${url}`,
+                  url,
+                });
+              }}
+            >
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
