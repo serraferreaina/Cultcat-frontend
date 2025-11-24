@@ -1,5 +1,5 @@
 // app/(tabs)/profile.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,6 +8,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
+import { getProfile } from '../../api';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -35,14 +36,30 @@ export default function Profile() {
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
+  const [user, setUser] = useState<any>(null);
+
   const router = useRouter();
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const data = await getProfile();
+        setUser(data);
+        console.log('PROFILE DATA:', data);
+      } catch (err) {
+        console.error('Error carregant perfil:', err);
+      }
+    }
+
+    load();
+  }, []);
 
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header: nombre + menu */}
         <View style={styles.headerRow}>
-          <Text style={styles.username}>{mockUser.username}</Text>
+          <Text style={styles.username}>{user?.username}</Text>
           <View style={styles.headerIcons}>
             <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
               <Ionicons name="menu-outline" size={24} color={TEXT} />
@@ -148,7 +165,7 @@ export default function Profile() {
         <View style={styles.card}>
           <View style={styles.topRow}>
             <View>
-              <Image source={{ uri: mockUser.avatar }} style={styles.avatar} />
+              <Image source={{ uri: user?.profilePic }} style={styles.avatar} />
               {/* Botoncito de añadir foto (solo UI) */}
               <View style={styles.addPhoto}>
                 <Ionicons name="add" size={16} color={ACCENT} />
@@ -156,10 +173,8 @@ export default function Profile() {
             </View>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={styles.desc}>{mockUser.description}</Text>
-              <Text style={styles.points}>
-                <Text style={{ fontWeight: '700' }}>{t('Punts')}:</Text> {mockUser.points} pts.
-              </Text>
+              <Text style={styles.desc}>{user?.bio}</Text>
+              <Text style={styles.points}></Text>
               {/* Botón Eventos pasados */}
               <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
                 <Text style={styles.pastBtnText}>{t('Esdevenmients passats')}</Text>
@@ -167,29 +182,8 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Stats */}
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.stats.eventos}</Text>
-              <Text style={styles.statLabel}>{t('Assistits')}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.stats.logros}</Text>
-              <Text style={styles.statLabel}>{t('Assoliments')}</Text>
-            </View>
-            <View style={styles.divider} />
-            <View style={styles.statItem}>
-              <Text style={styles.statNumber}>{mockUser.stats.amigos}</Text>
-              <Text style={styles.statLabel}>{t('Amics')}</Text>
-            </View>
-          </View>
-
           {/* Nivel + barra simple */}
           <View style={{ marginTop: 12 }}>
-            <Text style={styles.levelText}>
-              {t('Nivell')} {mockUser.level}
-            </Text>
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: '60%' }]} />
             </View>
