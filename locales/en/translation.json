@@ -94,5 +94,7 @@
   "today": "Today",
   "noEvents": "No events for this day",
   "Close": "Close",
-  "Theme": "Theme"
+  "Theme": "Theme",
+  "noDateEvents": "Events without assigned date",
+  "noDate": "Date not defined"
 }

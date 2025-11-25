@@ -1,41 +1,88 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Calendar, DateData } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-
-/* ----------  THEME  ---------- */
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
+import { useEventStatus } from '../context/EventStatus';
+import { api } from '../api'; // assegura’t que tingui el Token al header
 
-/* ----------  MOCK EVENTS  ---------- */
-const eventsData: Record<string, { id: number; time: string; title: string; color: string }[]> = {
-  '2025-11-15': [
-    { id: 1, time: '09:00', title: "Reunió d'equip", color: '#7057FF' },
-    { id: 2, time: '14:30', title: 'Presentació client', color: '#C86A2E' },
-  ],
-  '2025-11-20': [{ id: 3, time: '10:00', title: 'Workshop disseny', color: '#4CAF50' }],
-  '2025-11-25': [
-    { id: 4, time: '11:00', title: 'Revisió projecte', color: '#FF5722' },
-    { id: 5, time: '15:00', title: 'Cafè amb col·laboradors', color: '#2196F3' },
-    { id: 6, time: '18:00', title: 'Classe de ioga', color: '#9C27B0' },
-  ],
+type SavedEvent = {
+  event_id: string;
+  event_title: string;
+  state: string;
+  created_at: string;
+};
+
+type EventDetail = {
+  id: number;
+  titol: string;
+  data_inici: string | null;
+  color?: string;
 };
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const colors = theme === 'dark' ? DarkColors : LightColors;
+  const { goingEvents } = useEventStatus();
 
   const today = new Date().toISOString().split('T')[0];
   const [selected, setSelected] = useState(today);
+  const [goingByDate, setGoingByDate] = useState<Record<string, EventDetail[]>>({});
+  const [noDateEvents, setNoDateEvents] = useState<EventDetail[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  /* ----------  MARKED DATES  ---------- */
+  useEffect(() => {
+    fetchWantToGoEvents();
+  }, [goingEvents]);
+
+  async function fetchWantToGoEvents() {
+    setLoading(true);
+    try {
+      const saved: SavedEvent[] = await api('/saved-events/?state=wantToGo');
+
+      const details: EventDetail[] = [];
+      for (const se of saved) {
+        const ev: EventDetail = await api(`/events/${se.event_id}/`);
+        details.push(ev);
+      }
+
+      const withDate: Record<string, EventDetail[]> = {};
+      const without: EventDetail[] = [];
+
+      details.forEach((ev) => {
+        if (!ev.data_inici) {
+          without.push(ev);
+        } else {
+          const day = ev.data_inici.slice(0, 10);
+          if (!withDate[day]) withDate[day] = [];
+          withDate[day].push(ev);
+        }
+      });
+
+      setGoingByDate(withDate);
+      setNoDateEvents(without);
+    } catch (err) {
+      console.error('Error loading wantToGo events:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const markedDates: any = {};
-  Object.keys(eventsData).forEach((date) => {
+  Object.keys(goingByDate).forEach((date) => {
     markedDates[date] = { marked: true, dotColor: colors.accent };
   });
   markedDates[selected] = {
@@ -45,27 +92,24 @@ export default function CalendarScreen() {
     selectedTextColor: colors.card,
   };
 
-  const selectedEvents = eventsData[selected] ?? [];
+  const selectedEvents = goingByDate[selected] || [];
 
-  const selectedDate = new Date(selected + 'T00:00:00');
-  const formattedDate = selectedDate.toLocaleDateString(i18n.language, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </SafeAreaView>
+    );
+  }
 
-  /* ----------  RENDER  ---------- */
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
-      {/* -------  HEADER  ------- */}
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} hitSlop={8}>
+        <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-
         <Text style={[styles.title, { color: colors.text }]}>{t('calendar')}</Text>
-
         <TouchableOpacity
           style={[styles.todayButton, { borderColor: colors.accent }]}
           onPress={() => setSelected(today)}
@@ -74,9 +118,9 @@ export default function CalendarScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* -------  CALENDAR  ------- */}
+      {/* Calendar */}
       <Calendar
-        key={theme} /* forces re-render on theme change */
+        key={theme}
         onDayPress={(day: DateData) => setSelected(day.dateString)}
         markedDates={markedDates}
         theme={{
@@ -100,9 +144,16 @@ export default function CalendarScreen() {
         style={[styles.calendar, { borderBottomColor: colors.border }]}
       />
 
-      {/* -------  EVENTS  ------- */}
+      {/* Events list */}
       <View style={styles.eventsContainer}>
-        <Text style={[styles.dateHeader, { color: colors.text }]}>{formattedDate}</Text>
+        <Text style={[styles.dateHeader, { color: colors.text }]}>
+          {new Date(selected + 'T00:00:00').toLocaleDateString(undefined, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </Text>
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {selectedEvents.length > 0 ? (
@@ -113,12 +164,14 @@ export default function CalendarScreen() {
                   styles.eventCard,
                   { backgroundColor: colors.card, shadowColor: colors.shadow },
                 ]}
-                activeOpacity={0.7}
+                onPress={() => router.push(`/events/${event.id}`)}
+                activeOpacity={0.8}
               >
-                <View style={[styles.eventColorBar, { backgroundColor: event.color }]} />
+                <View
+                  style={[styles.eventColorBar, { backgroundColor: event.color || colors.accent }]}
+                />
                 <View style={styles.eventContent}>
-                  <Text style={[styles.eventTime, { color: colors.accent }]}>{event.time}</Text>
-                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.title}</Text>
+                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.titol}</Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
@@ -130,6 +183,38 @@ export default function CalendarScreen() {
                 {t('noEvents')}
               </Text>
             </View>
+          )}
+
+          {/* Esdeveniments sense data */}
+          {noDateEvents.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('noDateEvents')}</Text>
+              {noDateEvents.map((event) => (
+                <TouchableOpacity
+                  key={event.id}
+                  style={[
+                    styles.eventCard,
+                    { backgroundColor: colors.card, shadowColor: colors.shadow },
+                  ]}
+                  onPress={() => router.push(`/events/${event.id}`)}
+                  activeOpacity={0.8}
+                >
+                  <View
+                    style={[
+                      styles.eventColorBar,
+                      { backgroundColor: event.color || colors.accent },
+                    ]}
+                  />
+                  <View style={styles.eventContent}>
+                    <Text style={[styles.eventTitle, { color: colors.text }]}>{event.titol}</Text>
+                    <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
+                      {t('noDate')}
+                    </Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+                </TouchableOpacity>
+              ))}
+            </>
           )}
         </ScrollView>
       </View>
@@ -178,6 +263,12 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     textTransform: 'capitalize',
   },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 20,
+    marginBottom: 8,
+  },
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -196,14 +287,14 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   eventContent: { flex: 1 },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '500',
+  },
   eventTime: {
     fontSize: 14,
     fontWeight: '600',
     marginBottom: 4,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: '500',
   },
   noEventsContainer: {
     alignItems: 'center',

@@ -93,5 +93,7 @@
   "today": "Avui",
   "noEvents": "No hi ha esdeveniments per aquest dia",
   "Close": "Tancar",
-  "Theme": "Mode"
+  "Theme": "Mode",
+  "noDateEvents": "Esdeveniments sense data assignada",
+  "noDate": "Data no definida"
 }

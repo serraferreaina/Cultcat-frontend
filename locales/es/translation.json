@@ -93,5 +93,7 @@
   "today": "Hoy",
   "noEvents": "No hay eventos para este día",
   "Close": "Cerrar",
-  "Theme": "Tema"
+  "Theme": "Tema",
+  "noDateEvents": "Eventos sin fecha asignada",
+  "noDate": "Fecha no definida"
 }
