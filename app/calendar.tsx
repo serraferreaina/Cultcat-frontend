@@ -1,122 +1,181 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  ActivityIndicator,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Calendar } from 'react-native-calendars';
+import { Calendar, DateData } from 'react-native-calendars';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { useTheme } from '../theme/ThemeContext';
+import { LightColors, DarkColors } from '../theme/colors';
+import { useEventStatus } from '../context/EventStatus';
+import { api } from '../api';
+import EventCard from '../components/EventCard';
 
-// --- Mock events (unchanged) ---
-const eventsData: { [key: string]: { id: number; time: string; title: string; color: string }[] } =
-  {
-    '2025-11-15': [
-      { id: 1, time: '09:00', title: "Reunió d'equip", color: '#7057FF' },
-      { id: 2, time: '14:30', title: 'Presentació client', color: '#C86A2E' },
-    ],
-    '2025-11-20': [{ id: 3, time: '10:00', title: 'Workshop disseny', color: '#4CAF50' }],
-    '2025-11-25': [
-      { id: 4, time: '11:00', title: 'Revisió projecte', color: '#FF5722' },
-      { id: 5, time: '15:00', title: 'Cafè amb col·laboradors', color: '#2196F3' },
-      { id: 6, time: '18:00', title: 'Classe de ioga', color: '#9C27B0' },
-    ],
-  };
+type SavedEvent = {
+  event_id: string;
+  event_title: string;
+  state: string;
+  created_at: string;
+};
+
+type EventDetail = {
+  id: number;
+  titol: string;
+  data_inici: string | null;
+  color?: string;
+};
 
 export default function CalendarScreen() {
   const router = useRouter();
-  const { t, i18n } = useTranslation();
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const colors = theme === 'dark' ? DarkColors : LightColors;
+  const { goingEvents } = useEventStatus();
 
   const today = new Date().toISOString().split('T')[0];
   const [selected, setSelected] = useState(today);
+  const [goingByDate, setGoingByDate] = useState<Record<string, EventDetail[]>>({});
+  const [noDateEvents, setNoDateEvents] = useState<EventDetail[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Marked calendar days with dots
+  useEffect(() => {
+    fetchWantToGoEvents();
+  }, [goingEvents]);
+
+  async function fetchWantToGoEvents() {
+    setLoading(true);
+    try {
+      const saved: SavedEvent[] = await api('/saved-events/?state=wantToGo');
+
+      const details: EventDetail[] = [];
+      for (const se of saved) {
+        const ev: EventDetail = await api(`/events/${se.event_id}/`);
+        details.push(ev);
+      }
+
+      const withDate: Record<string, EventDetail[]> = {};
+      const without: EventDetail[] = [];
+
+      details.forEach((ev) => {
+        if (!ev.data_inici) {
+          without.push(ev);
+        } else {
+          const day = ev.data_inici.slice(0, 10);
+          if (!withDate[day]) withDate[day] = [];
+          withDate[day].push(ev);
+        }
+      });
+
+      setGoingByDate(withDate);
+      setNoDateEvents(without);
+    } catch (err) {
+      console.error('Error loading wantToGo events:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
   const markedDates: any = {};
-  Object.keys(eventsData).forEach((date) => {
-    markedDates[date] = {
-      marked: true,
-      dotColor: '#7057FF',
-    };
+  Object.keys(goingByDate).forEach((date) => {
+    markedDates[date] = { marked: true, dotColor: colors.accent };
   });
-
-  // Selected day style
   markedDates[selected] = {
     ...markedDates[selected],
     selected: true,
-    selectedColor: '#7057FF',
-    selectedTextColor: '#fff',
+    selectedColor: colors.accent,
+    selectedTextColor: colors.card,
   };
 
-  const selectedEvents = eventsData[selected] || [];
+  const selectedEvents = goingByDate[selected] || [];
 
-  // Date formatted based on the current i18n language
-  const selectedDate = new Date(selected + 'T00:00:00');
-  const formattedDate = selectedDate.toLocaleDateString(i18n.language, {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
+  if (loading) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
+        <ActivityIndicator size="large" color={colors.accent} />
+      </SafeAreaView>
+    );
+  }
 
   return (
-    <SafeAreaView style={styles.screen}>
+    <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="#311C0C" />
+          <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-
-        <Text style={styles.title}>{t('calendar')}</Text>
-
-        <TouchableOpacity style={styles.todayButton} onPress={() => setSelected(today)}>
-          <Text style={styles.todayButtonText}>{t('today')}</Text>
+        <Text style={[styles.title, { color: colors.text }]}>{t('calendar')}</Text>
+        <TouchableOpacity
+          style={[styles.todayButton, { borderColor: colors.accent }]}
+          onPress={() => setSelected(today)}
+        >
+          <Text style={[styles.todayButtonText, { color: colors.accent }]}>{t('today')}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Calendar */}
       <Calendar
-        onDayPress={(day) => setSelected(day.dateString)}
+        key={theme}
+        onDayPress={(day: DateData) => setSelected(day.dateString)}
         markedDates={markedDates}
         theme={{
-          backgroundColor: '#F7F0E2',
-          calendarBackground: '#F7F0E2',
-          textSectionTitleColor: '#8B7355',
-          selectedDayBackgroundColor: '#7057FF',
-          selectedDayTextColor: '#ffffff',
-          todayTextColor: '#C86A2E',
-          dayTextColor: '#311C0C',
-          textDisabledColor: '#D0C4B0',
-          dotColor: '#7057FF',
-          selectedDotColor: '#ffffff',
-          arrowColor: '#C86A2E',
-          monthTextColor: '#311C0C',
+          backgroundColor: colors.background,
+          calendarBackground: colors.background,
+          textSectionTitleColor: colors.textSecondary,
+          selectedDayBackgroundColor: colors.accent,
+          selectedDayTextColor: colors.card,
+          todayTextColor: colors.accent,
+          dayTextColor: colors.text,
+          textDisabledColor: colors.placeholder,
+          dotColor: colors.accent,
+          selectedDotColor: colors.card,
+          arrowColor: colors.accent,
+          monthTextColor: colors.text,
           textMonthFontWeight: 'bold',
           textDayFontSize: 16,
           textMonthFontSize: 18,
           textDayHeaderFontSize: 14,
         }}
-        style={styles.calendar}
+        style={[styles.calendar, { borderBottomColor: colors.border }]}
       />
 
       {/* Events list */}
       <View style={styles.eventsContainer}>
-        <Text style={styles.dateHeader}>{formattedDate}</Text>
+        <Text style={[styles.dateHeader, { color: colors.text }]}>
+          {new Date(selected + 'T00:00:00').toLocaleDateString(undefined, {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          })}
+        </Text>
 
-        <ScrollView style={styles.eventsList} showsVerticalScrollIndicator={false}>
+        <ScrollView showsVerticalScrollIndicator={false}>
           {selectedEvents.length > 0 ? (
-            selectedEvents.map((event) => (
-              <TouchableOpacity key={event.id} style={styles.eventCard} activeOpacity={0.7}>
-                <View style={[styles.eventColorBar, { backgroundColor: event.color }]} />
-                <View style={styles.eventContent}>
-                  <Text style={styles.eventTime}>{event.time}</Text>
-                  <Text style={styles.eventTitle}>{event.title}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#8B7355" />
-              </TouchableOpacity>
-            ))
+            selectedEvents.map((event) => <EventCard key={event.id} item={event} />)
           ) : (
             <View style={styles.noEventsContainer}>
-              <Ionicons name="calendar-outline" size={48} color="#D0C4B0" />
-              <Text style={styles.noEventsText}>{t('noEvents')}</Text>
+              <Ionicons name="calendar-outline" size={48} color={colors.placeholder} />
+              <Text style={[styles.noEventsText, { color: colors.textSecondary }]}>
+                {t('noEvents')}
+              </Text>
             </View>
+          )}
+
+          {/* Esdeveniments sense data */}
+          {noDateEvents.length > 0 && (
+            <>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('noDateEvents')}</Text>
+              {noDateEvents.map((event) => (
+                <EventCard key={event.id} item={event} />
+              ))}
+            </>
           )}
         </ScrollView>
       </View>
@@ -124,12 +183,9 @@ export default function CalendarScreen() {
   );
 }
 
-// Styles
+/* ----------  STYLES  ---------- */
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#F7F0E2',
-  },
+  screen: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -140,7 +196,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#311C0C',
     flex: 1,
     marginLeft: 12,
   },
@@ -149,16 +204,13 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#C86A2E',
   },
   todayButtonText: {
-    color: '#C86A2E',
     fontSize: 14,
     fontWeight: '600',
   },
   calendar: {
     borderBottomWidth: 1,
-    borderBottomColor: '#E5DCC8',
     paddingBottom: 10,
   },
   eventsContainer: {
@@ -169,21 +221,21 @@ const styles = StyleSheet.create({
   dateHeader: {
     fontSize: 18,
     fontWeight: '600',
-    color: '#311C0C',
     marginBottom: 16,
     textTransform: 'capitalize',
   },
-  eventsList: {
-    flex: 1,
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginTop: 20,
+    marginBottom: 8,
   },
   eventCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -195,19 +247,15 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     marginRight: 12,
   },
-  eventContent: {
-    flex: 1,
+  eventContent: { flex: 1 },
+  eventTitle: {
+    fontSize: 16,
+    fontWeight: '500',
   },
   eventTime: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#7057FF',
     marginBottom: 4,
-  },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#311C0C',
   },
   noEventsContainer: {
     alignItems: 'center',
@@ -216,7 +264,6 @@ const styles = StyleSheet.create({
   },
   noEventsText: {
     fontSize: 16,
-    color: '#8B7355',
     marginTop: 12,
   },
 });

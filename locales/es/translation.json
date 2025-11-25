@@ -95,5 +95,8 @@
   "Close": "Cerrar",
   "No events found": "No se han encontrado eventos",
   "No events match": "Ningún evento coincide \"{{query}}\"",
-  "No events to display": "No hay eventos para mostrar"
+  "No events to display": "No hay eventos para mostrar",
+  "Theme": "Tema",
+  "noDateEvents": "Eventos sin fecha asignada",
+  "noDate": "Fecha no definida"
 }
