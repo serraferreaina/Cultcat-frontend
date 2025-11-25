@@ -96,7 +96,7 @@
   "Close": "Close",
   "No events found": "No events found",
   "No events match": "No events match \"{{query}}\"",
-  "No events to display": "No events to display"
+  "No events to display": "No events to display",
   "Theme": "Theme",
   "noDateEvents": "Events without assigned date",
   "noDate": "Date not defined"
