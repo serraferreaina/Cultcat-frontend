@@ -15,7 +15,8 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useEventStatus } from '../context/EventStatus';
-import { api } from '../api'; // assegura’t que tingui el Token al header
+import { api } from '../api';
+import EventCard from '../components/EventCard';
 
 type SavedEvent = {
   event_id: string;
@@ -157,25 +158,7 @@ export default function CalendarScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {selectedEvents.length > 0 ? (
-            selectedEvents.map((event) => (
-              <TouchableOpacity
-                key={event.id}
-                style={[
-                  styles.eventCard,
-                  { backgroundColor: colors.card, shadowColor: colors.shadow },
-                ]}
-                onPress={() => router.push(`/events/${event.id}`)}
-                activeOpacity={0.8}
-              >
-                <View
-                  style={[styles.eventColorBar, { backgroundColor: event.color || colors.accent }]}
-                />
-                <View style={styles.eventContent}>
-                  <Text style={[styles.eventTitle, { color: colors.text }]}>{event.titol}</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-              </TouchableOpacity>
-            ))
+            selectedEvents.map((event) => <EventCard key={event.id} item={event} />)
           ) : (
             <View style={styles.noEventsContainer}>
               <Ionicons name="calendar-outline" size={48} color={colors.placeholder} />
@@ -190,29 +173,7 @@ export default function CalendarScreen() {
             <>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('noDateEvents')}</Text>
               {noDateEvents.map((event) => (
-                <TouchableOpacity
-                  key={event.id}
-                  style={[
-                    styles.eventCard,
-                    { backgroundColor: colors.card, shadowColor: colors.shadow },
-                  ]}
-                  onPress={() => router.push(`/events/${event.id}`)}
-                  activeOpacity={0.8}
-                >
-                  <View
-                    style={[
-                      styles.eventColorBar,
-                      { backgroundColor: event.color || colors.accent },
-                    ]}
-                  />
-                  <View style={styles.eventContent}>
-                    <Text style={[styles.eventTitle, { color: colors.text }]}>{event.titol}</Text>
-                    <Text style={[styles.eventTime, { color: colors.textSecondary }]}>
-                      {t('noDate')}
-                    </Text>
-                  </View>
-                  <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-                </TouchableOpacity>
+                <EventCard key={event.id} item={event} />
               ))}
             </>
           )}
