@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -16,10 +18,11 @@ import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
 
 export interface Comment {
-  id: string | number;
-  author: string;
+  id: number;
+  author_username: string;
+  profile_picture: string | null;
   text: string;
-  createdAt: string;
+  created_at: string;
 }
 
 interface Props {
@@ -33,39 +36,115 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  const currentUser = t('You') || 'Tu';
+  const currentUser = global.currentUser;
 
-  // Estat de comentaris PER EVENT
-  const [commentsByEvent, setCommentsByEvent] = useState<Record<number, Comment[]>>({});
+  const [comments, setComments] = useState<Comment[]>([]);
   const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Mock inicial
-  const comments = commentsByEvent[eventId] ?? [];
+  // EDIT
+  const [editingComment, setEditingComment] = useState<Comment | null>(null);
+  const [editedText, setEditedText] = useState('');
 
-  const submit = () => {
-    const text = newComment.trim();
-    if (!text) return;
+  const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
-    const newItem: Comment = {
-      id: `temp-${Date.now()}`,
-      author: currentUser,
-      text,
-      createdAt: new Date().toISOString(),
-    };
+  //FETCH COMENTARIS
+  const loadComments = async () => {
+    try {
+      setLoading(true);
 
-    setCommentsByEvent((prev) => ({
-      ...prev,
-      [eventId]: [newItem, ...(prev[eventId] || [])],
-    }));
+      const res = await fetch(`${BASE_URL}/events/${eventId}/comments/`, {
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+        },
+      });
 
-    setNewComment('');
+      if (!res.ok) throw new Error('Error fetching comments');
+      const data = await res.json();
+      setComments(data);
+    } catch (e) {
+      console.error('Error load comments:', e);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const remove = (commentId: string | number) => {
-    setCommentsByEvent((prev) => ({
-      ...prev,
-      [eventId]: (prev[eventId] || []).filter((c) => c.id !== commentId),
-    }));
+  useEffect(() => {
+    if (visible) loadComments();
+  }, [visible]);
+
+  //CREAR COMENTARI
+  const submit = async () => {
+    if (!newComment.trim()) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/events/${eventId}/comments/create`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Token ${global.authToken}`,
+        },
+        body: JSON.stringify({ text: newComment }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`Server error: ${msg}`);
+      }
+
+      await loadComments();
+      setNewComment('');
+    } catch (e) {
+      console.error('Error adding comment:', e);
+    }
+  };
+
+  //ESBORRAR COMENTARI
+  const remove = async (commentId: number) => {
+    try {
+      const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${commentId}/delete`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`Server error: ${msg}`);
+      }
+
+      setComments((prev) => prev.filter((c) => c.id !== commentId));
+    } catch (e) {
+      console.error('Error deleting comment:', e);
+    }
+  };
+
+  //EDIT COMMENT
+  const submitEdit = async () => {
+    if (!editingComment) return;
+
+    try {
+      const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${editingComment.id}/edit`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Token ${global.authToken}`,
+        },
+        body: JSON.stringify({ text: editedText }),
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(msg);
+      }
+
+      setEditingComment(null);
+      setEditedText('');
+      await loadComments();
+    } catch (e) {
+      console.error('Error editing comment:', e);
+    }
   };
 
   return (
@@ -75,7 +154,7 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[styles.card, { backgroundColor: Colors.card }]}
         >
-          {/* Header */}
+          {/* HEADER */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: Colors.text }]}>
               {t('Comments') || 'Comentaris'}
@@ -85,33 +164,99 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* Comentaris */}
-          <FlatList
-            data={comments}
-            keyExtractor={(c) => String(c.id)}
-            style={{ flex: 1 }}
-            renderItem={({ item }) => (
-              <View style={styles.row}>
-                <Ionicons name="person-circle-outline" size={26} color={Colors.text} />
-                <View style={{ flex: 1 }}>
-                  <Text style={{ color: Colors.text, fontWeight: '600' }}>{item.author}</Text>
-                  <Text style={{ color: Colors.text }}>{item.text}</Text>
-                  <Text style={{ fontSize: 10, color: Colors.textSecondary }}>
-                    {new Date(item.createdAt).toLocaleString()}
-                  </Text>
+          {/* LOADING / LIST */}
+          {loading ? (
+            <ActivityIndicator size="large" color={Colors.accent} />
+          ) : (
+            <FlatList
+              data={comments}
+              keyExtractor={(c) => String(c.id)}
+              style={{ flex: 1 }}
+              renderItem={({ item }) => (
+                <View style={styles.row}>
+                  {/* Foto */}
+                  {item.profile_picture ? (
+                    <Image
+                      source={{ uri: item.profile_picture }}
+                      style={{ width: 30, height: 30, borderRadius: 15 }}
+                    />
+                  ) : (
+                    <Ionicons name="person-circle-outline" size={26} color={Colors.text} />
+                  )}
+
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                      {item.author_username}
+                    </Text>
+
+                    <Text style={{ color: Colors.text }}>{item.text}</Text>
+
+                    <Text style={{ fontSize: 10, color: Colors.textSecondary }}>
+                      {new Date(item.created_at).toLocaleString()}
+                    </Text>
+                  </View>
+
+                  {/* EDIT + DELETE (nomes dels teus comentaris) */}
+                  {item.author_username === currentUser?.username && (
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity
+                        onPress={() => {
+                          setEditingComment(item);
+                          setEditedText(item.text);
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={20} color={Colors.text} />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity onPress={() => remove(item.id)}>
+                        <Ionicons name="trash-outline" size={20} color={Colors.text} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
+              )}
+            />
+          )}
 
-                {/* Botó esborrar només si és el teu comentari */}
-                {item.author === currentUser && (
-                  <TouchableOpacity onPress={() => remove(item.id)}>
-                    <Ionicons name="trash-outline" size={20} color={Colors.text} />
-                  </TouchableOpacity>
-                )}
+          {/* MODAL D’EDICIÓ */}
+          {editingComment && (
+            <Modal animationType="fade" transparent visible={true}>
+              <View style={styles.editBackdrop}>
+                <View style={[styles.editBox, { backgroundColor: Colors.card }]}>
+                  <Text style={[styles.title, { color: Colors.text }]}>Edit comment</Text>
+
+                  <TextInput
+                    value={editedText}
+                    onChangeText={setEditedText}
+                    style={[
+                      styles.editInput,
+                      {
+                        color: Colors.text,
+                        borderColor: Colors.border,
+                        backgroundColor: Colors.card,
+                      },
+                    ]}
+                    placeholder={t('Edit comment') || 'Edita el comentari'}
+                    placeholderTextColor={Colors.textSecondary}
+                    multiline={true}
+                    textAlignVertical="top"
+                  />
+
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <TouchableOpacity onPress={() => setEditingComment(null)}>
+                      <Text style={{ color: Colors.textSecondary }}>Cancel</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity onPress={submitEdit}>
+                      <Text style={{ color: Colors.accent, fontWeight: '700' }}>Save</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
               </View>
-            )}
-          />
+            </Modal>
+          )}
 
-          {/* Input */}
+          {/* INPUT PER CREAR COMENTARI */}
           <View style={[styles.composer, { borderTopColor: Colors.border }]}>
             <TextInput
               value={newComment}
@@ -143,4 +288,19 @@ const styles = StyleSheet.create({
   composer: { flexDirection: 'row', alignItems: 'center', paddingTop: 8, borderTopWidth: 1 },
   input: { flex: 1, borderWidth: 1, borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 },
   sendBtn: { paddingVertical: 8, paddingHorizontal: 12, borderRadius: 8, marginLeft: 8 },
+  editBackdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editBox: { width: '85%', padding: 20, borderRadius: 12 },
+  editInput: {
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    minHeight: 40,
+    fontSize: 16,
+  },
 });
