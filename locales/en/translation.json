@@ -93,5 +93,8 @@
   "calendar": "Calendar",
   "today": "Today",
   "noEvents": "No events for this day",
-  "Close": "Close"
+  "Close": "Close",
+  "No events found": "No events found",
+  "No events match": "No events match \"{{query}}\"",
+  "No events to display": "No events to display"
 }
