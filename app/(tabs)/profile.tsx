@@ -9,6 +9,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
 import { getProfile } from '../../api';
+import { ThemeToggle } from '../../components/ThemeToggle';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -31,7 +32,7 @@ const mockUser = {
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
@@ -118,6 +119,24 @@ export default function Profile() {
                 </TouchableOpacity>
 
                 <View style={styles.menuDivider} />
+
+                {/* Tema claro/oscuro */}
+                <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <View
+                      style={{
+                        transform: [{ scale: 0.8 }],
+                        marginLeft: -10,
+                        marginBottom: -10,
+                        marginTop: -10,
+                      }}
+                    >
+                      <ThemeToggle theme={theme} accentColor={ACCENT} onToggle={toggleTheme} />
+                    </View>
+
+                    <Text style={[styles.menuItemText, { marginLeft: -5 }]}>{t('Tema')}</Text>
+                  </View>
+                </TouchableOpacity>
 
                 {/* Idioma */}
                 <TouchableOpacity
