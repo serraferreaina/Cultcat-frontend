@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
-import { EventCard } from '../components/EventCard';
+import { EventCard } from '../components/EventCard2';
 import { useEventStatus } from '../context/EventStatus';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTheme } from '../theme/ThemeContext';
