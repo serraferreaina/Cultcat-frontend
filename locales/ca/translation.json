@@ -96,4 +96,7 @@
   "No events found": "No s'han trobat esdeveniments",
   "No events match": "Cap esdeveniment coincideix \"{{query}}\"",
   "No events to display": "No hi ha esdeveniments per mostrar"
+  "Theme": "Mode",
+  "noDateEvents": "Esdeveniments sense data assignada",
+  "noDate": "Data no definida"
 }

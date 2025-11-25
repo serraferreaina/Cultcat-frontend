@@ -1,90 +1,104 @@
+// components/EventCard.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, Image, Share, StyleSheet } from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Share } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../theme/ThemeContext';
+import { LightColors, DarkColors } from '../theme/colors';
+import { useEventStatus } from '../context/EventStatus';
+import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
-interface Event {
-  id: number;
-  titol?: string;
-  localitat?: string;
-  imatges?: string;
-  imgApp?: string;
-  espai?: string;
-  infoHorari?: string;
-  modalitat?: string;
-  infoEntrades?: string;
-  direccio?: string;
-  comentaris?: number;
+interface Props {
+  item: any; // mateix tipus que fas servir a cerca.tsx
 }
 
-interface EventCardProps {
-  item: Event;
-  toggleGoing: (id: number) => void;
-  toggleSaved: (id: number) => void;
-  goingEvents: Record<number, boolean>;
-  savedEvents: Record<number, boolean>;
-  router: any;
-  Colors: { [key: string]: string };
-}
+export default function EventCard({ item }: Props) {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
 
-export const EventCard: React.FC<EventCardProps> = ({
-  item,
-  toggleGoing,
-  toggleSaved,
-  goingEvents,
-  savedEvents,
-  router,
-  Colors,
-}) => {
   const isGoing = !!goingEvents[item.id];
   const isSaved = !!savedEvents[item.id];
-  const { t } = useTranslation();
 
   const images: string[] =
     item.imatges && item.imatges.trim() !== ''
-      ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
+      ? item.imatges
+          .split(',')
+          .map((url: string) => `https://agenda.cultura.gencat.cat${url.trim()}`)
       : item.imgApp && item.imgApp.trim() !== ''
         ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
         : ['https://via.placeholder.com/300x200/FFFFFF/000000?text=Sense+imatge'];
 
   const imageToShow = images[0];
 
+  const title = item.titol || t('Event without title');
+  const espai = item.espai || null;
+  const horari = item.infoHorari || null;
+  const modalitat = item.modalitat || null;
+  const localitat = item.localitat || null;
+  const infoEntrades = item.infoEntrades || null;
+  const direccio = item.direccio || null;
+
   return (
     <TouchableOpacity
-      style={[styles.eventRow, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}
-      onPress={() => router.push(`../events/${item.id}`)}
-      activeOpacity={0.8}
+      style={[styles.eventRow, { backgroundColor: Colors.card }]}
+      onPress={() => router.push(`/events/${item.id}`)}
     >
-      {/* Imagen */}
       <Image source={{ uri: imageToShow }} style={styles.eventImageSide} />
 
       <View style={styles.eventInfo}>
-        {/* Título */}
         <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
-          {item.titol || t('Event without title')}
+          {title}
         </Text>
 
-        {/* Labels */}
         <View style={styles.labelContainer}>
-          {item.espai && <Label text={item.espai} color={Colors.accent} />}
-          {item.infoHorari && item.infoHorari.length <= 4 && (
-            <Label text={item.infoHorari} color={Colors.accent} />
+          {espai && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{espai}</Text>
+            </View>
           )}
-          {item.modalitat && <Label text={item.modalitat} color={Colors.accent} />}
-          {item.localitat && <Label text={item.localitat} color={Colors.accent} />}
-          {item.infoEntrades && item.infoEntrades.length <= 30 && (
-            <Label text={item.infoEntrades} color={Colors.accent} />
+          {horari && horari.length <= 4 && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{horari}</Text>
+            </View>
           )}
-          {item.direccio && item.direccio.length <= 15 && (
-            <Label text={item.direccio} color={Colors.accent} />
+          {modalitat && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{modalitat}</Text>
+            </View>
+          )}
+          {localitat && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{localitat}</Text>
+            </View>
+          )}
+          {infoEntrades && infoEntrades.length <= 30 && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{infoEntrades}</Text>
+            </View>
+          )}
+          {direccio && direccio.length <= 15 && (
+            <View style={[styles.label, { backgroundColor: Colors.accent + '22' }]}>
+              <Text style={[styles.labelText, { color: Colors.accent }]}>{direccio}</Text>
+            </View>
           )}
         </View>
 
-        {/* Botones */}
-        <View style={styles.cardButtonsRow}>
-          <View style={styles.cardButtonsLeft}>
-            {/* Guardar */}
-            <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
+        <View
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            marginTop: 10,
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <TouchableOpacity
+              style={[styles.iconButton, { marginRight: 12 }]}
+              onPress={() => toggleSaved(item.id)}
+            >
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
                 size={20}
@@ -92,27 +106,25 @@ export const EventCard: React.FC<EventCardProps> = ({
               />
             </TouchableOpacity>
 
-            {/* Comentarios */}
-            <View style={styles.comments}>
+            <View style={[styles.comments, { marginRight: 12 }]}>
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-              <Text style={[styles.commentCount, { color: Colors.text }]}>
-                {item.comentaris || 0}
-              </Text>
+              <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
             </View>
 
-            {/* Compartir */}
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => {
                 const url = `https://tu-app.com/event/${item.id}`;
-                Share.share({ message: `Mira este evento: ${url}`, url });
+                Share.share({
+                  message: `Mira este evento: ${url}`,
+                  url,
+                });
               }}
             >
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
 
-          {/* Asistir */}
           <TouchableOpacity
             style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
             onPress={() => toggleGoing(item.id)}
@@ -125,14 +137,7 @@ export const EventCard: React.FC<EventCardProps> = ({
       </View>
     </TouchableOpacity>
   );
-};
-
-// Label para etiquetas
-const Label: React.FC<{ text: string; color: string }> = ({ text, color }) => (
-  <View style={[styles.label, { backgroundColor: color + '22' }]}>
-    <Text style={[styles.labelText, { color }]}>{text}</Text>
-  </View>
-);
+}
 
 const styles = StyleSheet.create({
   eventRow: {
@@ -140,20 +145,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderRadius: 12,
     overflow: 'hidden',
-    marginVertical: 6,
+    marginVertical: 4,
     elevation: 2,
-    width: '95%',
-    alignSelf: 'center',
-    shadowOpacity: 0.1,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
-    shadowRadius: 3,
   },
   eventImageSide: {
-    width: 100,
-    height: 100,
+    width: 120,
+    height: 120,
     resizeMode: 'cover',
     borderTopLeftRadius: 12,
     borderBottomLeftRadius: 12,
@@ -181,19 +178,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '500',
   },
-  cardButtonsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 10,
+  button: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    marginRight: 10,
   },
-  cardButtonsLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  buttonText: {
+    fontWeight: '400',
+    fontSize: 12,
   },
   iconButton: {
     padding: 6,
-    marginRight: 12,
+    marginRight: 10,
   },
   comments: {
     flexDirection: 'row',
@@ -202,14 +199,5 @@ const styles = StyleSheet.create({
   },
   commentCount: {
     fontSize: 13,
-  },
-  button: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  buttonText: {
-    fontWeight: '400',
-    fontSize: 12,
   },
 });
