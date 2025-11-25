@@ -93,5 +93,6 @@
   "calendar": "Calendar",
   "today": "Today",
   "noEvents": "No events for this day",
-  "Close": "Close"
+  "Close": "Close",
+  "Theme": "Theme"
 }

@@ -134,7 +134,7 @@ export default function Profile() {
                       <ThemeToggle theme={theme} accentColor={ACCENT} onToggle={toggleTheme} />
                     </View>
 
-                    <Text style={[styles.menuItemText, { marginLeft: -5 }]}>{t('Tema')}</Text>
+                    <Text style={[styles.menuItemText, { marginLeft: -5 }]}>{t('Theme')}</Text>
                   </View>
                 </TouchableOpacity>
 
