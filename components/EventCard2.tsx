@@ -7,8 +7,8 @@ interface Event {
   id: number;
   titol?: string;
   localitat?: string;
-  imatges?: string;
-  imgApp?: string;
+  imatges?: string | null;
+  imgApp?: string | null;
   espai?: string;
   infoHorari?: string;
   modalitat?: string;

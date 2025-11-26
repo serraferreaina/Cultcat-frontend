@@ -13,7 +13,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useEventStatus } from '../context/EventStatus';
-import EventCard from '../components/EventCard';
+import { EventCard } from '../components/EventCard2';
 
 interface Events {
   id: number;
@@ -27,14 +27,14 @@ export default function SavedEventsScreen() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
-  const { savedEvents } = useEventStatus();
+
+  const { savedEvents, goingEvents, toggleSaved, toggleGoing } = useEventStatus();
   const router = useRouter();
 
   const [events, setEvents] = useState<Events[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Carregar events
   useEffect(() => {
     const fetchEvents = async () => {
       try {
@@ -52,29 +52,18 @@ export default function SavedEventsScreen() {
     fetchEvents();
   }, []);
 
-  // Filtrar només events guardats
   const savedEventsList = events.filter((ev) => !!savedEvents[ev.id]);
 
   if (loading)
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
         <ActivityIndicator size="large" color={Colors.accent} />
       </View>
     );
 
   if (error)
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
         <Text style={{ color: Colors.text }}>
           {t('Error loading events')}: {error}
         </Text>
@@ -83,14 +72,11 @@ export default function SavedEventsScreen() {
 
   if (savedEventsList.length === 0)
     return (
-      <View
-        style={[
-          styles.container,
-          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
-        ]}
-      >
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
         <Ionicons name="bookmark-outline" size={48} color={Colors.placeholder} />
-        <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>{t('No saved events')}</Text>
+        <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>
+          {t('No saved events')}
+        </Text>
       </View>
     );
 
@@ -101,15 +87,29 @@ export default function SavedEventsScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="chevron-back-outline" size={28} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Saved events')}</Text>
+
+        <Text style={[styles.headerTitle, { color: Colors.text }]}>
+          {t('Saved events')}
+        </Text>
+
         <View style={{ width: 28 }} />
       </View>
 
-      {/* FlatList */}
+      {/* Events list */}
       <FlatList
         data={savedEventsList}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <EventCard item={item} />}
+        renderItem={({ item }) => (
+          <EventCard
+            item={item}
+            toggleGoing={toggleGoing}
+            toggleSaved={toggleSaved}
+            goingEvents={goingEvents}
+            savedEvents={savedEvents}
+            router={router}
+            Colors={Colors}
+          />
+        )}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
         extraData={savedEvents}
       />
@@ -128,8 +128,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-
-    paddingTop: 50,
+    paddingTop: 45, // Baixa el títol i la fletxa
   },
   backButton: { width: 28, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700' },
