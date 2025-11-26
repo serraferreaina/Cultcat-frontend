@@ -21,6 +21,8 @@ import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useEventStatus } from '../../context/EventStatus';
 import { Share } from 'react-native';
+import CommentSection from '../../components/CommentSection';
+import ReviewSection from '../../components/ReviewSection';
 
 interface EventItem {
   id: number;
@@ -46,6 +48,9 @@ export default function MapScreen() {
   const [events, setEvents] = useState<EventItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
+
+  const [showComments, setShowComments] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
 
   const mapRef = useRef(null);
 
@@ -239,12 +244,21 @@ export default function MapScreen() {
                         />
                       </TouchableOpacity>
 
-                      <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}>
+                      {/* OPEN COMMENTS */}
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
+                        onPress={() => setShowComments(true)}
+                      >
                         <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-                        <Text style={[styles.commentCount, { color: Colors.text, marginLeft: 4 }]}>
-                          0
-                        </Text>
-                      </View>
+                      </TouchableOpacity>
+
+                      {/* OPEN REVIEWS */}
+                      <TouchableOpacity
+                        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
+                        onPress={() => setShowReviews(true)}
+                      >
+                        <Ionicons name="star-outline" size={20} color={Colors.text} />
+                      </TouchableOpacity>
 
                       <TouchableOpacity
                         style={styles.iconButton}
@@ -272,6 +286,23 @@ export default function MapScreen() {
             </TouchableOpacity>
           </TouchableOpacity>
         </Modal>
+      )}
+      {/* COMMENTS */}
+      {selectedEvent && (
+        <CommentSection
+          eventId={selectedEvent.id}
+          visible={showComments}
+          onClose={() => setShowComments(false)}
+        />
+      )}
+
+      {/* REVIEWS */}
+      {selectedEvent && (
+        <ReviewSection
+          eventId={selectedEvent.id}
+          visible={showReviews}
+          onClose={() => setShowReviews(false)}
+        />
       )}
     </View>
   );
