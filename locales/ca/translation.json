@@ -98,5 +98,6 @@
   "No events to display": "No hi ha esdeveniments per mostrar",
   "Theme": "Mode",
   "noDateEvents": "Esdeveniments sense data assignada",
-  "noDate": "Data no definida"
+  "noDate": "Data no definida",
+  "Saved events": "Esdeveniments guardats"
 }
