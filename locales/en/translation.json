@@ -99,5 +99,6 @@
   "No events to display": "No events to display",
   "Theme": "Theme",
   "noDateEvents": "Events without assigned date",
-  "noDate": "Date not defined"
+  "noDate": "Date not defined",
+  "Saved events": "Saved events"
 }

@@ -1,105 +1,78 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+// context/EventStatus.tsx
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-type EventStatusType = {
-  goingEvents: { [key: number]: boolean };
-  savedEvents: { [key: number]: boolean };
-  toggleGoing: (id: number) => void;
-  toggleSaved: (id: number) => void;
-  loadingSaved: boolean;
-};
+interface EventStatusContextProps {
+  goingEvents: Record<number, boolean>;
+  savedEvents: Record<number, boolean>;
+  toggleGoing: (eventId: number) => void;
+  toggleSaved: (eventId: number) => Promise<void>;
+}
 
-const EventStatusContext = createContext<EventStatusType | undefined>(undefined);
+const EventStatusContext = createContext<EventStatusContextProps | undefined>(undefined);
 
-export const EventStatusProvider = ({ children }: { children: React.ReactNode }) => {
-  const [goingEvents, setGoingEvents] = useState<{ [key: number]: boolean }>({});
-  const [savedEvents, setSavedEvents] = useState<{ [key: number]: boolean }>({});
-  const [loadingSaved, setLoadingSaved] = useState(true);
+export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [goingEvents, setGoingEvents] = useState<Record<number, boolean>>({});
+  const [savedEvents, setSavedEvents] = useState<Record<number, boolean>>({});
 
-  // Función para esperar a que global.authToken esté disponible
-  const waitForToken = async (): Promise<string> => {
-    while (!global.authToken) {
-      await new Promise((resolve) => setTimeout(resolve, 100));
-    }
-    return global.authToken;
-  };
-
+  // --- Carregar bookmarks locals al iniciar ---
   useEffect(() => {
-    const loadSavedEvents = async () => {
+    const loadSaved = async () => {
       try {
-        const token = await waitForToken();
-        const res = await fetch('http://nattech.fib.upc.edu:40490/saved-events/?state=wishlist', {
-          headers: { Authorization: `Token ${token}` },
-        });
-
-        if (!res.ok) {
-          console.error('Error loading saved events', res.status);
-          setLoadingSaved(false);
-          return;
-        }
-
-        const data = await res.json();
-        if (!Array.isArray(data)) {
-          console.warn('Saved events no es un array', data);
-          setLoadingSaved(false);
-          return;
-        }
-
-        const saved: Record<number, boolean> = {};
-        data.forEach((item) => {
-          const id = Number(item.event_id);
-          if (!isNaN(id)) saved[id] = true;
-        });
-
-        setSavedEvents(saved);
+        const json = await AsyncStorage.getItem('savedEvents');
+        if (json) setSavedEvents(JSON.parse(json));
       } catch (e) {
-        console.error('Error loading saved events', e);
-      } finally {
-        setLoadingSaved(false);
+        console.warn('Error loading saved events from storage:', e);
       }
     };
-
-    loadSavedEvents();
+    loadSaved();
   }, []);
 
-  const toggleGoing = (id: number) => {
-    setGoingEvents((prev) => ({ ...prev, [id]: !prev[id] }));
+  // --- Sincronitzar bookmarks locals amb AsyncStorage ---
+  const persistSaved = async (updated: Record<number, boolean>) => {
+    try {
+      await AsyncStorage.setItem('savedEvents', JSON.stringify(updated));
+    } catch (e) {
+      console.warn('Error saving events to storage:', e);
+    }
+  };
+
+  const toggleGoing = (eventId: number) => {
+    setGoingEvents((prev) => ({ ...prev, [eventId]: !prev[eventId] }));
   };
 
   const toggleSaved = async (eventId: number) => {
+    const isCurrentlySaved = savedEvents[eventId] || false;
+
+    const updated = { ...savedEvents, [eventId]: !isCurrentlySaved };
+    setSavedEvents(updated);
+    await persistSaved(updated);
+
+    if (!global.authToken) {
+      console.warn('No token available, toggled only locally.');
+      return;
+    }
+
     try {
-      const token = await waitForToken();
-      const newState = !savedEvents[eventId];
-
-      // Actualizar localmente primero
-      setSavedEvents((prev) => ({ ...prev, [eventId]: newState }));
-
-      const res = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}`, {
-        method: 'POST',
+      const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`, {
+        method: isCurrentlySaved ? 'DELETE' : 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Token ${token}`,
+          Authorization: `Token ${global.authToken}`,
         },
-        body: JSON.stringify({
-          state: newState ? 'wishlist' : 'unsaved',
-        }),
       });
-
-      if (!res.ok) {
-        console.error('Error saving event', res.status);
-        // Revertir local si falla
-        setSavedEvents((prev) => ({ ...prev, [eventId]: !newState }));
-      }
-    } catch (e) {
-      console.error('Error saving event', e);
-      // Revertir local si falla
-      setSavedEvents((prev) => ({ ...prev, [eventId]: !savedEvents[eventId] }));
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+    } catch (err) {
+      console.error('Error saving event on server:', err);
+      // revertir si falla
+      const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
+      setSavedEvents(reverted);
+      await persistSaved(reverted);
     }
   };
 
   return (
-    <EventStatusContext.Provider
-      value={{ goingEvents, savedEvents, toggleGoing, toggleSaved, loadingSaved }}
-    >
+    <EventStatusContext.Provider value={{ goingEvents, savedEvents, toggleGoing, toggleSaved }}>
       {children}
     </EventStatusContext.Provider>
   );
@@ -107,6 +80,6 @@ export const EventStatusProvider = ({ children }: { children: React.ReactNode })
 
 export const useEventStatus = () => {
   const context = useContext(EventStatusContext);
-  if (!context) throw new Error('useEventStatus must be used inside EventStatusProvider');
+  if (!context) throw new Error('useEventStatus must be used within EventStatusProvider');
   return context;
 };
