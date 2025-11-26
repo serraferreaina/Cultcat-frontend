@@ -52,7 +52,10 @@ export default function SavedEventsScreen() {
     fetchEvents();
   }, []);
 
-  const savedEventsList = events.filter((ev) => !!savedEvents[ev.id]);
+  const savedEventsList = React.useMemo(
+    () => events.filter((ev) => savedEvents[ev.id]),
+    [events, savedEvents],
+  );
 
   if (loading)
     return (
