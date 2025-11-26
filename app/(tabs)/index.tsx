@@ -18,7 +18,6 @@ import { useRouter } from 'expo-router';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
-import type { Review } from '../../components/ReviewSection';
 import { Share } from 'react-native';
 
 interface Events {
@@ -97,9 +96,8 @@ export default function Home() {
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
 
   // Ressenyes
-  const [reviewsByEvent, setReviewsByEvent] = useState<Record<number, Review[]>>({});
   const [reviewVisible, setReviewVisible] = useState(false);
-  const [activeReviewEventId, setActiveReviewEventId] = useState<number | null>(null);
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
   const feedOptions = [
     { label: t('For you'), value: 'paraTi' },
@@ -149,13 +147,6 @@ export default function Home() {
         : item.imgApp && item.imgApp.trim() !== ''
           ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
           : ['https://via.placeholder.com/300x200'];
-
-    const eventReviews = reviewsByEvent[item.id] ?? [];
-    const averageRating =
-      eventReviews.length > 0
-        ? eventReviews.reduce((sum, r) => sum + r.rating, 0) / eventReviews.length
-        : 0;
-    const roundedRating = Math.round(averageRating);
 
     return (
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
@@ -226,12 +217,12 @@ export default function Home() {
             <TouchableOpacity
               style={styles.reviewButton}
               onPress={() => {
-                setActiveReviewEventId(item.id);
+                setSelectedEventId(item.id);
                 setReviewVisible(true);
               }}
             >
               <Ionicons name="create-outline" size={20} color="white" />
-              <Text style={styles.reviewButtonText}>Escriure ressenya</Text>
+              <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -341,41 +332,11 @@ export default function Home() {
       />
 
       {/* Modal de ressenyes */}
-      {activeReviewEventId !== null && (
+      {selectedEventId !== null && (
         <ReviewSection
+          eventId={selectedEventId}
           visible={reviewVisible}
-          initialReviews={
-            activeReviewEventId !== null ? (reviewsByEvent[activeReviewEventId] ?? []) : []
-          }
           onClose={() => setReviewVisible(false)}
-          onSubmit={(rating, payload) => {
-            // --- CASE 1: DELETE ---
-            if (rating === -1) {
-              const reviewId = Number(payload);
-
-              setReviewsByEvent((prev) => ({
-                ...prev,
-                [activeReviewEventId!]: prev[activeReviewEventId!].filter((r) => r.id !== reviewId),
-              }));
-              return;
-            }
-
-            // --- CASE 2: ADD REVIEW ---
-            const newReview = {
-              id: Date.now(),
-              rating,
-              comment: payload,
-              date: new Date().toISOString(),
-              likes: 0,
-              likedByMe: false,
-              author: 'Tu',
-            };
-
-            setReviewsByEvent((prev) => ({
-              ...prev,
-              [activeReviewEventId!]: [newReview, ...(prev[activeReviewEventId!] ?? [])],
-            }));
-          }}
         />
       )}
     </View>
@@ -419,13 +380,6 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    gap: 8,
-  },
   image: {
     width: '100%',
     height: 200,
@@ -453,15 +407,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: 'bold',
   },
-  ratingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    gap: 4,
-  },
-  ratingText: {
-    fontSize: 13,
-  },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -472,14 +417,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-  },
-  comments: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  commentCount: {
-    fontSize: 13,
   },
   button: {
     paddingVertical: 6,
@@ -517,53 +454,11 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     marginBottom: 12,
   },
-  modalBackground: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'flex-end',
-  },
-  modalContainer: {
-    height: '70%',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 16,
-  },
-  modalHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-  },
-  commentItem: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginVertical: 8,
-  },
-  commentAuthor: {
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  commentInputBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 10,
-  },
-  commentInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  sendButton: {
     paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
+    paddingVertical: 10,
   },
 });
