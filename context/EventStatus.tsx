@@ -55,13 +55,23 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
 
     try {
       const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`, {
-        method: isCurrentlySaved ? 'DELETE' : 'POST',
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Token ${global.authToken}`,
         },
       });
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      if (isCurrentlySaved) {
+        // Si ja estava guardat, eliminar-lo
+        await fetch(`http://nattech.fib.upc.edu:40490/saved-events/${eventId}/`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Token ${global.authToken}`,
+          },
+        });
+      }
     } catch (err) {
       console.error('Error saving event on server:', err);
       // revertir si falla
