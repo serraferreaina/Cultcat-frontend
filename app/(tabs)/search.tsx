@@ -24,6 +24,7 @@ import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import { Share } from 'react-native';
+import { Alert } from 'react-native';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -31,15 +32,14 @@ export default function CercaScreen() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
 
-  //Estat del modal d'opcions
   const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
 
-  //Estat del modal de tematiques
   const [isTopicsModalVisible, setIsTopicsModalVisible] = useState(false);
 
   const [isAgeModalVisible, setIsAgeModalVisible] = useState(false);
-  const [ageRange, setAgeRange] = useState<[number, number]>([18, 40]); // rang per defecte
+  const [ageRange, setAgeRange] = useState<[number, number]>([18, 40]);
 
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
@@ -51,12 +51,10 @@ export default function CercaScreen() {
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
-    // log que indica que es vol filtrar segons data
     console.log('Buscar events del:', date.toISOString());
   };
 
   const toggleTopic = (topic: string) => {
-    // Boto per filtrar segons altres filtres
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
     );
@@ -64,7 +62,6 @@ export default function CercaScreen() {
 
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
-    // log que indica que es vol filtrar per temàtiques
     console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
 
@@ -87,7 +84,7 @@ export default function CercaScreen() {
   };
 
   useEffect(() => {
-    if (isFiltered) return; // si hi ha filtre no carreguem tots els esdeveniments
+    if (isFiltered) return;
 
     const fetchEvents = async () => {
       try {
@@ -229,6 +226,42 @@ export default function CercaScreen() {
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
+  const debounce = (func: (...args: any[]) => void, delay: number) => {
+    let timeout: NodeJS.Timeout;
+    return (...args: any[]) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => func(...args), delay);
+    };
+  };
+
+  const handleSearch = async (text: string) => {
+    const query = text.trim();
+    if (!query) return;
+
+    try {
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}`,
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+      const data = textData ? JSON.parse(textData) : [];
+
+      if (!Array.isArray(data) || data.length === 0) {
+        Alert.alert(t('No events found'), t('No events match', { query }));
+        return;
+      }
+
+      router.push({
+        pathname: '/searchResults',
+        params: { query },
+      });
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'There was a problem fetching events.');
+    }
+  };
+
   const handleSearchByTopics = async () => {
     setIsTopicsModalVisible(false);
     setLoading(true);
@@ -259,7 +292,7 @@ export default function CercaScreen() {
         setNoEventsMessage(null);
       }
 
-      setIsFiltered(true); // activa el filtro
+      setIsFiltered(true);
     } catch (err: any) {
       console.error('Error fetching filtered events:', err);
       setError(err.message);
@@ -275,7 +308,7 @@ export default function CercaScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       {/* Barra de cerca */}
-      <SearchBar />
+      <SearchBar onSearch={handleSearch} />
 
       {/* Scroll horizontal */}
       <ScrollView
@@ -359,10 +392,8 @@ export default function CercaScreen() {
               style={styles.optionItem}
               onPress={() => {
                 {
-                  /* log de que s'ha triat filtrar per duracio */
                 }
                 {
-                  /* log de que s'ha triat filtrar per duracio */
                 }
                 console.log('Filtrar por duración');
                 setIsOptionsModalVisible(false);
@@ -530,7 +561,7 @@ export default function CercaScreen() {
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderEvent}
         contentContainerStyle={styles.eventsList}
-        onEndReached={loadMoreEvents}
+        onEndReached={isFiltered ? undefined : loadMoreEvents}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
           <>
@@ -552,7 +583,7 @@ export default function CercaScreen() {
         }
       />
 
-      {!load && events.length === 0 && noEventsMessage !== '' && (
+      {!load && events.length === 0 && noEventsMessage && (
         <Text style={{ textAlign: 'center', marginTop: 20, color: Colors.text }}>
           {noEventsMessage}
         </Text>
@@ -572,7 +603,7 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   filtersRow: {
-    flexDirection: 'row', // tots els botons en una fila
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
     paddingHorizontal: 8,
