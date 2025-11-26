@@ -56,14 +56,24 @@ export default function SavedEventsScreen() {
 
   if (loading)
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+        ]}
+      >
         <ActivityIndicator size="large" color={Colors.accent} />
       </View>
     );
 
   if (error)
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+        ]}
+      >
         <Text style={{ color: Colors.text }}>
           {t('Error loading events')}: {error}
         </Text>
@@ -72,11 +82,14 @@ export default function SavedEventsScreen() {
 
   if (savedEventsList.length === 0)
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background }]}>
+      <View
+        style={[
+          styles.container,
+          { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
+        ]}
+      >
         <Ionicons name="bookmark-outline" size={48} color={Colors.placeholder} />
-        <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>
-          {t('No saved events')}
-        </Text>
+        <Text style={{ color: Colors.textSecondary, marginTop: 12 }}>{t('No saved events')}</Text>
       </View>
     );
 
@@ -88,9 +101,7 @@ export default function SavedEventsScreen() {
           <Ionicons name="chevron-back-outline" size={28} color={Colors.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: Colors.text }]}>
-          {t('Saved events')}
-        </Text>
+        <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Saved events')}</Text>
 
         <View style={{ width: 28 }} />
       </View>
@@ -128,7 +139,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     justifyContent: 'space-between',
     borderBottomWidth: 1,
-    paddingTop: 45, // Baixa el títol i la fletxa
+    paddingTop: 45,
   },
   backButton: { width: 28, justifyContent: 'center', alignItems: 'center' },
   headerTitle: { fontSize: 20, fontWeight: '700' },
