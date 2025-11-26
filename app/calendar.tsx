@@ -1,3 +1,4 @@
+// app/calendar.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -16,8 +17,9 @@ import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useEventStatus } from '../context/EventStatus';
 import { api } from '../api';
-import EventCard from '../components/EventCard';
+import { EventCard } from '../components/EventCard2';
 
+/* ----------  TYPES  ---------- */
 type SavedEvent = {
   event_id: string;
   event_title: string;
@@ -32,12 +34,13 @@ type EventDetail = {
   color?: string;
 };
 
+/* ----------  COMPONENT  ---------- */
 export default function CalendarScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { theme } = useTheme();
   const colors = theme === 'dark' ? DarkColors : LightColors;
-  const { goingEvents } = useEventStatus();
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
 
   const today = new Date().toISOString().split('T')[0];
   const [selected, setSelected] = useState(today);
@@ -45,6 +48,7 @@ export default function CalendarScreen() {
   const [noDateEvents, setNoDateEvents] = useState<EventDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
+  /* ----------  DATA  ---------- */
   useEffect(() => {
     fetchWantToGoEvents();
   }, [goingEvents]);
@@ -53,12 +57,9 @@ export default function CalendarScreen() {
     setLoading(true);
     try {
       const saved: SavedEvent[] = await api('/saved-events/?state=wantToGo');
-
-      const details: EventDetail[] = [];
-      for (const se of saved) {
-        const ev: EventDetail = await api(`/events/${se.event_id}/`);
-        details.push(ev);
-      }
+      const details: EventDetail[] = await Promise.all(
+        saved.map((se) => api(`/events/${se.event_id}/`)),
+      );
 
       const withDate: Record<string, EventDetail[]> = {};
       const without: EventDetail[] = [];
@@ -68,7 +69,7 @@ export default function CalendarScreen() {
           without.push(ev);
         } else {
           const day = ev.data_inici.slice(0, 10);
-          if (!withDate[day]) withDate[day] = [];
+          withDate[day] ??= [];
           withDate[day].push(ev);
         }
       });
@@ -82,6 +83,7 @@ export default function CalendarScreen() {
     }
   }
 
+  /* ----------  CALENDAR MARKINGS  ---------- */
   const markedDates: any = {};
   Object.keys(goingByDate).forEach((date) => {
     markedDates[date] = { marked: true, dotColor: colors.accent };
@@ -95,6 +97,7 @@ export default function CalendarScreen() {
 
   const selectedEvents = goingByDate[selected] || [];
 
+  /* ----------  RENDER  ---------- */
   if (loading) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -158,7 +161,18 @@ export default function CalendarScreen() {
 
         <ScrollView showsVerticalScrollIndicator={false}>
           {selectedEvents.length > 0 ? (
-            selectedEvents.map((event) => <EventCard key={event.id} item={event} />)
+            selectedEvents.map((event) => (
+              <EventCard
+                key={event.id}
+                item={event}
+                toggleGoing={toggleGoing}
+                toggleSaved={toggleSaved}
+                goingEvents={goingEvents}
+                savedEvents={savedEvents}
+                router={router}
+                Colors={colors}
+              />
+            ))
           ) : (
             <View style={styles.noEventsContainer}>
               <Ionicons name="calendar-outline" size={48} color={colors.placeholder} />
@@ -168,12 +182,21 @@ export default function CalendarScreen() {
             </View>
           )}
 
-          {/* Esdeveniments sense data */}
+          {/* No-date events */}
           {noDateEvents.length > 0 && (
             <>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('noDateEvents')}</Text>
               {noDateEvents.map((event) => (
-                <EventCard key={event.id} item={event} />
+                <EventCard
+                  key={event.id}
+                  item={event}
+                  toggleGoing={toggleGoing}
+                  toggleSaved={toggleSaved}
+                  goingEvents={goingEvents}
+                  savedEvents={savedEvents}
+                  router={router}
+                  Colors={colors}
+                />
               ))}
             </>
           )}
@@ -229,33 +252,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginTop: 20,
     marginBottom: 8,
-  },
-  eventCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  eventColorBar: {
-    width: 4,
-    height: '100%',
-    borderRadius: 2,
-    marginRight: 12,
-  },
-  eventContent: { flex: 1 },
-  eventTitle: {
-    fontSize: 16,
-    fontWeight: '500',
-  },
-  eventTime: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 4,
   },
   noEventsContainer: {
     alignItems: 'center',
