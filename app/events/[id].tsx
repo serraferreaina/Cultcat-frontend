@@ -56,35 +56,11 @@ export default function EventDetail() {
   const [modalOpen, setModalOpen] = useState(false);
 
   // RESSENYES
-  const [reviewsByEvent, setReviewsByEvent] = useState<Record<number, Review[]>>({});
   const [reviewVisible, setReviewVisible] = useState(false);
   const [activeReviewEventId, setActiveReviewEventId] = useState<number | null>(null);
 
   // Usuari actual (placeholder)
   const [currentUser] = useState({ id: 1, username: 'Usuari' });
-
-  // FETCH DE L’ESDEVENIMENT
-  useEffect(() => {
-    const fetchEvent = async () => {
-      try {
-        const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`);
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        setEvent(data);
-
-        // Inicialitza array buit per les reviews d’aquest event
-        setActiveReviewEventId(data.id);
-        setReviewsByEvent((prev) => (prev[data.id] ? prev : { ...prev, [data.id]: [] }));
-      } catch (err: any) {
-        console.error('Error loading event:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchEvent();
-  }, [eventId]);
 
   if (load) {
     return (
@@ -234,42 +210,12 @@ export default function EventDetail() {
 
       {/* COMMENT MODAL */}
       <CommentSection eventId={event.id} visible={modalOpen} onClose={() => setModalOpen(false)} />
-
       {/* REVIEW MODAL */}
-      {activeReviewEventId !== null && (
-        <ReviewSection
-          visible={reviewVisible}
-          initialReviews={reviewsByEvent[activeReviewEventId] ?? []}
-          onClose={() => setReviewVisible(false)}
-          onSubmit={(rating, payload) => {
-            // CASE DELETE
-            if (rating === -1) {
-              const reviewId = Number(payload);
-              setReviewsByEvent((prev) => ({
-                ...prev,
-                [activeReviewEventId]: prev[activeReviewEventId].filter((r) => r.id !== reviewId),
-              }));
-              return;
-            }
-
-            // CASE ADD
-            const newReview: Review = {
-              id: Date.now(),
-              rating,
-              comment: payload,
-              date: new Date().toISOString(),
-              likes: 0,
-              likedByMe: false,
-              author: currentUser.username,
-            };
-
-            setReviewsByEvent((prev) => ({
-              ...prev,
-              [activeReviewEventId]: [newReview, ...(prev[activeReviewEventId] ?? [])],
-            }));
-          }}
-        />
-      )}
+      <ReviewSection
+        eventId={event.id}
+        visible={reviewVisible}
+        onClose={() => setReviewVisible(false)}
+      />
     </ScrollView>
   );
 }
