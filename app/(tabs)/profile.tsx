@@ -11,6 +11,7 @@ import { useRouter } from 'expo-router';
 import { getProfile } from '../../api';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
+import * as ImagePicker from 'expo-image-picker';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -18,29 +19,40 @@ const ACCENT = '#C86A2E';
 const MUTED = '#8B7355';
 const CARD = '#FFF';
 
-const mockUser = {
-  username: 'tonigratacos',
-  avatar: 'https://i.pravatar.cc/200?img=12',
-  description: 'bcn | Ingeniería informática',
-  points: 750,
-  level: 2,
-  stats: {
-    eventos: 11,
-    logros: 20,
-    amigos: 60,
-  },
-};
-
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [user, setUser] = useState<any>(global.currentUser);
 
   const router = useRouter();
+
+  const DEFAULT_AVATAR =
+    'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
+
+  const pickImage = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      const uri = result.assets[0].uri;
+      setUser((prev: any) => ({
+        ...prev,
+        profile_picture: uri,
+      }));
+
+      if (global.currentUser) {
+        global.currentUser.profile_picture = uri;
+      }
+    }
+  };
 
   useFocusEffect(
     React.useCallback(() => {
@@ -58,7 +70,6 @@ export default function Profile() {
           profile_description: data.description ?? '',
           profile_picture: data.profile_picture ?? null,
         };
-
         setUser(normalized);
         global.currentUser = normalized;
       });
@@ -78,13 +89,13 @@ export default function Profile() {
           </View>
         </View>
 
+        {/* Menú */}
         {showMenu && (
           <View style={styles.menuContainer}>
             {!showLanguageSelector ? (
               <>
                 <Text style={styles.menuTitle}>{t('Options')}</Text>
 
-                {/* Calendari */}
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -98,7 +109,6 @@ export default function Profile() {
                   </View>
                 </TouchableOpacity>
 
-                {/* Guardats */}
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -112,7 +122,6 @@ export default function Profile() {
                   </View>
                 </TouchableOpacity>
 
-                {/* Configuració */}
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => {
@@ -130,7 +139,6 @@ export default function Profile() {
 
                 <View style={styles.menuDivider} />
 
-                {/* Tema claro/oscuro */}
                 <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <View
@@ -143,12 +151,10 @@ export default function Profile() {
                     >
                       <ThemeToggle theme={theme} accentColor={ACCENT} onToggle={toggleTheme} />
                     </View>
-
                     <Text style={[styles.menuItemText, { marginLeft: -5 }]}>{t('Theme')}</Text>
                   </View>
                 </TouchableOpacity>
 
-                {/* Idioma */}
                 <TouchableOpacity
                   style={styles.menuItem}
                   onPress={() => setShowLanguageSelector(true)}
@@ -161,7 +167,6 @@ export default function Profile() {
               </>
             ) : (
               <>
-                {/* Boto de atras*/}
                 <TouchableOpacity
                   onPress={() => setShowLanguageSelector(false)}
                   style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
@@ -190,16 +195,17 @@ export default function Profile() {
           </View>
         )}
 
-        {/* Perfil básic */}
+        {/* Perfil */}
         <View style={styles.card}>
           <View style={styles.topRow}>
             <View>
-              <Image source={{ uri: user?.profile_picture }} style={styles.avatar} />
-
-              {/* Botoncito de añadir foto (solo UI) */}
-              <View style={styles.addPhoto}>
+              <Image
+                source={{ uri: user?.profile_picture ?? DEFAULT_AVATAR }}
+                style={styles.avatar}
+              />
+              <TouchableOpacity style={styles.addPhoto} onPress={pickImage}>
                 <Ionicons name="add" size={16} color={ACCENT} />
-              </View>
+              </TouchableOpacity>
             </View>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
@@ -212,7 +218,7 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                Toni Gratacós
+                {user?.username ?? 'Usuario'}
               </Text>
 
               <Text
@@ -222,18 +228,16 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                {user?.profile_description || 'Encara no has afegit una descripció.'}
+                {user?.profile_description || ' '}
               </Text>
 
-              <Text style={styles.points}></Text>
-              {/* Botón Eventos pasados */}
               <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
                 <Text style={styles.pastBtnText}>{t('Previus events')}</Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Nivel + barra simple */}
+          {/* Nivel + barra */}
           <View style={{ marginTop: 12 }}>
             <View style={styles.progressBg}>
               <View style={[styles.progressFill, { width: '60%' }]} />
@@ -257,7 +261,7 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Insignias (vacío) */}
+        {/* Insignias */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('Achivements')}</Text>
           <View style={styles.emptyBox}>
@@ -266,7 +270,7 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Eventos próximos (vacío) */}
+        {/* Eventos próximos */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{t('Next events')}</Text>
           <View style={styles.emptyBox}>
@@ -384,7 +388,7 @@ const styles = StyleSheet.create({
   },
   pastBtn: {
     alignSelf: 'flex-start',
-    marginTop: 10,
+    marginTop: 20,
     backgroundColor: '#EFD6C6',
     paddingHorizontal: 12,
     paddingVertical: 6,
@@ -393,6 +397,8 @@ const styles = StyleSheet.create({
   pastBtnText: {
     color: ACCENT,
     fontWeight: '700',
+    paddingBottom: 2,
+    paddingTop: 2,
   },
   statsRow: {
     flexDirection: 'row',

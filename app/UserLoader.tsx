@@ -27,10 +27,12 @@ export default function UserLoader({ children }: { children: React.ReactNode }) 
         const data = await res.json();
 
         global.currentUser = {
-          id: data.id,
-          username: data.username,
-          profile_description: data.bio,
-          profile_picture: data.profilePic,
+          id: data.id ?? 0,
+          username: data.username ?? '',
+          profile_description: data.bio ?? '',
+          profile_picture:
+            data.profilePic ??
+            'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png', // fallback string
         };
       } catch (e) {
         // silenciat
