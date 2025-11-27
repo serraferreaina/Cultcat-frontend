@@ -203,7 +203,27 @@ export default function Profile() {
             </View>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={styles.desc}>{user?.profile_description}</Text>
+              <Text
+                style={{
+                  marginTop: 10,
+                  marginBottom: 10,
+                  fontSize: 15,
+                  fontWeight: '600',
+                  color: Colors.text,
+                }}
+              >
+                Toni Gratacós
+              </Text>
+
+              <Text
+                style={{
+                  fontSize: 16,
+                  marginBottom: -10,
+                  color: Colors.text,
+                }}
+              >
+                {user?.profile_description || 'Encara no has afegit una descripció.'}
+              </Text>
 
               <Text style={styles.points}></Text>
               {/* Botón Eventos pasados */}
