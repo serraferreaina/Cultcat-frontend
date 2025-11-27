@@ -71,6 +71,31 @@ export default function UserConfig() {
     );
   };
 
+  const handleLogout = () => {
+    Alert.alert(
+      t('Close session') || 'Cerrar sesión',
+      t('Are you sure you want to log out?') || '¿Estás seguro que quieres cerrar sesión?',
+      [
+        {
+          text: t('Cancel') || 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: t('Close session') || 'Cerrar sesión',
+          style: 'destructive',
+          onPress: () => {
+            // Borrar sesión en memoria global
+            global.authToken = undefined;
+            global.currentUser = null;
+
+            // Redirigir al login
+            router.replace('(auth)/login');
+          },
+        },
+      ],
+    );
+  };
+
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
@@ -196,7 +221,7 @@ export default function UserConfig() {
 
           <View style={styles.dividerLine} />
 
-          <TouchableOpacity style={styles.preferenceItem}>
+          <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="log-out-outline" size={22} color="#E74C3C" />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
