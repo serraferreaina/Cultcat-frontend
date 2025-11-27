@@ -28,97 +28,101 @@ export default function UserConfig() {
   const DEFAULT_AVATAR =
     'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
 
-  const [username, setUsername] = useState('tonigratacos');
+  const [username, setUsername] = useState(global.currentUser?.username ?? '');
   const [description, setDescription] = useState(global.currentUser?.profile_description ?? '');
-  const [email, setEmail] = useState('toni@example.com');
+  const [email, setEmail] = useState(global.currentUser?.email ?? '');
   const [phone, setPhone] = useState('+34 600 000 000');
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
 
   const handleSave = async () => {
     if (!global.authToken) return;
 
-    const payload = {
-      username: username,
-      bio: description,
-      profilePic: avatar,
-    };
-
     try {
+      let formData = new FormData();
+      formData.append('id', global.currentUser?.id?.toString() ?? '0');
+      formData.append('username', username);
+      formData.append('email', email);
+      formData.append('bio', description);
+
+      if (!avatar.startsWith('http')) {
+        formData.append('profilePic', {
+          uri: avatar,
+          name: 'profile.jpg',
+          type: 'image/jpeg',
+        } as any);
+      } else {
+        formData.append('profilePic', avatar);
+      }
+
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Token ${global.authToken}`,
+          'Content-Type': 'multipart/form-data',
         },
-        body: JSON.stringify(payload),
+        body: formData,
       });
 
       const data = await res.json();
 
       global.currentUser = {
-        id: data.id ?? 0,
-        username: data.username,
-        profile_picture: data.profilePic ?? DEFAULT_AVATAR,
-        profile_description: data.bio ?? '',
-      } as any;
+        id: data.id ?? global.currentUser?.id ?? 0,
+        username: data.username ?? username,
+        email: data.email ?? email,
+        profile_picture: data.profilePic ?? avatar,
+        profile_description: data.bio ?? description,
+      };
 
+      alert(t('Perfil actualitzat correctament'));
       router.back();
-    } catch (err) {}
-  };
-
-  const handleChangeAvatar = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      setAvatar(result.assets[0].uri);
+    } catch (err) {
+      console.error('Error actualizando perfil:', err);
+      alert('Error al actualizar perfil');
     }
   };
 
   const updateProfilePicture = async (imageUri: string) => {
     try {
-      let data;
-      if (imageUri.startsWith('http')) {
-        // URL remota: enviamos JSON
-        const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
-          method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Token ${global.authToken}`,
-          },
-          body: JSON.stringify({ profilePic: imageUri }),
-        });
-        data = await res.json();
-      } else {
-        // Imagen local: usamos FormData
-        const formData = new FormData();
+      let formData = new FormData();
+      formData.append('id', global.currentUser?.id?.toString() ?? '0');
+      formData.append('username', username);
+      formData.append('email', email);
+      formData.append('bio', description);
+
+      if (!imageUri.startsWith('http')) {
         formData.append('profilePic', {
           uri: imageUri,
           name: 'profile.jpg',
           type: 'image/jpeg',
         } as any);
-
-        const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
-          method: 'PUT',
-          headers: {
-            Authorization: `Token ${global.authToken}`,
-          },
-          body: formData,
-        });
-        data = await res.json();
+      } else {
+        formData.append('profilePic', imageUri);
       }
 
+      const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
+        method: 'PUT',
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+
+      // Actualizamos global.currentUser con todos los datos
       global.currentUser = {
-        id: global.currentUser?.id ?? 0,
-        username: global.currentUser?.username ?? '',
-        profile_picture: data.profilePic ?? data.profile_picture ?? DEFAULT_AVATAR,
-        profile_description: global.currentUser?.profile_description ?? '',
+        id: data.id ?? global.currentUser?.id ?? 0,
+        username: data.username ?? username,
+        email: data.email ?? email,
+        profile_picture: data.profilePic ?? imageUri,
+        profile_description: data.bio ?? description,
       };
 
-      setAvatar(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
+      setAvatar(global.currentUser.profile_picture || DEFAULT_AVATAR);
+      setUsername(global.currentUser.username);
+      setDescription(global.currentUser.profile_description);
+      setEmail(global.currentUser.email || '');
     } catch (err) {
       console.error('Error updating avatar:', err);
     }

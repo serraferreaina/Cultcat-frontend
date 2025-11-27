@@ -56,9 +56,31 @@ export default function Profile() {
 
   useFocusEffect(
     React.useCallback(() => {
-      if (global.currentUser) {
-        setUser(global.currentUser);
-      }
+      const loadUser = async () => {
+        if (!global.authToken) return;
+
+        try {
+          const res = await fetch('http://nattech.fib.upc.edu:40490/profile/', {
+            headers: { Authorization: `Token ${global.authToken}` },
+          });
+          const data = await res.json();
+
+          const normalized = {
+            id: data.id ?? 0,
+            username: data.username ?? '',
+            profile_description: data.bio ?? '',
+            email: data.email ?? '',
+            profile_picture: data.profilePic ?? DEFAULT_AVATAR,
+          };
+
+          global.currentUser = normalized;
+          setUser(normalized);
+        } catch (err) {
+          console.error('Error cargando perfil:', err);
+        }
+      };
+
+      loadUser();
     }, []),
   );
 
@@ -218,7 +240,7 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                {user?.username ?? 'Usuario'}
+                Toni Gratacós
               </Text>
 
               <Text
@@ -228,9 +250,11 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                {user?.profile_description || ' '}
+                {user?.profile_description || 'Encara no has afegit una descripció.'}
               </Text>
 
+              <Text style={styles.points}></Text>
+              {/* Botón Eventos pasados */}
               <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
                 <Text style={styles.pastBtnText}>{t('Previus events')}</Text>
               </TouchableOpacity>
