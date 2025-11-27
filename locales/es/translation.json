@@ -122,5 +122,9 @@
   "Achivements": "Logros",
   "No achievements yet": "No hay logros aún",
   "Next events": "Próximos eventos",
-  "No upcoming events": "No hay eventos próximos"
+  "No upcoming events": "No hay eventos próximos",
+  "Search one date": "Buscar una fecha",
+  "Search between dates": "Buscar entre fechas",
+  "Search from date": "Buscar desde una fecha",
+  "Cancel": "Cancelar"
 }
