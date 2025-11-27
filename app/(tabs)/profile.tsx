@@ -228,7 +228,7 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                {user?.profile_description || 'Encara no has afegit una descripció.'}
+                {user?.profile_description || ' '}
               </Text>
 
               <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
