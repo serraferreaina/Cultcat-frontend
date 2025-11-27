@@ -25,6 +25,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import { Share } from 'react-native';
 import { Alert } from 'react-native';
+import CommentSection from '../../components/CommentSection';
+import ReviewSection from '../../components/ReviewSection';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -48,6 +50,10 @@ export default function CercaScreen() {
   const [error, setError] = useState<string | null>(null);
   const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
+
+  const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [showComments, setShowComments] = useState(false);
+  const [showReviews, setShowReviews] = useState(false);
 
   const handleDateSelect = (date: Date) => {
     setSelectedDate(date);
@@ -191,10 +197,24 @@ export default function CercaScreen() {
                 />
               </TouchableOpacity>
 
-              <View style={[styles.comments, { marginRight: 12 }]}>
+              <TouchableOpacity
+                style={[styles.comments, { marginRight: 12 }]}
+                onPress={() => {
+                  setSelectedEventId(item.id);
+                  setShowComments(true);
+                }}
+              >
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-                <Text style={[styles.commentCount, { color: Colors.text }]}>0</Text>
-              </View>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={{ marginRight: 12 }}
+                onPress={() => {
+                  setSelectedEventId(item.id);
+                  setShowReviews(true);
+                }}
+              >
+                <Ionicons name="star-outline" size={20} color={Colors.text} />
+              </TouchableOpacity>
 
               <TouchableOpacity
                 style={styles.iconButton}
@@ -587,6 +607,23 @@ export default function CercaScreen() {
         <Text style={{ textAlign: 'center', marginTop: 20, color: Colors.text }}>
           {noEventsMessage}
         </Text>
+      )}
+      {/* COMMENTS */}
+      {selectedEventId !== null && (
+        <CommentSection
+          eventId={selectedEventId}
+          visible={showComments}
+          onClose={() => setShowComments(false)}
+        />
+      )}
+
+      {/* REVIEWS */}
+      {selectedEventId !== null && (
+        <ReviewSection
+          eventId={selectedEventId}
+          visible={showReviews}
+          onClose={() => setShowReviews(false)}
+        />
       )}
     </SafeAreaView>
   );
