@@ -9,20 +9,40 @@ import {
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
+  Image,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
+import * as ImagePicker from 'expo-image-picker';
+
+const BASE_URL = 'http://nattech.fib.upc.edu:40490';
+
+// ---------------------------
+// TYPES
+// ---------------------------
+
+export interface ReviewUser {
+  id: number;
+  username: string;
+  profilePic: string | null;
+}
+
+export interface ReviewImage {
+  id: number;
+  image: string;
+}
 
 export interface Review {
   id: number;
-  user: number;
+  user: ReviewUser;
   rating: number;
   review: string | null;
   votes: number;
   upvoted: boolean;
-  images: string[];
+  images: ReviewImage[];
 }
 
 interface Props {
@@ -30,8 +50,6 @@ interface Props {
   visible: boolean;
   onClose: () => void;
 }
-
-const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
 export default function ReviewSection({ eventId, visible, onClose }: Props) {
   const { t } = useTranslation();
@@ -47,32 +65,36 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // Nova ressenya
+  // Create new
   const [rating, setRating] = useState(0);
   const [newComment, setNewComment] = useState('');
+  const [newImages, setNewImages] = useState<any[]>([]);
 
-  // Edició
+  // Edit review
   const [editingReview, setEditingReview] = useState<Review | null>(null);
   const [editedRating, setEditedRating] = useState(0);
   const [editedComment, setEditedComment] = useState('');
+  const [editedImages, setEditedImages] = useState<any[]>([]);
+  const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
 
-  //Carregar ressenyes (BACKEND REAL)
+  // ---------------------------
+  // LOAD REVIEWS
+  // ---------------------------
+
   const loadReviews = async () => {
     try {
       setLoading(true);
 
       const res = await fetch(`${BASE_URL}/reviews/event/${eventId}/`, {
-        headers: {
-          Authorization: `Token ${global.authToken}`,
-        },
+        headers: { Authorization: `Token ${global.authToken}` },
       });
 
-      if (!res.ok) throw new Error('Error fetching reviews');
-
       const data = await res.json();
-      console.log('RAW REVIEWS:', data);
 
-      setReviews(data); // ja tenen el format adequat
+      // Fix for reviews with invalid user object from backend
+      const safeData = data.filter((r: any) => r.user && typeof r.user === 'object');
+
+      setReviews(safeData);
     } catch (e) {
       console.error('Error loading reviews:', e);
     } finally {
@@ -81,121 +103,178 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
   };
 
   useEffect(() => {
-    if (visible) {
-      loadReviews();
-    }
+    if (visible) loadReviews();
   }, [visible, eventId]);
 
-  //Crear ressenya
+  // ---------------------------
+  // IMAGE PICKER
+  // ---------------------------
+
+  const pickImages = async (setter: any) => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+    });
+
+    if (!result.canceled) setter(result.assets);
+  };
+
+  // ---------------------------
+  // CREATE REVIEW
+  // ---------------------------
+
   const publish = async () => {
+    if (rating === 0) return;
+
     try {
-      const text = newComment.trim() || '';
-
-      if (rating === 0) return;
-
       const form = new FormData();
+
+      form.append('user', String(currentUser.id));
       form.append('event', String(eventId));
       form.append('rating', String(rating));
-      form.append('review', text);
-      form.append('user', String(currentUser.id)); // Obligatori
+      form.append('review', newComment.trim());
+
+      newImages.forEach((img, i) =>
+        form.append('images', {
+          uri: img.uri,
+          name: `img_${i}.jpg`,
+          type: 'image/jpeg',
+        } as any),
+      );
 
       const res = await fetch(`${BASE_URL}/reviews/create/`, {
         method: 'POST',
-        headers: {
-          Authorization: `Token ${global.authToken}`,
-        },
+        headers: { Authorization: `Token ${global.authToken}` },
         body: form,
       });
 
       const created = await res.json();
+      if (created.detail === 'Ya existe una review para este usuario y evento.') {
+        alert('Ja tens una ressenya per aquest esdeveniment.');
+        return;
+      }
 
-      const newReview: Review = {
-        id: created.id,
-        user: created.user,
-        rating: created.rating,
-        review: created.review,
-        votes: created.votes,
-        upvoted: created.upvoted,
-        images: created.images ?? [],
-      };
+      if (!created.id) {
+        console.log('BACKEND ERROR:', created);
+        return;
+      }
 
-      setReviews((prev) => [newReview, ...prev]);
+      setReviews((prev) => [created, ...prev]);
       setRating(0);
       setNewComment('');
+      setNewImages([]);
     } catch (e) {
       console.error('Error creating review:', e);
     }
   };
 
-  //Eliminar ressenya
-  const remove = async (reviewId: number) => {
+  // ---------------------------
+  // DELETE REVIEW
+  // ---------------------------
+
+  const remove = async (id: number) => {
     try {
-      await fetch(`${BASE_URL}/reviews/${reviewId}/`, {
+      await fetch(`${BASE_URL}/reviews/${id}/`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Token ${global.authToken}`,
-        },
+        headers: { Authorization: `Token ${global.authToken}` },
       });
 
-      setReviews((prev) => prev.filter((r) => r.id !== reviewId));
+      setReviews((prev) => prev.filter((r) => r.id !== id));
     } catch (e) {
       console.error('Error deleting review:', e);
     }
   };
 
-  //Obrir modal
+  // ---------------------------
+  // EDIT REVIEW
+  // ---------------------------
+
   const startEdit = (review: Review) => {
     setEditingReview(review);
     setEditedRating(review.rating);
     setEditedComment(review.review ?? '');
+    setEditedImages([]);
+    setRemovedImageIds([]);
   };
 
-  //Guardar edició
   const submitEdit = async () => {
     if (!editingReview) return;
 
-    const text = editedComment.trim() || '';
-
-    if (editedRating === 0) return;
-
     try {
       const form = new FormData();
-      form.append('rating', String(editedRating));
-      form.append('review', text);
+
       form.append('user', String(currentUser.id));
+      form.append('rating', String(editedRating));
+      form.append('review', editedComment.trim());
+
+      if (removedImageIds.length > 0) {
+        removedImageIds.forEach((id) => {
+          form.append('remove_image_ids', String(id));
+        });
+      }
+
+      editedImages.forEach((img, i) =>
+        form.append('images', {
+          uri: img.uri,
+          name: `edit_img_${i}.jpg`,
+          type: 'image/jpeg',
+        } as any),
+      );
 
       const res = await fetch(`${BASE_URL}/reviews/${editingReview.id}/edit/`, {
         method: 'PUT',
-        headers: {
-          Authorization: `Token ${global.authToken}`,
-        },
+        headers: { Authorization: `Token ${global.authToken}` },
         body: form,
       });
 
       const updated = await res.json();
 
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === editingReview.id ? { ...r, rating: updated.rating, review: updated.review } : r,
-        ),
-      );
+      setReviews((prev) => prev.map((r) => (r.id === editingReview.id ? updated : r)));
+      await loadReviews(); // recarrega les imatges reals del backend
 
       setEditingReview(null);
-      setEditedComment('');
-      setEditedRating(0);
     } catch (e) {
       console.error('Error editing review:', e);
     }
   };
 
+  const toggleUpvote = async (reviewId: number, alreadyUpvoted: boolean) => {
+    try {
+      const url = alreadyUpvoted
+        ? `${BASE_URL}/reviews/${reviewId}/upvote/remove/`
+        : `${BASE_URL}/reviews/${reviewId}/upvote/`;
+
+      const res = await fetch(url, {
+        method: alreadyUpvoted ? 'DELETE' : 'POST',
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        console.log('Error fent upvote/unvote:', await res.text());
+        return;
+      }
+
+      // Després de fer el toggle, tornem a carregar les ressenyes
+      await loadReviews();
+    } catch (err) {
+      console.error('Error toggleUpvote:', err);
+    }
+  };
+
+  // ---------------------------
+  // UI
+  // ---------------------------
+
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.4)' }]}>
+    <Modal visible={visible} transparent animationType="slide">
+      <View style={styles.backdrop}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
           style={[styles.card, { backgroundColor: Colors.card }]}
         >
-          {/* Header */}
+          {/* HEADER */}
           <View style={styles.header}>
             <Text style={[styles.title, { color: Colors.text }]}>Reviews</Text>
             <TouchableOpacity onPress={onClose}>
@@ -203,24 +282,34 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
             </TouchableOpacity>
           </View>
 
-          {/* List */}
-          {loading ? (
-            <Text style={{ color: Colors.text }}>Loading…</Text>
-          ) : (
-            <FlatList
-              data={reviews}
-              keyExtractor={(r) => String(r.id)}
-              style={{ flex: 1 }}
-              renderItem={({ item }) => (
+          {/* LIST */}
+          <FlatList
+            data={reviews}
+            keyExtractor={(item, index) => {
+              return item.id ? String(item.id) : `temp_${index}`;
+            }}
+            style={{ flex: 1 }}
+            renderItem={({ item }) => {
+              if (!item.user || typeof item.user !== 'object') return null;
+
+              return (
                 <View style={styles.reviewRow}>
-                  {/* Foto (no hi ha foto al backend) */}
-                  <Ionicons name="person-circle-outline" size={26} color={Colors.text} />
+                  {/* USER PIC */}
+                  {item.user.profilePic ? (
+                    <Image
+                      source={{ uri: item.user.profilePic }}
+                      style={{ width: 32, height: 32, borderRadius: 16 }}
+                    />
+                  ) : (
+                    <Ionicons name="person-circle-outline" size={30} color={Colors.text} />
+                  )}
 
                   <View style={{ flex: 1 }}>
-                    {/* Autor */}
-                    <Text style={{ color: Colors.text, fontWeight: '600' }}>User #{item.user}</Text>
+                    <Text style={{ fontWeight: '600', color: Colors.text }}>
+                      {item.user.username}
+                    </Text>
 
-                    {/* Estrelles */}
+                    {/* STARS */}
                     <View style={styles.starsRow}>
                       {[1, 2, 3, 4, 5].map((v) => (
                         <Ionicons
@@ -232,45 +321,70 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
                       ))}
                     </View>
 
-                    {/* Comentari */}
+                    {/* TEXT */}
                     <Text style={{ color: Colors.text }}>{item.review ?? 'No text'}</Text>
 
-                    {/* Likes */}
-                    <TouchableOpacity style={styles.likeRow}>
+                    {/* IMAGES */}
+                    {item.images?.length > 0 && (
+                      <ScrollView
+                        horizontal
+                        style={{ marginVertical: 6 }}
+                        showsHorizontalScrollIndicator={false}
+                      >
+                        {item.images.map((img) => (
+                          <Image
+                            key={img.id}
+                            source={{ uri: img.image }}
+                            style={{
+                              width: 120,
+                              height: 120,
+                              marginRight: 8,
+                              borderRadius: 8,
+                            }}
+                          />
+                        ))}
+                      </ScrollView>
+                    )}
+
+                    {/* VOTES */}
+                    <TouchableOpacity
+                      style={{ flexDirection: 'row', alignItems: 'center' }}
+                      onPress={() => toggleUpvote(item.id, item.upvoted)}
+                    >
                       <Ionicons
                         name={item.upvoted ? 'heart' : 'heart-outline'}
-                        size={18}
+                        size={20}
                         color={item.upvoted ? 'red' : Colors.text}
                       />
-                      <Text style={{ marginLeft: 6, color: Colors.text }}>{item.votes}</Text>
+                      <Text style={{ marginLeft: 4 }}>{item.votes}</Text>
                     </TouchableOpacity>
                   </View>
 
-                  {/* Botons editar/esborrar (només si és teu) */}
-                  {item.user === currentUser.id && (
-                    <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {/* EDIT + DELETE */}
+                  {item.user.id === currentUser.id && (
+                    <View style={{ gap: 10 }}>
                       <TouchableOpacity onPress={() => startEdit(item)}>
-                        <Ionicons name="create-outline" size={20} color={Colors.text} />
+                        <Ionicons name="create-outline" size={22} color={Colors.text} />
                       </TouchableOpacity>
 
                       <TouchableOpacity onPress={() => remove(item.id)}>
-                        <Ionicons name="trash-outline" size={20} color={Colors.text} />
+                        <Ionicons name="trash-outline" size={22} color={Colors.text} />
                       </TouchableOpacity>
                     </View>
                   )}
                 </View>
-              )}
-            />
-          )}
+              );
+            }}
+          />
 
-          {/* FORMULARI NOVA RESSENYA */}
+          {/* NEW REVIEW */}
           <View style={[styles.composer, { borderTopColor: Colors.border }]}>
             <View style={styles.starsInputRow}>
               {[1, 2, 3, 4, 5].map((v) => (
                 <TouchableOpacity key={v} onPress={() => setRating(v)}>
                   <Ionicons
                     name={v <= rating ? 'star' : 'star-outline'}
-                    size={26}
+                    size={28}
                     color="#e58e26"
                   />
                 </TouchableOpacity>
@@ -286,107 +400,234 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
               multiline
             />
 
+            {/* SELECT IMAGES */}
+            <TouchableOpacity onPress={() => pickImages(setNewImages)}>
+              <Ionicons name="image-outline" size={28} color={Colors.text} />
+            </TouchableOpacity>
+
+            {newImages.length > 0 && (
+              <ScrollView horizontal style={{ marginVertical: 8 }}>
+                {newImages.map((img, i) => (
+                  <Image
+                    key={i}
+                    source={{ uri: img.uri }}
+                    style={{
+                      width: 80,
+                      height: 80,
+                      marginRight: 8,
+                      borderRadius: 8,
+                    }}
+                  />
+                ))}
+              </ScrollView>
+            )}
+
             <TouchableOpacity
               onPress={publish}
               disabled={rating === 0}
               style={[
                 styles.sendBtn,
-                { backgroundColor: rating === 0 ? Colors.border : Colors.accent },
+                {
+                  backgroundColor: rating === 0 ? Colors.border : Colors.accent,
+                },
               ]}
             >
-              <Text style={{ color: Colors.card, fontWeight: '700' }}>Publish</Text>
+              <Text
+                style={{
+                  color: Colors.card,
+                  fontWeight: '700',
+                  fontSize: 16,
+                }}
+              >
+                Publish
+              </Text>
             </TouchableOpacity>
           </View>
-
-          {/* MODAL D'EDICIÓ */}
-          {editingReview && (
-            <Modal transparent animationType="fade" visible={true}>
-              <View style={styles.editBackdrop}>
-                <View style={styles.editBox}>
-                  <Text style={[styles.title, { color: Colors.text }]}>Edit review</Text>
-
-                  <View style={styles.starsInputRow}>
-                    {[1, 2, 3, 4, 5].map((v) => (
-                      <TouchableOpacity key={v} onPress={() => setEditedRating(v)}>
-                        <Ionicons
-                          name={v <= editedRating ? 'star' : 'star-outline'}
-                          size={26}
-                          color="#e58e26"
-                        />
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <TextInput
-                    value={editedComment}
-                    onChangeText={setEditedComment}
-                    multiline
-                    style={styles.editInput}
-                  />
-
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                    <TouchableOpacity onPress={() => setEditingReview(null)}>
-                      <Text style={{ color: Colors.textSecondary }}>Cancel</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity onPress={submitEdit}>
-                      <Text style={{ color: Colors.accent, fontWeight: '700' }}>Save</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            </Modal>
-          )}
         </KeyboardAvoidingView>
       </View>
+
+      {/* EDIT MODAL */}
+      {editingReview && (
+        <Modal visible transparent animationType="fade">
+          <View style={styles.editBackdrop}>
+            <View style={[styles.editBox, { backgroundColor: Colors.card }]}>
+              <Text style={[styles.title, { color: Colors.text }]}>Edit review</Text>
+
+              {/* STARS */}
+              <View style={styles.starsInputRow}>
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <TouchableOpacity key={v} onPress={() => setEditedRating(v)}>
+                    <Ionicons
+                      name={v <= editedRating ? 'star' : 'star-outline'}
+                      size={28}
+                      color="#e58e26"
+                    />
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* TEXT */}
+              <TextInput
+                value={editedComment}
+                onChangeText={setEditedComment}
+                multiline
+                style={[styles.input, { color: Colors.text }]}
+              />
+
+              {/* OLD IMAGES WITH DELETE BUTTON */}
+              {editingReview.images.length > 0 && (
+                <ScrollView horizontal style={{ marginVertical: 8 }}>
+                  {editingReview.images.map((img) => (
+                    <View key={img.id} style={{ marginRight: 8 }}>
+                      <Image
+                        source={{ uri: img.image }}
+                        style={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: 8,
+                        }}
+                      />
+                      <TouchableOpacity
+                        onPress={() => {
+                          setRemovedImageIds((prev) => [...prev, img.id]);
+                          setEditingReview((prev) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  images: prev.images.filter((i) => i.id !== img.id),
+                                }
+                              : null,
+                          );
+                        }}
+                        style={{
+                          position: 'absolute',
+                          top: -6,
+                          right: -6,
+                        }}
+                      >
+                        <Ionicons name="close-circle" size={24} color="red" />
+                      </TouchableOpacity>
+                    </View>
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* SELECT NEW IMAGES */}
+              <TouchableOpacity onPress={() => pickImages(setEditedImages)}>
+                <Ionicons name="image-outline" size={28} color={Colors.text} />
+              </TouchableOpacity>
+
+              {editedImages.length > 0 && (
+                <ScrollView horizontal style={{ marginVertical: 8 }}>
+                  {editedImages.map((img, i) => (
+                    <Image
+                      key={i}
+                      source={{ uri: img.uri }}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        marginRight: 8,
+                        borderRadius: 8,
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+
+              {/* ACTIONS */}
+              <View style={styles.editActions}>
+                <TouchableOpacity onPress={() => setEditingReview(null)}>
+                  <Text style={{ color: Colors.textSecondary }}>Cancel</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity onPress={submitEdit}>
+                  <Text style={{ color: Colors.accent, fontWeight: '700' }}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
     </Modal>
   );
 }
 
+// ---------------------------
+// STYLES
+// ---------------------------
+
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end' },
-  card: { height: '80%', borderTopLeftRadius: 18, borderTopRightRadius: 18, padding: 16 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
-  title: { fontSize: 18, fontWeight: '700' },
-
-  reviewRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginVertical: 10 },
-  starsRow: { flexDirection: 'row', marginVertical: 2 },
-  likeRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
-
-  composer: { paddingTop: 10, borderTopWidth: 1 },
-  starsInputRow: { flexDirection: 'row', marginBottom: 8, columnGap: 4 },
-
-  input: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    minHeight: 60,
-    textAlignVertical: 'top',
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    justifyContent: 'flex-end',
+  },
+  card: {
+    height: '80%',
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
     marginBottom: 10,
   },
-
-  sendBtn: { paddingVertical: 10, borderRadius: 8, alignItems: 'center' },
-
+  title: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  reviewRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginVertical: 10,
+  },
+  starsRow: {
+    flexDirection: 'row',
+    marginVertical: 4,
+  },
+  likeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  composer: {
+    paddingTop: 10,
+    borderTopWidth: 1,
+  },
+  starsInputRow: {
+    flexDirection: 'row',
+    gap: 4,
+    marginBottom: 8,
+  },
+  input: {
+    borderWidth: 1,
+    borderRadius: 10,
+    padding: 10,
+    minHeight: 60,
+    textAlignVertical: 'top',
+    marginVertical: 10,
+  },
+  sendBtn: {
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 6,
+  },
   editBackdrop: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
-    alignItems: 'center',
   },
   editBox: {
     width: '85%',
+    borderRadius: 20,
     padding: 20,
-    backgroundColor: 'white',
-    borderRadius: 12,
+    alignSelf: 'center',
   },
-  editInput: {
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    minHeight: 60,
-    textAlignVertical: 'top',
-    marginVertical: 12,
+  editActions: {
+    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
 });
