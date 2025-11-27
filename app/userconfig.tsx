@@ -162,7 +162,6 @@ export default function UserConfig() {
     );
   };
 
-
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
