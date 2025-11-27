@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -24,12 +25,14 @@ const CARD = '#FFF';
 export default function UserConfig() {
   const { t } = useTranslation();
   const router = useRouter();
+  const DEFAULT_AVATAR =
+    'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
 
   const [username, setUsername] = useState('tonigratacos');
   const [description, setDescription] = useState(global.currentUser?.profile_description ?? '');
   const [email, setEmail] = useState('toni@example.com');
   const [phone, setPhone] = useState('+34 600 000 000');
-  const [avatar, setAvatar] = useState('https://i.pravatar.cc/200?img=12');
+  const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
 
   const handleSave = async () => {
     if (!global.authToken) return;
@@ -37,7 +40,7 @@ export default function UserConfig() {
     const payload = {
       username: username,
       bio: description,
-      profilePic: global.currentUser?.profile_picture ?? null,
+      profilePic: avatar,
     };
 
     try {
@@ -53,22 +56,85 @@ export default function UserConfig() {
       const data = await res.json();
 
       global.currentUser = {
-        id: data.id,
+        id: data.id ?? 0,
         username: data.username,
-        profile_picture: data.profilePic ?? null,
+        profile_picture: data.profilePic ?? DEFAULT_AVATAR,
         profile_description: data.bio ?? '',
-      };
+      } as any;
 
       router.back();
     } catch (err) {}
   };
 
-  const handleChangeAvatar = () => {
-    Alert.alert(
-      t('Canviar foto') || 'Canviar foto',
-      t('Funcionalitat per seleccionar una nova foto') ||
-        'Funcionalitat per seleccionar una nova foto',
-    );
+  const handleChangeAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      setAvatar(result.assets[0].uri);
+    }
+  };
+
+  const updateProfilePicture = async (imageUri: string) => {
+    try {
+      let data;
+      if (imageUri.startsWith('http')) {
+        // URL remota: enviamos JSON
+        const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Token ${global.authToken}`,
+          },
+          body: JSON.stringify({ profilePic: imageUri }),
+        });
+        data = await res.json();
+      } else {
+        // Imagen local: usamos FormData
+        const formData = new FormData();
+        formData.append('profilePic', {
+          uri: imageUri,
+          name: 'profile.jpg',
+          type: 'image/jpeg',
+        } as any);
+
+        const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
+          method: 'PUT',
+          headers: {
+            Authorization: `Token ${global.authToken}`,
+          },
+          body: formData,
+        });
+        data = await res.json();
+      }
+
+      global.currentUser = {
+        id: global.currentUser?.id ?? 0,
+        username: global.currentUser?.username ?? '',
+        profile_picture: data.profilePic ?? data.profile_picture ?? DEFAULT_AVATAR,
+        profile_description: global.currentUser?.profile_description ?? '',
+      };
+
+      setAvatar(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
+    } catch (err) {
+      console.error('Error updating avatar:', err);
+    }
+  };
+
+  const pickImage = async () => {
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+
+    if (!result.canceled) {
+      const uri = result.assets[0].uri;
+      setAvatar(uri);
+      updateProfilePicture(uri);
+    }
   };
 
   return (
@@ -87,11 +153,18 @@ export default function UserConfig() {
           <View style={styles.avatarSection}>
             <Image source={{ uri: avatar }} style={styles.avatarLarge} />
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <TouchableOpacity style={styles.changePhotoBtn} onPress={handleChangeAvatar}>
+              <TouchableOpacity style={styles.changePhotoBtn} onPress={pickImage}>
                 <Ionicons name="camera-outline" size={20} color={CARD} />
                 <Text style={styles.changePhotoText}>{t('Canviar foto')}</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.removePhotoBtn}>
+              <TouchableOpacity
+                style={styles.removePhotoBtn}
+                onPress={() => {
+                  setAvatar(DEFAULT_AVATAR);
+
+                  if (global.authToken) updateProfilePicture(DEFAULT_AVATAR);
+                }}
+              >
                 <Text style={styles.removePhotoText}>{t('Eliminar foto')}</Text>
               </TouchableOpacity>
             </View>
