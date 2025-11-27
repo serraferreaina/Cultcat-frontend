@@ -10,6 +10,7 @@ import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
 import { getProfile } from '../../api';
 import { ThemeToggle } from '../../components/ThemeToggle';
+import { useFocusEffect } from '@react-navigation/native';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -37,22 +38,31 @@ export default function Profile() {
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<any>(global.currentUser);
 
   const router = useRouter();
 
-  useEffect(() => {
-    async function load() {
-      try {
-        const data = await getProfile();
-        setUser(data);
-        console.log('PROFILE DATA:', data);
-      } catch (err) {
-        console.error('Error carregant perfil:', err);
+  useFocusEffect(
+    React.useCallback(() => {
+      if (global.currentUser) {
+        setUser(global.currentUser);
       }
-    }
+    }, []),
+  );
 
-    load();
+  useEffect(() => {
+    if (!global.currentUser) {
+      getProfile().then((data) => {
+        const normalized = {
+          ...data,
+          profile_description: data.description ?? '',
+          profile_picture: data.profile_picture ?? null,
+        };
+
+        setUser(normalized);
+        global.currentUser = normalized;
+      });
+    }
   }, []);
 
   return (
@@ -84,7 +94,7 @@ export default function Profile() {
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="calendar-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Calendari')}</Text>
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Calendar')}</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -98,7 +108,7 @@ export default function Profile() {
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="bookmarks-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Guardats')}</Text>
+                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Saved')}</Text>
                   </View>
                 </TouchableOpacity>
 
@@ -113,7 +123,7 @@ export default function Profile() {
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Ionicons name="settings-outline" size={18} color={ACCENT} />
                     <Text style={[styles.menuItemText, { marginLeft: 8 }]}>
-                      {t('Configuració')}
+                      {t('Configuration')}
                     </Text>
                   </View>
                 </TouchableOpacity>
@@ -184,7 +194,8 @@ export default function Profile() {
         <View style={styles.card}>
           <View style={styles.topRow}>
             <View>
-              <Image source={{ uri: user?.profilePic }} style={styles.avatar} />
+              <Image source={{ uri: user?.profile_picture }} style={styles.avatar} />
+
               {/* Botoncito de añadir foto (solo UI) */}
               <View style={styles.addPhoto}>
                 <Ionicons name="add" size={16} color={ACCENT} />
@@ -192,11 +203,12 @@ export default function Profile() {
             </View>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
-              <Text style={styles.desc}>{user?.bio}</Text>
+              <Text style={styles.desc}>{user?.profile_description}</Text>
+
               <Text style={styles.points}></Text>
               {/* Botón Eventos pasados */}
               <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
-                <Text style={styles.pastBtnText}>{t('Esdevenmients passats')}</Text>
+                <Text style={styles.pastBtnText}>{t('Previus events')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -212,7 +224,7 @@ export default function Profile() {
           {/* Acciones */}
           <View style={styles.actionsRow}>
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#ECE6DA' }]}>
-              <Text style={[styles.actionText, { color: TEXT }]}>{t('Editar')}</Text>
+              <Text style={[styles.actionText, { color: TEXT }]}>{t('Edit')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
@@ -220,26 +232,26 @@ export default function Profile() {
                 { backgroundColor: CARD, borderWidth: 1, borderColor: '#E4D8C8' },
               ]}
             >
-              <Text style={[styles.actionText, { color: TEXT }]}>{t('Compartir')}</Text>
+              <Text style={[styles.actionText, { color: TEXT }]}>{t('Share')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Insignias (vacío) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('Insígnies')}</Text>
+          <Text style={styles.sectionTitle}>{t('Achivements')}</Text>
           <View style={styles.emptyBox}>
             <Ionicons name="ribbon-outline" size={20} color={MUTED} />
-            <Text style={styles.emptyText}>{t('Sense insígnies per ara')}</Text>
+            <Text style={styles.emptyText}>{t('No achievements yet')}</Text>
           </View>
         </View>
 
         {/* Eventos próximos (vacío) */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('Próxims esdeveniments')}</Text>
+          <Text style={styles.sectionTitle}>{t('Next events')}</Text>
           <View style={styles.emptyBox}>
             <Ionicons name="calendar-outline" size={20} color={MUTED} />
-            <Text style={styles.emptyText}>{t('No hi ha events pròxims')}</Text>
+            <Text style={styles.emptyText}>{t('No upcoming events')}</Text>
           </View>
         </View>
 
@@ -270,8 +282,10 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: TEXT,
   },
-  headerIcons: { flexDirection: 'row', alignItems: 'center' },
-
+  headerIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
   menuContainer: {
     position: 'absolute',
     right: 16,
@@ -318,8 +332,16 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 16,
   },
-  topRow: { flexDirection: 'row', alignItems: 'center' },
-  avatar: { width: 78, height: 78, borderRadius: 40, backgroundColor: '#DDD' },
+  topRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatar: {
+    width: 78,
+    height: 78,
+    borderRadius: 40,
+    backgroundColor: '#DDD',
+  },
   addPhoto: {
     position: 'absolute',
     right: -2,
@@ -333,9 +355,13 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E5E1DA',
   },
-  desc: { color: MUTED, marginBottom: 6 },
-  points: { color: TEXT },
-
+  desc: {
+    color: MUTED,
+    marginBottom: 6,
+  },
+  points: {
+    color: TEXT,
+  },
   pastBtn: {
     alignSelf: 'flex-start',
     marginTop: 10,
@@ -344,8 +370,10 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 10,
   },
-  pastBtnText: { color: ACCENT, fontWeight: '700' },
-
+  pastBtnText: {
+    color: ACCENT,
+    fontWeight: '700',
+  },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -356,17 +384,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     marginTop: 14,
   },
-  statItem: { alignItems: 'center', flex: 1 },
-  statNumber: { color: TEXT, fontSize: 18, fontWeight: '800' },
-  statLabel: { color: MUTED, fontSize: 12 },
-  divider: { width: 1, height: 26, backgroundColor: '#E4D8C8' },
-
-  levelText: { color: TEXT, fontWeight: '700', marginBottom: 6 },
-  progressBg: { height: 6, backgroundColor: '#E7E0D2', borderRadius: 999 },
-  progressFill: { height: 6, backgroundColor: '#7057FF', borderRadius: 999, width: '0%' },
-  progressHint: { color: MUTED, fontSize: 12, marginTop: 6, textAlign: 'right' },
-
-  actionsRow: { flexDirection: 'row', gap: 12, marginTop: 14 },
+  statItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  statNumber: {
+    color: TEXT,
+    fontSize: 18,
+    fontWeight: '800',
+  },
+  statLabel: {
+    color: MUTED,
+    fontSize: 12,
+  },
+  divider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#E4D8C8',
+  },
+  levelText: {
+    color: TEXT,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  progressBg: {
+    height: 6,
+    backgroundColor: '#E7E0D2',
+    borderRadius: 999,
+  },
+  progressFill: {
+    height: 6,
+    backgroundColor: '#7057FF',
+    borderRadius: 999,
+    width: '0%',
+  },
+  progressHint: {
+    color: MUTED,
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: 'right',
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+  },
   actionBtn: {
     flex: 1,
     paddingVertical: 10,
@@ -374,8 +436,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  actionText: { fontWeight: '700' },
-
+  actionText: {
+    fontWeight: '700',
+  },
   section: {
     backgroundColor: CARD,
     borderRadius: 16,
@@ -387,7 +450,12 @@ const styles = StyleSheet.create({
     elevation: 2,
     marginBottom: 16,
   },
-  sectionTitle: { color: TEXT, fontWeight: '800', fontSize: 16, marginBottom: 10 },
+  sectionTitle: {
+    color: TEXT,
+    fontWeight: '800',
+    fontSize: 16,
+    marginBottom: 10,
+  },
   emptyBox: {
     backgroundColor: BG,
     borderRadius: 12,
@@ -395,5 +463,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  emptyText: { color: MUTED, marginTop: 6 },
+  emptyText: {
+    color: MUTED,
+    marginTop: 6,
+  },
 });

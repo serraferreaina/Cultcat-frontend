@@ -25,25 +25,45 @@ export default function UserConfig() {
   const { t } = useTranslation();
   const router = useRouter();
 
-  // Estats per al formulari
   const [username, setUsername] = useState('tonigratacos');
-  const [description, setDescription] = useState('bcn | Ingeniería informática');
+  const [description, setDescription] = useState(global.currentUser?.profile_description ?? '');
   const [email, setEmail] = useState('toni@example.com');
   const [phone, setPhone] = useState('+34 600 000 000');
   const [avatar, setAvatar] = useState('https://i.pravatar.cc/200?img=12');
 
-  const handleSave = () => {
-    // Aquí es faria la lògica per guardar les dades
-    Alert.alert(
-      t('Canvis guardats') || 'Canvis guardats',
-      t("El teu perfil s'ha actualitzat correctament") ||
-        "El teu perfil s'ha actualitzat correctament",
-    );
-    router.back();
+  const handleSave = async () => {
+    if (!global.authToken) return;
+
+    const payload = {
+      username: username,
+      bio: description,
+      profilePic: global.currentUser?.profile_picture ?? null,
+    };
+
+    try {
+      const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Token ${global.authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      global.currentUser = {
+        id: data.id,
+        username: data.username,
+        profile_picture: data.profilePic ?? null,
+        profile_description: data.bio ?? '',
+      };
+
+      router.back();
+    } catch (err) {}
   };
 
   const handleChangeAvatar = () => {
-    // Aquí es faria la lògica per canviar la foto
     Alert.alert(
       t('Canviar foto') || 'Canviar foto',
       t('Funcionalitat per seleccionar una nova foto') ||
@@ -54,7 +74,6 @@ export default function UserConfig() {
   return (
     <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header */}
         <View style={styles.headerRow}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={28} color={TEXT} />
@@ -63,7 +82,6 @@ export default function UserConfig() {
           <View style={{ width: 28 }} />
         </View>
 
-        {/* Foto de perfil */}
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{t('Foto de perfil')}</Text>
           <View style={styles.avatarSection}>
@@ -80,28 +98,27 @@ export default function UserConfig() {
           </View>
         </View>
 
-        {/* Informació personal */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{t('Informació personal')}</Text>
+          <Text style={styles.sectionTitle}>{t('Personal information')}</Text>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t("Nom d'usuari")}</Text>
+            <Text style={styles.label}>{t('User name')}</Text>
             <TextInput
               style={styles.input}
               value={username}
               onChangeText={setUsername}
-              placeholder={t("Introdueix el teu nom d'usuari") || "Introdueix el teu nom d'usuari"}
+              placeholder={t('Introduce your user name') || "Introdueix el teu nom d'usuari"}
               placeholderTextColor={MUTED}
             />
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('Descripció')}</Text>
+            <Text style={styles.label}>{t('Description')}</Text>
             <TextInput
               style={[styles.input, styles.textArea]}
               value={description}
               onChangeText={setDescription}
-              placeholder={t('Escriu una breu descripció') || 'Escriu una breu descripció'}
+              placeholder={t('Write a short description') || 'Escriu una breu descripció'}
               placeholderTextColor={MUTED}
               multiline
               numberOfLines={3}
@@ -109,7 +126,7 @@ export default function UserConfig() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('Correu electrònic')}</Text>
+            <Text style={styles.label}>{t('Email')}</Text>
             <TextInput
               style={styles.input}
               value={email}
@@ -122,7 +139,7 @@ export default function UserConfig() {
           </View>
 
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('Telèfon')}</Text>
+            <Text style={styles.label}>{t('Telephone')}</Text>
             <TextInput
               style={styles.input}
               value={phone}
@@ -134,14 +151,13 @@ export default function UserConfig() {
           </View>
         </View>
 
-        {/* Preferències */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{t('Preferències')}</Text>
+          <Text style={styles.sectionTitle}>{t('Preferences')}</Text>
 
           <TouchableOpacity style={styles.preferenceItem}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="notifications-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Notificacions')}</Text>
+              <Text style={styles.preferenceText}>{t('Notifications')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>
@@ -151,7 +167,7 @@ export default function UserConfig() {
           <TouchableOpacity style={styles.preferenceItem}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="lock-closed-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Privacitat')}</Text>
+              <Text style={styles.preferenceText}>{t('Privacity')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>
@@ -161,20 +177,19 @@ export default function UserConfig() {
           <TouchableOpacity style={styles.preferenceItem}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="shield-checkmark-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Seguretat')}</Text>
+              <Text style={styles.preferenceText}>{t('Segurity')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>
         </View>
 
-        {/* Compte */}
         <View style={styles.card}>
-          <Text style={styles.sectionTitle}>{t('Compte')}</Text>
+          <Text style={styles.sectionTitle}>{t('Account')}</Text>
 
           <TouchableOpacity style={styles.preferenceItem}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="key-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Canviar contrasenya')}</Text>
+              <Text style={styles.preferenceText}>{t('Change password')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>
@@ -185,7 +200,7 @@ export default function UserConfig() {
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="log-out-outline" size={22} color="#E74C3C" />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
-                {t('Tancar sessió')}
+                {t('Close session')}
               </Text>
             </View>
           </TouchableOpacity>
@@ -196,15 +211,14 @@ export default function UserConfig() {
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="trash-outline" size={22} color="#E74C3C" />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
-                {t('Eliminar compte')}
+                {t('Delete account')}
               </Text>
             </View>
           </TouchableOpacity>
         </View>
 
-        {/* Botó de guardar */}
         <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-          <Text style={styles.saveButtonText}>{t('Guardar canvis')}</Text>
+          <Text style={styles.saveButtonText}>{t('Save changes')}</Text>
         </TouchableOpacity>
 
         <View style={{ height: 32 }} />
