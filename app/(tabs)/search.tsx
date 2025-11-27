@@ -40,9 +40,6 @@ export default function CercaScreen() {
 
   const [isTopicsModalVisible, setIsTopicsModalVisible] = useState(false);
 
-  const [isAgeModalVisible, setIsAgeModalVisible] = useState(false);
-  const [ageRange, setAgeRange] = useState<[number, number]>([18, 40]);
-
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const [events, setEvents] = useState<any[]>([]);
@@ -55,9 +52,19 @@ export default function CercaScreen() {
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
 
-  const handleDateSelect = (date: Date) => {
-    setSelectedDate(date);
-    console.log('Buscar events del:', date.toISOString());
+  const handleDateFilter = async ({ type, date1, date2 }: any) => {
+    let url = 'http://nattech.fib.upc.edu:40490/events/?';
+
+    const d1 = date1.toISOString().slice(0, 10);
+    const d2 = date2?.toISOString().slice(0, 10);
+
+    if (type === 'single') url += `date=${d1}`;
+    if (type === 'range') url += `date=${d1}&date2=${d2}`;
+    if (type === 'from') url += `from_date=${d1}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+    setEvents(json);
   };
 
   const toggleTopic = (topic: string) => {
@@ -345,7 +352,7 @@ export default function CercaScreen() {
 
         {/* Botó data */}
         <View style={styles.dateButtonWrapper}>
-          <SearchDate onDateSelect={handleDateSelect} />
+          <SearchDate onFilter={handleDateFilter} />
         </View>
 
         {/* Botó guardats */}
@@ -392,34 +399,10 @@ export default function CercaScreen() {
               style={styles.optionItem}
               onPress={() => {
                 setIsOptionsModalVisible(false);
-                setIsAgeModalVisible(true); // obrir modal del rang d'edat
-              }}
-            >
-              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Age')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                setIsOptionsModalVisible(false);
                 setIsTopicsModalVisible(true);
               }}
             >
               <Text style={[styles.optionText, { color: Colors.text }]}>{t('Category')}</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.optionItem}
-              onPress={() => {
-                {
-                }
-                {
-                }
-                console.log('Filtrar por duración');
-                setIsOptionsModalVisible(false);
-              }}
-            >
-              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Duration')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -510,63 +493,6 @@ export default function CercaScreen() {
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
               onPress={handleSearchByTopics}
-            >
-              <Text style={[styles.searchButtonText, { color: Colors.background }]}>
-                {t('search')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal rang d'edat*/}
-      <Modal
-        visible={isAgeModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsAgeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-            {/* Header */}
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by age')}</Text>
-              <TouchableOpacity onPress={() => setIsAgeModalVisible(false)}>
-                <X color={Colors.text} size={20} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Texto del rango */}
-            <Text style={[styles.ageValue, { color: Colors.text }]}>
-              {t('Age between')} {ageRange[0]} {t('and')} {ageRange[1]} {t('years')}
-            </Text>
-
-            {/* Slider de rango */}
-            <View style={styles.sliderContainer}>
-              <MultiSlider
-                values={ageRange}
-                min={0}
-                max={100}
-                step={1}
-                sliderLength={250}
-                onValuesChange={(values) => setAgeRange(values as [number, number])}
-                selectedStyle={{ backgroundColor: Colors.accent }}
-                unselectedStyle={{ backgroundColor: Colors.border }}
-                markerStyle={{
-                  backgroundColor: Colors.accent,
-                  height: 20,
-                  width: 20,
-                }}
-              />
-            </View>
-
-            {/* Botón de buscar */}
-            <TouchableOpacity
-              style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-              onPress={() => {
-                console.log('Filtrar eventos por edad:', ageRange);
-                setIsAgeModalVisible(false);
-              }}
             >
               <Text style={[styles.searchButtonText, { color: Colors.background }]}>
                 {t('search')}
@@ -731,12 +657,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 20,
-  },
-  ageValue: {
-    textAlign: 'center',
-    fontSize: 16,
-    marginTop: 10,
-    fontWeight: '500',
   },
   eventsGrid: {
     paddingHorizontal: 8,

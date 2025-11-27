@@ -122,5 +122,9 @@
   "Achivements": "Achievements",
   "No achievements yet": "No achievements yet",
   "Next events": "Next events",
-  "No upcoming events": "No upcoming events"
+  "No upcoming events": "No upcoming events",
+  "Search one date": "Search one date",
+  "Search between dates": "Search between dates",
+  "Search from date": "Search from date",
+  "Cancel": "CanceL"
 }

@@ -122,5 +122,9 @@
   "Achivements": "Insígnies",
   "No achievements yet": "Sense insígnies per ara",
   "Next events": "Pròxims esdeveniments",
-  "No upcoming events": "No hi ha events pròxims"
+  "No upcoming events": "No hi ha events pròxims",
+  "Search one date": "Buscar una data",
+  "Search between dates": "Buscar entre dates",
+  "Search from date": "Buscar des d'una data",
+  "Cancel": "Cancel·la"
 }
