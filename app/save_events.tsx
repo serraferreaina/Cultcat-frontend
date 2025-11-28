@@ -113,17 +113,7 @@ export default function SavedEventsScreen() {
       <FlatList
         data={savedEventsList}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <EventCard
-            item={item}
-            toggleGoing={toggleGoing}
-            toggleSaved={toggleSaved}
-            goingEvents={goingEvents}
-            savedEvents={savedEvents}
-            router={router}
-            Colors={Colors}
-          />
-        )}
+        renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
         extraData={savedEvents}
       />
