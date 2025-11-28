@@ -45,6 +45,43 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
   // EDIT
   const [editingComment, setEditingComment] = useState<Comment | null>(null);
   const [editedText, setEditedText] = useState('');
+  const [profileModalVisible, setProfileModalVisible] = useState(false);
+  const [profileData, setProfileData] = useState<any>(null);
+
+  const openProfile = async (username: string) => {
+    try {
+      const res = await fetch(`http://nattech.fib.upc.edu:40490/profile/`, {
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+        },
+      });
+
+      const text = await res.text();
+      console.log('PROFILE RAW RESPONSE:', text);
+
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (err) {
+        console.error('El servidor NO ha retornat JSON. Mira si el username existeix.');
+        return;
+      }
+
+      // 🔥 Normalitzam EXACTAMENT igual que al perfil
+      const normalized = {
+        id: data.id ?? 0,
+        username: data.username ?? '',
+        profile_description: data.bio ?? '',
+        email: data.email ?? '',
+        profile_picture: data.profilePic ?? null,
+      };
+
+      setProfileData(normalized);
+      setProfileModalVisible(true);
+    } catch (e) {
+      console.error('Error carregant perfil:', e);
+    }
+  };
 
   const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
@@ -185,9 +222,11 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
                   )}
 
                   <View style={{ flex: 1 }}>
-                    <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                      {item.author_username}
-                    </Text>
+                    <TouchableOpacity onPress={() => openProfile(item.author_username)}>
+                      <Text style={{ color: Colors.accent, fontWeight: '600' }}>
+                        {item.author_username}
+                      </Text>
+                    </TouchableOpacity>
 
                     <Text style={{ color: Colors.text }}>{item.text}</Text>
 
@@ -273,6 +312,86 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
               <Text style={{ color: Colors.card, fontWeight: '700' }}>{t('Publish')}</Text>
             </TouchableOpacity>
           </View>
+          {/* PROFILE MODAL */}
+          {/* PROFILE MODAL */}
+          <Modal
+            visible={profileModalVisible}
+            animationType="fade"
+            transparent
+            onRequestClose={() => setProfileModalVisible(false)}
+          >
+            <View
+              style={{
+                flex: 1,
+                backgroundColor: 'rgba(0,0,0,0.45)',
+                justifyContent: 'center',
+                alignItems: 'center',
+                padding: 20,
+              }}
+            >
+              <View
+                style={{
+                  width: '85%',
+                  backgroundColor: Colors.card,
+                  borderRadius: 16,
+                  padding: 20,
+                  alignItems: 'center',
+                }}
+              >
+                {profileData ? (
+                  <>
+                    {/* Foto */}
+                    {profileData.profile_picture ? (
+                      <Image
+                        source={{ uri: profileData.profile_picture }}
+                        style={{ width: 70, height: 70, borderRadius: 35, marginBottom: 12 }}
+                      />
+                    ) : (
+                      <Ionicons
+                        name="person-circle-outline"
+                        size={70}
+                        color={Colors.textSecondary}
+                        style={{ marginBottom: 12 }}
+                      />
+                    )}
+
+                    {/* Username */}
+                    <Text style={{ fontSize: 20, fontWeight: '700', color: Colors.text }}>
+                      @{profileData.username}
+                    </Text>
+
+                    {/* Bio */}
+                    <Text
+                      style={{
+                        marginTop: 14,
+                        textAlign: 'center',
+                        color: Colors.text,
+                        fontSize: 14,
+                      }}
+                    >
+                      {profileData.profile_description || 'Sense descripció'}
+                    </Text>
+                  </>
+                ) : (
+                  <ActivityIndicator size="large" color={Colors.accent} />
+                )}
+
+                {/* Botó de tancar */}
+                <TouchableOpacity
+                  style={{
+                    marginTop: 20,
+                    backgroundColor: Colors.accent,
+                    paddingVertical: 10,
+                    paddingHorizontal: 30,
+                    borderRadius: 10,
+                  }}
+                  onPress={() => setProfileModalVisible(false)}
+                >
+                  <Text style={{ color: Colors.card, fontWeight: '700' }}>Tancar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </KeyboardAvoidingView>
       </View>
     </Modal>
