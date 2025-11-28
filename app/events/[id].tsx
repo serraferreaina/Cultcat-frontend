@@ -14,9 +14,10 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-import { useEventStatus } from '../../context/EventStatus';
+// 1. IMPORT SMART HOOK
+import { useEventStatus, useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
-import ReviewSection, { Review } from '../../components/ReviewSection';
+import ReviewSection from '../../components/ReviewSection';
 import { Share } from 'react-native';
 
 interface EventData {
@@ -36,32 +37,53 @@ interface EventData {
   georeferencia: string | null;
   telefon: string | null;
   email: string | null;
-  dataInici: string | null;
-  dataFi: string | null;
+  data_inici: string | null; // Updated to match API (snake_case)
+  data_fi: string | null; // Updated to match API
 }
 
 export default function EventDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
+  // Handle array or string id
   const eventId = Array.isArray(id) ? id[0] : id;
+
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const [event, setEvent] = useState<EventData | null>(null);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+
+  const { savedEvents, toggleSaved } = useEventStatus();
 
   // COMENTARIS
   const [modalOpen, setModalOpen] = useState(false);
 
   // RESSENYES
   const [reviewVisible, setReviewVisible] = useState(false);
-  const [activeReviewEventId, setActiveReviewEventId] = useState<number | null>(null);
 
-  // Usuari actual (placeholder)
-  const [currentUser] = useState({ id: 1, username: 'Usuari' });
+  // 2. ADD FETCH LOGIC (This fixes the infinite loading)
+  useEffect(() => {
+    if (!eventId) return;
 
+    const fetchEventDetail = async () => {
+      try {
+        const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`);
+        if (!res.ok) throw new Error('Event not found');
+        const data = await res.json();
+        setEvent(data);
+      } catch (err: any) {
+        console.error(err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventDetail();
+  }, [eventId]);
+
+  // Loading View
   if (load) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
@@ -70,16 +92,37 @@ export default function EventDetail() {
     );
   }
 
+  // Error View
   if (error || !event) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
         <Text style={{ color: Colors.text }}>{t('Error loading event')}</Text>
+        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
+          <Text style={{ color: Colors.accent }}>Go Back</Text>
+        </TouchableOpacity>
       </View>
     );
   }
 
-  const isGoing = !!goingEvents[event!.id];
-  const isSaved = !!savedEvents[event!.id];
+  // 3. USE SMART LOGIC (Must be called after event is loaded/checked)
+  // We use a helper component to safely use the hook, or just use it here carefully
+  // Since we returned early for null event, this is safe.
+  const LogicWrapper = () => {
+    const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(event);
+
+    return (
+      <TouchableOpacity
+        style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
+        onPress={toggle}
+      >
+        <Text style={[styles.buttonText, { color: Colors.card }]}>
+          {isActive ? t(textKey) : t(textKeyInactive)}
+        </Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const isSaved = !!savedEvents[event.id];
 
   const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
   const imageUri = event.imgApp
@@ -95,21 +138,20 @@ export default function EventDetail() {
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[styles.title, { color: Colors.text }]}>←</Text>
         </TouchableOpacity>
-        <Text style={[styles.title, { color: Colors.text, marginLeft: 10 }]}>{event.titol}</Text>
+        <Text
+          style={[styles.title, { color: Colors.text, marginLeft: 10, flex: 1 }]}
+          numberOfLines={1}
+        >
+          {event.titol}
+        </Text>
       </View>
 
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
       {/* BUTTONS */}
       <View style={styles.topButtons}>
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-          onPress={() => toggleGoing(event.id)}
-        >
-          <Text style={[styles.buttonText, { color: Colors.card }]}>
-            {isGoing ? t('I will attend') : t('Want to go')}
-          </Text>
-        </TouchableOpacity>
+        {/* 4. RENDER THE DYNAMIC BUTTON */}
+        <LogicWrapper />
 
         <View style={styles.iconsRow}>
           <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(event.id)}>
@@ -222,11 +264,10 @@ export default function EventDetail() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  image: { width: '100%', height: 250 },
+  image: { width: '100%', height: 250, marginTop: 15 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 30,
     marginHorizontal: 20,
     marginBottom: 8,
   },
@@ -237,6 +278,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     marginLeft: 10,
     marginRight: 10,
+    marginTop: 20,
   },
   link: {
     fontSize: 16,
@@ -263,12 +305,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 15,
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
   },
   button: {
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    marginLeft: 20,
+    minWidth: 120,
+    alignItems: 'center',
   },
   buttonText: {
     fontWeight: '600',
@@ -281,7 +325,6 @@ const styles = StyleSheet.create({
   },
   iconButton: {
     padding: 6,
-    marginRight: 10,
   },
   reviewButton: {
     marginTop: 20,
@@ -290,8 +333,8 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     paddingHorizontal: 10,
     borderRadius: 16,
-    marginBottom: 6,
-    marginRight: 10,
+    marginBottom: 20,
+    marginRight: 20,
   },
   reviewButtonText: {
     fontSize: 12,
