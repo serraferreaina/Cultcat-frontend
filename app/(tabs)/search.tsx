@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import {
   View,
+  TextInput,
   StyleSheet,
   ScrollView,
   Text,
@@ -17,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import SearchDate from '../../components/SearchDate';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ import { Share } from 'react-native';
 import { Alert } from 'react-native';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import { municipisCatalunya } from '../cerca/municipisCatalunya';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -51,6 +53,13 @@ export default function CercaScreen() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+
+  const [isMunicipiModalVisible, setIsMunicipiModalVisible] = useState(false);
+  const [municipiSearch, setMunicipiSearch] = useState('');
+  const [selectedMunicipi, setSelectedMunicipi] = useState<string | null>(null);
+  const filteredMunicipis = useMemo(() => {
+    return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
+  }, [municipiSearch]);
 
   const handleDateFilter = async ({ type, date1, date2 }: any) => {
     let url = 'http://nattech.fib.upc.edu:40490/events/?';
@@ -97,8 +106,6 @@ export default function CercaScreen() {
   };
 
   useEffect(() => {
-    if (isFiltered) return;
-
     const fetchEvents = async () => {
       try {
         const res = await fetch('http://nattech.fib.upc.edu:40490/events');
@@ -106,14 +113,45 @@ export default function CercaScreen() {
         const data = await res.json();
         setEvents(data);
       } catch (err: any) {
-        console.error(t('Error loading events'), err);
+        console.error('Error loading events', err);
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
     fetchEvents();
-  }, [isFiltered]);
+  }, []);
+
+  const handleSearchByMunicipi = async (municipi: string) => {
+    setSelectedMunicipi(municipi);
+    setIsMunicipiModalVisible(false);
+    setLoading(true);
+
+    try {
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events/?municipi=${encodeURIComponent(municipi)}`,
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text(); // primer agafem text
+      const data = textData ? JSON.parse(textData) : []; // només parsegem si hi ha text
+
+      setEvents(data);
+      setIsFiltered(true);
+
+      if (data.length === 0) {
+        Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
+          { text: "D'acord" },
+        ]);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+      Alert.alert('Error', 'Hi ha hagut un problema carregant els esdeveniments.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
@@ -345,9 +383,14 @@ export default function CercaScreen() {
         contentContainerStyle={styles.filtersRow}
       >
         {/* Botó ubicació */}
-        <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: Colors.card }]}
+          onPress={() => setIsMunicipiModalVisible(true)}
+        >
           <MapPin color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Location')}</Text>
+          <Text style={[styles.filterText, { color: Colors.text }]}>
+            {selectedMunicipi || t('Location')}
+          </Text>
         </TouchableOpacity>
 
         {/* Botó data */}
@@ -396,13 +439,25 @@ export default function CercaScreen() {
             </View>
 
             <TouchableOpacity
-              style={styles.optionItem}
+              style={[styles.optionItem, { paddingVertical: 8 }]}
               onPress={() => {
-                setIsOptionsModalVisible(false);
-                setIsTopicsModalVisible(true);
+                setSelectedMunicipi(null);
+                setIsMunicipiModalVisible(false);
+                setEvents([]); // opcional: neteja els events filtrats
+                setIsFiltered(false);
+                setLoading(true);
+
+                // Torna a carregar tots els events
+                fetch('http://nattech.fib.upc.edu:40490/events')
+                  .then((res) => res.json())
+                  .then((data) => setEvents(data))
+                  .catch((err) => console.error(err))
+                  .finally(() => setLoading(false));
               }}
             >
-              <Text style={[styles.optionText, { color: Colors.text }]}>{t('Category')}</Text>
+              <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
+                {t('Clear filter')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -502,38 +557,110 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
+      {/* Modal de municipi */}
+      {/* Modal de municipi */}
+      <Modal
+        visible={isMunicipiModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIsMunicipiModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select municipality')}
+              </Text>
+              <TouchableOpacity onPress={() => setIsMunicipiModalVisible(false)}>
+                <X color={Colors.text} size={20} />
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={[styles.input, { marginBottom: 12, borderColor: Colors.accent }]}
+              placeholder={t('Search municipality')}
+              placeholderTextColor={Colors.text + '88'}
+              value={municipiSearch}
+              onChangeText={setMunicipiSearch}
+            />
+
+            {/* BOTÓ ESBORRAR FILTRE */}
+            <TouchableOpacity
+              style={{
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                backgroundColor: Colors.accent,
+                borderRadius: 10,
+                marginBottom: 8,
+                alignItems: 'center',
+              }}
+              onPress={() => {
+                setSelectedMunicipi(null);
+                setIsMunicipiModalVisible(false);
+                setIsFiltered(false);
+                setLoading(true);
+
+                fetch('http://nattech.fib.upc.edu:40490/events')
+                  .then((res) => res.json())
+                  .then((data) => setEvents(data))
+                  .catch((err) => console.error(err))
+                  .finally(() => setLoading(false));
+              }}
+            >
+              <Text style={{ color: Colors.background, fontWeight: '600' }}>
+                {t('Clear filter')}
+              </Text>
+            </TouchableOpacity>
+
+            {/* Scroll amb municipis filtrats */}
+            <ScrollView style={{ maxHeight: 200 }}>
+              {filteredMunicipis.map((m, index) => (
+                <TouchableOpacity
+                  key={`${m}-${index}`}
+                  style={[styles.optionItem, { paddingVertical: 8 }]}
+                  onPress={() => handleSearchByMunicipi(m)}
+                >
+                  <Text style={{ color: Colors.text, fontSize: 14 }}>{m}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={events}
         keyExtractor={(item, index) => `${item.id}-${index}`}
         renderItem={renderEvent}
-        contentContainerStyle={styles.eventsList}
+        contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 20 }}
         onEndReached={isFiltered ? undefined : loadMoreEvents}
         onEndReachedThreshold={0.5}
         ListHeaderComponent={
-          <>
-            <Text
-              style={{
-                fontSize: 18,
-                fontWeight: '600',
-                marginTop: 12,
-                marginLeft: 12,
-                color: Colors.text,
-              }}
-            >
-              {isFiltered ? t('Filtered events') : t('All events')}
-            </Text>
-          </>
+          <Text
+            style={{
+              fontSize: 18,
+              fontWeight: '600',
+              marginTop: 12,
+              marginLeft: 12,
+              marginBottom: 8, // ✅ separa títol de la llista o missatge
+              color: Colors.text,
+            }}
+          >
+            {isFiltered ? t('Filtered events') : t('All events')}
+          </Text>
         }
         ListFooterComponent={
           loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
         }
+        ListEmptyComponent={() => (
+          <View style={{ paddingVertical: 20 }}>
+            <Text style={{ textAlign: 'center', color: Colors.text }}>
+              {noEventsMessage || t('No events available')}
+            </Text>
+          </View>
+        )}
       />
 
-      {!load && events.length === 0 && noEventsMessage && (
-        <Text style={{ textAlign: 'center', marginTop: 20, color: Colors.text }}>
-          {noEventsMessage}
-        </Text>
-      )}
       {/* COMMENTS */}
       {selectedEventId !== null && (
         <CommentSection
@@ -739,5 +866,16 @@ const styles = StyleSheet.create({
   },
   commentCount: {
     fontSize: 13,
+  },
+  input: {
+    backgroundColor: '#F7F0E2', // o el color de fons que facis servir
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: '#311C0C',
+    fontSize: 15,
+    borderWidth: 1,
+    borderColor: '#E4D8C8',
+    marginBottom: 12,
   },
 });
