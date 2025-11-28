@@ -9,16 +9,17 @@ import {
   ActivityIndicator,
   NativeScrollEvent,
   NativeSyntheticEvent,
+  Share,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEventStatus } from '../../context/EventStatus';
+// Import context and the smart hook
+import { useEventStatus, useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
-import { Share } from 'react-native';
 
 interface Events {
   id: number;
@@ -26,12 +27,14 @@ interface Events {
   descripcio: string | null;
   imgApp: string | null;
   imatges: string | null;
+  data_inici?: string | null;
 }
 
 interface PointsImages {
   images: string[];
 }
 
+// --- HELPER COMPONENT: IMAGES CAROUSEL ---
 const Images: React.FC<PointsImages> = ({ images }) => {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
@@ -76,13 +79,118 @@ const Images: React.FC<PointsImages> = ({ images }) => {
   );
 };
 
-export default function Home() {
+// --- MAIN COMPONENT: FEED CARD ---
+// We extract this so hooks can be used safely inside it
+interface FeedCardProps {
+  item: Events;
+  onOpenComments: (id: number) => void;
+  onOpenReviews: (id: number) => void;
+}
+
+const FeedCard: React.FC<FeedCardProps> = ({ item, onOpenComments, onOpenReviews }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
+  // Hooks usage (Safe here because FeedCard is a component)
+  const { savedEvents, toggleSaved } = useEventStatus();
+  const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(item);
+
+  const isSaved = savedEvents[item.id] || false;
+
+  const images =
+    item.imatges && item.imatges.trim() !== ''
+      ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
+      : item.imgApp && item.imgApp.trim() !== ''
+        ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
+        : ['https://via.placeholder.com/300x200'];
+
+  const handleShare = () => {
+    const url = `https://tu-app.com/event/${item.id}`;
+    Share.share({ message: `Mira este evento: ${url}`, url });
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
+      {/* Header */}
+      <View style={styles.cardHeader}>
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+          <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
+            {item.titol
+              ? item.titol.length > 20
+                ? item.titol.slice(0, 20) + '…'
+                : item.titol
+              : t('Event without title')}
+          </Text>
+        </TouchableOpacity>
+
+        {/* Dynamic Button (Assisted vs Want To Go) */}
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
+          onPress={toggle}
+        >
+          <Text style={[styles.buttonText, { color: Colors.card }]}>
+            {isActive ? t(textKey) : t(textKeyInactive)}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Images */}
+      <Images images={images} />
+
+      {/* Footer */}
+      <View style={styles.cardFooter}>
+        <View style={styles.leftFooter}>
+          {/* Save */}
+          <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
+            <Ionicons
+              name={isSaved ? 'bookmark' : 'bookmark-outline'}
+              size={20}
+              color={Colors.text}
+            />
+          </TouchableOpacity>
+
+          {/* Comments */}
+          <TouchableOpacity onPress={() => onOpenComments(item.id)}>
+            <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+          </TouchableOpacity>
+
+          {/* Share */}
+          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+          </TouchableOpacity>
+        </View>
+
+        {/* Reviews */}
+        <View style={{ alignItems: 'flex-end' }}>
+          <TouchableOpacity style={styles.reviewButton} onPress={() => onOpenReviews(item.id)}>
+            <Ionicons name="create-outline" size={20} color="white" />
+            <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <Text
+        style={[styles.descriptionText, { color: Colors.text }]}
+        numberOfLines={2}
+        ellipsizeMode="tail"
+      >
+        {item.descripcio || t('No description available')}
+      </Text>
+
+      <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+        <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
+
+// --- MAIN SCREEN ---
+export default function Home() {
+  const { t } = useTranslation();
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
@@ -91,11 +199,9 @@ export default function Home() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Comentaris
+  // Modals state
   const [modalOpen, setModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
-
-  // Ressenyes
   const [reviewVisible, setReviewVisible] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
 
@@ -138,109 +244,14 @@ export default function Home() {
     setIsDropdownVisible(false);
   };
 
-  const renderPost = ({ item }: { item: Events }) => {
-    const isSaved = savedEvents[item.id] || false;
+  const handleOpenComments = (id: number) => {
+    setActiveEventId(id);
+    setModalOpen(true);
+  };
 
-    const images =
-      item.imatges && item.imatges.trim() !== ''
-        ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
-        : item.imgApp && item.imgApp.trim() !== ''
-          ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
-          : ['https://via.placeholder.com/300x200'];
-
-    return (
-      <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
-        {/* Event */}
-        <View style={styles.cardHeader}>
-          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-            <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
-              {item.titol
-                ? item.titol.length > 20
-                  ? item.titol.slice(0, 20) + '…'
-                  : item.titol
-                : t('Event without title')}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.button,
-              { backgroundColor: goingEvents[item.id] ? Colors.going : Colors.accent },
-            ]}
-            onPress={() => toggleGoing(item.id)}
-          >
-            <Text style={[styles.buttonText, { color: Colors.card }]}>
-              {goingEvents[item.id] ? t('I will attend') : t('Want to go')}
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Image */}
-        <Images images={images} />
-
-        <View style={styles.cardFooter}>
-          <View style={styles.leftFooter}>
-            <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
-              <Ionicons
-                name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                size={20}
-                color={Colors.text}
-              />
-            </TouchableOpacity>
-
-            {/* Comentaris */}
-            <TouchableOpacity
-              onPress={() => {
-                setActiveEventId(item.id);
-                setModalOpen(true);
-              }}
-            >
-              <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-            </TouchableOpacity>
-
-            {/* Share */}
-            <TouchableOpacity
-              style={styles.iconButton}
-              onPress={() => {
-                const url = `https://tu-app.com/event/${item.id}`;
-                Share.share({
-                  message: `Mira este evento: ${url}`,
-                  url,
-                });
-              }}
-            >
-              <Ionicons name="share-social-outline" size={20} color={Colors.text} />
-            </TouchableOpacity>
-          </View>
-
-          {/* Ressenyes */}
-          <View style={{ alignItems: 'flex-end' }}>
-            <TouchableOpacity
-              style={styles.reviewButton}
-              onPress={() => {
-                setSelectedEventId(item.id);
-                setReviewVisible(true);
-              }}
-            >
-              <Ionicons name="create-outline" size={20} color="white" />
-              <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-
-        {/* Description */}
-        <Text
-          style={[styles.descriptionText, { color: Colors.text }]}
-          numberOfLines={2}
-          ellipsizeMode="tail"
-        >
-          {item.descripcio || t('No description available')}
-        </Text>
-
-        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
-        </TouchableOpacity>
-      </View>
-    );
+  const handleOpenReviews = (id: number) => {
+    setSelectedEventId(id);
+    setReviewVisible(true);
   };
 
   if (load)
@@ -274,7 +285,6 @@ export default function Home() {
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          {/* Notifications */}
           <TouchableOpacity onPress={notifications} style={styles.iconButton}>
             <Ionicons name="notifications-outline" size={26} color={Colors.text} />
             {unreadNotifications > 0 && (
@@ -285,8 +295,6 @@ export default function Home() {
               </View>
             )}
           </TouchableOpacity>
-
-          {/* Chat */}
           <TouchableOpacity style={styles.iconButton}>
             <Ionicons name="chatbubble-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
@@ -317,21 +325,26 @@ export default function Home() {
         </View>
       )}
 
+      {/* LIST OF FEED CARDS */}
       <FlatList
         data={events}
         keyExtractor={(item) => item.id.toString()}
-        renderItem={renderPost}
+        renderItem={({ item }) => (
+          <FeedCard
+            item={item}
+            onOpenComments={handleOpenComments}
+            onOpenReviews={handleOpenReviews}
+          />
+        )}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
       />
 
-      {/* Modal de comentaris */}
       <CommentSection
         eventId={activeEventId ?? 0}
         visible={modalOpen}
         onClose={() => setModalOpen(false)}
       />
 
-      {/* Modal de ressenyes */}
       {selectedEventId !== null && (
         <ReviewSection
           eventId={selectedEventId}
@@ -344,9 +357,7 @@ export default function Home() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     marginTop: 60,
     paddingHorizontal: 20,
@@ -354,11 +365,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  dropdownButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
+  dropdownButton: { flexDirection: 'row', alignItems: 'center', gap: 5 },
   dropdown: {
     position: 'absolute',
     top: 100,
@@ -368,9 +375,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     zIndex: 999,
   },
-  dropdownItem: {
-    padding: 10,
-  },
+  dropdownItem: { padding: 10 },
   card: {
     marginHorizontal: 20,
     marginBottom: 20,
@@ -380,19 +385,8 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 4,
   },
-  image: {
-    width: '100%',
-    height: 200,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: '700',
-  },
-  iconButton: {
-    padding: 6,
-  },
+  title: { fontSize: 20, fontWeight: '700' },
+  iconButton: { padding: 6 },
   badge: {
     position: 'absolute',
     top: 2,
@@ -403,36 +397,17 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  badgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
+  badgeText: { fontSize: 10, fontWeight: 'bold' },
   cardFooter: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 12,
   },
-  leftFooter: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  button: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  buttonText: {
-    fontWeight: '600',
-    fontSize: 13,
-  },
-  descriptionText: {
-    fontSize: 14,
-    marginTop: 4,
-    marginHorizontal: 12,
-    marginBottom: 12,
-  },
+  leftFooter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  button: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
+  buttonText: { fontWeight: '600', fontSize: 13 },
+  descriptionText: { fontSize: 14, marginTop: 4, marginHorizontal: 12, marginBottom: 12 },
   reviewButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -443,17 +418,8 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
     marginTop: 10,
   },
-  reviewButtonText: {
-    color: 'white',
-    marginLeft: 6,
-    fontWeight: '600',
-  },
-  seeMore: {
-    fontSize: 14,
-    fontWeight: '600',
-    marginHorizontal: 12,
-    marginBottom: 12,
-  },
+  reviewButtonText: { color: 'white', marginLeft: 6, fontWeight: '600' },
+  seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 12, marginBottom: 12 },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
