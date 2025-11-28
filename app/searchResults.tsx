@@ -153,17 +153,7 @@ export default function SearchResultsScreen() {
           <FlatList
             data={events}
             keyExtractor={(item) => item.id.toString()}
-            renderItem={({ item }) => (
-              <EventCard
-                item={item}
-                toggleGoing={toggleGoing}
-                toggleSaved={toggleSaved}
-                goingEvents={goingEvents}
-                savedEvents={savedEvents}
-                router={router}
-                Colors={Colors}
-              />
-            )}
+            renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
             contentContainerStyle={{ paddingBottom: 20 }}
           />
         )
