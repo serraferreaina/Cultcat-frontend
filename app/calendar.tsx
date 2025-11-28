@@ -1,4 +1,3 @@
-// app/calendar.tsx
 import React, { useEffect, useState } from 'react';
 import {
   View,
@@ -31,7 +30,10 @@ type EventDetail = {
   id: number;
   titol: string;
   data_inici: string | null;
-  color?: string;
+  imatges?: string | null;
+  imgApp?: string | null;
+  descripcio?: string;
+  // ... other fields
 };
 
 /* ----------  COMPONENT  ---------- */
@@ -40,25 +42,37 @@ export default function CalendarScreen() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const colors = theme === 'dark' ? DarkColors : LightColors;
-  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+
+  // We still need these to FETCH the data for the dots on the calendar
+  const { goingEvents, assistedEvents } = useEventStatus();
 
   const today = new Date().toISOString().split('T')[0];
   const [selected, setSelected] = useState(today);
-  const [goingByDate, setGoingByDate] = useState<Record<string, EventDetail[]>>({});
+
+  const [eventsByDate, setEventsByDate] = useState<Record<string, EventDetail[]>>({});
   const [noDateEvents, setNoDateEvents] = useState<EventDetail[]>([]);
   const [loading, setLoading] = useState(true);
 
-  /* ----------  DATA  ---------- */
+  /* ----------  DATA FETCHING  ---------- */
   useEffect(() => {
-    fetchWantToGoEvents();
-  }, [goingEvents]);
+    fetchAllCalendarEvents();
+  }, [goingEvents, assistedEvents]);
 
-  async function fetchWantToGoEvents() {
+  async function fetchAllCalendarEvents() {
     setLoading(true);
     try {
-      const saved: SavedEvent[] = await api('/saved-events/?state=wantToGo');
+      // Fetch BOTH lists to mark dots on calendar
+      const [wantToGoData, attendedData] = await Promise.all([
+        api('/saved-events/?state=wantToGo'),
+        api('/saved-events/?state=attended'),
+      ]);
+
+      const combinedSaved: SavedEvent[] = [...(wantToGoData || []), ...(attendedData || [])];
+
+      const uniqueEventIds = [...new Set(combinedSaved.map((item) => item.event_id))];
+
       const details: EventDetail[] = await Promise.all(
-        saved.map((se) => api(`/events/${se.event_id}/`)),
+        uniqueEventIds.map((id) => api(`/events/${id}/`)),
       );
 
       const withDate: Record<string, EventDetail[]> = {};
@@ -74,10 +88,10 @@ export default function CalendarScreen() {
         }
       });
 
-      setGoingByDate(withDate);
+      setEventsByDate(withDate);
       setNoDateEvents(without);
     } catch (err) {
-      console.error('Error loading wantToGo events:', err);
+      console.error('Error loading calendar events:', err);
     } finally {
       setLoading(false);
     }
@@ -85,7 +99,7 @@ export default function CalendarScreen() {
 
   /* ----------  CALENDAR MARKINGS  ---------- */
   const markedDates: any = {};
-  Object.keys(goingByDate).forEach((date) => {
+  Object.keys(eventsByDate).forEach((date) => {
     markedDates[date] = { marked: true, dotColor: colors.accent };
   });
   markedDates[selected] = {
@@ -95,7 +109,7 @@ export default function CalendarScreen() {
     selectedTextColor: colors.card,
   };
 
-  const selectedEvents = goingByDate[selected] || [];
+  const selectedEvents = eventsByDate[selected] || [];
 
   /* ----------  RENDER  ---------- */
   if (loading) {
@@ -165,12 +179,10 @@ export default function CalendarScreen() {
               <EventCard
                 key={event.id}
                 item={event}
-                toggleGoing={toggleGoing}
-                toggleSaved={toggleSaved}
-                goingEvents={goingEvents}
-                savedEvents={savedEvents}
                 router={router}
                 Colors={colors}
+                // REMOVED: toggleGoing, toggleSaved, assistedEvents, etc.
+                // The Card handles this internally now!
               />
             ))
           ) : (
@@ -187,16 +199,7 @@ export default function CalendarScreen() {
             <>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('noDateEvents')}</Text>
               {noDateEvents.map((event) => (
-                <EventCard
-                  key={event.id}
-                  item={event}
-                  toggleGoing={toggleGoing}
-                  toggleSaved={toggleSaved}
-                  goingEvents={goingEvents}
-                  savedEvents={savedEvents}
-                  router={router}
-                  Colors={colors}
-                />
+                <EventCard key={event.id} item={event} router={router} Colors={colors} />
               ))}
             </>
           )}
@@ -206,7 +209,6 @@ export default function CalendarScreen() {
   );
 }
 
-/* ----------  STYLES  ---------- */
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   header: {
