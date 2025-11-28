@@ -19,7 +19,7 @@ import SearchDate from '../../components/SearchDate';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import React, { useState, useEffect, useMemo } from 'react';
-import { MapPin, Bookmark, SlidersHorizontal, X } from 'lucide-react-native';
+import { MapPin, Bookmark, Star, SlidersHorizontal, X } from 'lucide-react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -321,6 +321,10 @@ export default function CercaScreen() {
         pathname: '/searchResults',
         params: { query },
       });
+
+      setTimeout(() => {
+        setSearchQuery('');
+      }, 50);
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'There was a problem fetching events.');
@@ -373,7 +377,7 @@ export default function CercaScreen() {
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       {/* Barra de cerca */}
-      <SearchBar onSearch={handleSearch} />
+      <SearchBar value={searchQuery} onChangeText={setSearchQuery} onSearch={handleSearch} />
 
       {/* Scroll horizontal */}
       <ScrollView
@@ -398,13 +402,15 @@ export default function CercaScreen() {
           <SearchDate onFilter={handleDateFilter} />
         </View>
 
-        {/* Botó guardats */}
-        <TouchableOpacity style={[styles.filterButton, { backgroundColor: Colors.card }]}>
-          <Bookmark color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Saved')}</Text>
+        {/* Botó altres */}
+        <TouchableOpacity
+          style={[styles.filterButton, { backgroundColor: Colors.card }]}
+          onPress={() => setIsTopicsModalVisible(true)}
+        >
+          <Star color={Colors.text} size={18} />
+          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Category')}</Text>
         </TouchableOpacity>
 
-        {/* Botó altres */}
         <TouchableOpacity
           style={[styles.filterButton, { backgroundColor: Colors.card }]}
           onPress={() => setIsOptionsModalVisible(true)}
@@ -443,11 +449,10 @@ export default function CercaScreen() {
               onPress={() => {
                 setSelectedMunicipi(null);
                 setIsMunicipiModalVisible(false);
-                setEvents([]); // opcional: neteja els events filtrats
+                setEvents([]);
                 setIsFiltered(false);
                 setLoading(true);
 
-                // Torna a carregar tots els events
                 fetch('http://nattech.fib.upc.edu:40490/events')
                   .then((res) => res.json())
                   .then((data) => setEvents(data))
@@ -558,7 +563,6 @@ export default function CercaScreen() {
       </Modal>
 
       {/* Modal de municipi */}
-      {/* Modal de municipi */}
       <Modal
         visible={isMunicipiModalVisible}
         transparent
@@ -584,7 +588,6 @@ export default function CercaScreen() {
               onChangeText={setMunicipiSearch}
             />
 
-            {/* BOTÓ ESBORRAR FILTRE */}
             <TouchableOpacity
               style={{
                 paddingVertical: 10,
@@ -642,7 +645,7 @@ export default function CercaScreen() {
               fontWeight: '600',
               marginTop: 12,
               marginLeft: 12,
-              marginBottom: 8, // ✅ separa títol de la llista o missatge
+              marginBottom: 8,
               color: Colors.text,
             }}
           >
@@ -868,7 +871,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   input: {
-    backgroundColor: '#F7F0E2', // o el color de fons que facis servir
+    backgroundColor: '#F7F0E2',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 12,
