@@ -2,6 +2,8 @@ import React from 'react';
 import { View, Text, TouchableOpacity, Image, Share, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+// 1. Import the hook directly here
+import { useEventStatus } from '../context/EventStatus';
 
 interface Event {
   id: number;
@@ -15,30 +17,28 @@ interface Event {
   infoEntrades?: string;
   direccio?: string;
   comentaris?: number;
+  data_inici?: string | null;
 }
 
 interface EventCardProps {
   item: Event;
-  toggleGoing: (id: number) => void;
-  toggleSaved: (id: number) => void;
-  goingEvents: Record<number, boolean>;
-  savedEvents: Record<number, boolean>;
+  // We REMOVED all the toggle/status props from here.
+  // The card handles them internally now.
   router: any;
   Colors: { [key: string]: string };
 }
 
-export const EventCard: React.FC<EventCardProps> = ({
-  item,
-  toggleGoing,
-  toggleSaved,
-  goingEvents,
-  savedEvents,
-  router,
-  Colors,
-}) => {
+export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors }) => {
+  // 2. Consume the context INSIDE the card
+  const { goingEvents, savedEvents, assistedEvents, toggleGoing, toggleSaved, toggleAssisted } =
+    useEventStatus();
+
+  const { t } = useTranslation();
+
+  // Safe checks using the context values
   const isGoing = !!goingEvents[item.id];
   const isSaved = !!savedEvents[item.id];
-  const { t } = useTranslation();
+  const isAssisted = !!assistedEvents[item.id];
 
   const images: string[] =
     item.imatges && item.imatges.trim() !== ''
@@ -49,41 +49,43 @@ export const EventCard: React.FC<EventCardProps> = ({
 
   const imageToShow = images[0];
 
+  // --- Logic to check if event is past ---
+  const isEventPast = (): boolean => {
+    if (!item.data_inici) return false; // If no date, assume future/current
+
+    const eventDate = new Date(item.data_inici);
+    const today = new Date();
+    // Reset time to midnight for simple date comparison
+    today.setHours(0, 0, 0, 0);
+
+    // If event is strictly before today
+    return eventDate < today;
+  };
+
+  const isPast = isEventPast();
+
   return (
     <TouchableOpacity
       style={[styles.eventRow, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}
       onPress={() => router.push(`../events/${item.id}`)}
       activeOpacity={0.8}
     >
-      {/* Imagen */}
       <Image source={{ uri: imageToShow }} style={styles.eventImageSide} />
 
       <View style={styles.eventInfo}>
-        {/* Título */}
         <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
           {item.titol || t('Event without title')}
         </Text>
 
-        {/* Labels */}
         <View style={styles.labelContainer}>
           {item.espai && <Label text={item.espai} color={Colors.accent} />}
-          {item.infoHorari && item.infoHorari.length <= 4 && (
-            <Label text={item.infoHorari} color={Colors.accent} />
-          )}
-          {item.modalitat && <Label text={item.modalitat} color={Colors.accent} />}
           {item.localitat && <Label text={item.localitat} color={Colors.accent} />}
-          {item.infoEntrades && item.infoEntrades.length <= 30 && (
-            <Label text={item.infoEntrades} color={Colors.accent} />
-          )}
-          {item.direccio && item.direccio.length <= 15 && (
-            <Label text={item.direccio} color={Colors.accent} />
-          )}
+          {/* Add other labels as needed */}
         </View>
 
-        {/* Botones */}
         <View style={styles.cardButtonsRow}>
           <View style={styles.cardButtonsLeft}>
-            {/* Guardar */}
+            {/* Save Button */}
             <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
               <Ionicons
                 name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -92,7 +94,7 @@ export const EventCard: React.FC<EventCardProps> = ({
               />
             </TouchableOpacity>
 
-            {/* Comentarios */}
+            {/* Comments */}
             <View style={styles.comments}>
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               <Text style={[styles.commentCount, { color: Colors.text }]}>
@@ -100,34 +102,49 @@ export const EventCard: React.FC<EventCardProps> = ({
               </Text>
             </View>
 
-            {/* Compartir */}
+            {/* Share */}
             <TouchableOpacity
               style={styles.iconButton}
               onPress={() => {
                 const url = `https://tu-app.com/event/${item.id}`;
-                Share.share({ message: `Mira este evento: ${url}`, url });
+                Share.share({ message: `Check this event: ${url}`, url });
               }}
             >
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
 
-          {/* Asistir */}
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-            onPress={() => toggleGoing(item.id)}
-          >
-            <Text style={[styles.buttonText, { color: Colors.card }]}>
-              {isGoing ? t('I will attend') : t('Want to go')}
-            </Text>
-          </TouchableOpacity>
+          {/* DYNAMIC BUTTON LOGIC */}
+          {isPast ? (
+            // --- PAST EVENT: Show ASSISTED Button ---
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: isAssisted ? Colors.going : Colors.accent },
+              ]}
+              onPress={() => toggleAssisted(item.id)}
+            >
+              <Text style={[styles.buttonText, { color: Colors.card }]}>
+                {isAssisted ? t('Assisted') : t('I have assisted')}
+              </Text>
+            </TouchableOpacity>
+          ) : (
+            // --- FUTURE EVENT: Show WANT TO GO Button ---
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+              onPress={() => toggleGoing(item.id)}
+            >
+              <Text style={[styles.buttonText, { color: Colors.card }]}>
+                {isGoing ? t('I will attend') : t('Want to go')}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     </TouchableOpacity>
   );
 };
 
-// Label para etiquetas
 const Label: React.FC<{ text: string; color: string }> = ({ text, color }) => (
   <View style={[styles.label, { backgroundColor: color + '22' }]}>
     <Text style={[styles.labelText, { color }]}>{text}</Text>
@@ -145,10 +162,7 @@ const styles = StyleSheet.create({
     width: '95%',
     alignSelf: 'center',
     shadowOpacity: 0.1,
-    shadowOffset: {
-      width: 0,
-      height: 1,
-    },
+    shadowOffset: { width: 0, height: 1 },
     shadowRadius: 3,
   },
   eventImageSide: {
