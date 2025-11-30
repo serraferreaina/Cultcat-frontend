@@ -13,12 +13,6 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 
-const BG = '#F7F0E2';
-const TEXT = '#311C0C';
-const ACCENT = '#C86A2E';
-const MUTED = '#8B7355';
-const CARD = '#FFF';
-
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
@@ -90,7 +84,7 @@ export default function Profile() {
         const normalized = {
           ...data,
           profile_description: data.description ?? '',
-          profile_picture: data.profile_picture ?? null,
+          profile_picture: data.profile_picture ?? DEFAULT_AVATAR,
         };
         setUser(normalized);
         global.currentUser = normalized;
@@ -99,24 +93,27 @@ export default function Profile() {
   }, []);
 
   return (
-    <SafeAreaView style={styles.screen} edges={['top', 'left', 'right']}>
+    <SafeAreaView
+      style={[styles.screen, { backgroundColor: Colors.background }]}
+      edges={['top', 'left', 'right']}
+    >
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header: nombre + menu */}
         <View style={styles.headerRow}>
-          <Text style={styles.username}>{user?.username}</Text>
+          <Text style={[styles.username, { color: Colors.text }]}>{user?.username}</Text>
           <View style={styles.headerIcons}>
             <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
-              <Ionicons name="menu-outline" size={24} color={TEXT} />
+              <Ionicons name="menu-outline" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Menú */}
         {showMenu && (
-          <View style={styles.menuContainer}>
+          <View style={[styles.menuContainer, { backgroundColor: Colors.card }]}>
             {!showLanguageSelector ? (
               <>
-                <Text style={styles.menuTitle}>{t('Options')}</Text>
+                <Text style={[styles.menuTitle, { color: Colors.text }]}>{t('Options')}</Text>
 
                 <TouchableOpacity
                   style={styles.menuItem}
@@ -126,8 +123,10 @@ export default function Profile() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="calendar-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Calendar')}</Text>
+                    <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8, color: Colors.text }]}>
+                      {t('Calendar')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
@@ -139,8 +138,10 @@ export default function Profile() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="bookmarks-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Saved')}</Text>
+                    <Ionicons name="bookmarks-outline" size={18} color={Colors.accent} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8, color: Colors.text }]}>
+                      {t('Saved')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
@@ -152,14 +153,14 @@ export default function Profile() {
                   }}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="settings-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>
+                    <Ionicons name="settings-outline" size={18} color={Colors.accent} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8, color: Colors.text }]}>
                       {t('Configuration')}
                     </Text>
                   </View>
                 </TouchableOpacity>
 
-                <View style={styles.menuDivider} />
+                <View style={[styles.menuDivider, { backgroundColor: Colors.border }]} />
 
                 <TouchableOpacity style={styles.menuItem} onPress={toggleTheme}>
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
@@ -171,9 +172,15 @@ export default function Profile() {
                         marginTop: -10,
                       }}
                     >
-                      <ThemeToggle theme={theme} accentColor={ACCENT} onToggle={toggleTheme} />
+                      <ThemeToggle
+                        theme={theme}
+                        accentColor={Colors.accent}
+                        onToggle={toggleTheme}
+                      />
                     </View>
-                    <Text style={[styles.menuItemText, { marginLeft: -5 }]}>{t('Theme')}</Text>
+                    <Text style={[styles.menuItemText, { marginLeft: -5, color: Colors.text }]}>
+                      {t('Theme')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
 
@@ -182,8 +189,10 @@ export default function Profile() {
                   onPress={() => setShowLanguageSelector(true)}
                 >
                   <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="language-outline" size={18} color={ACCENT} />
-                    <Text style={[styles.menuItemText, { marginLeft: 8 }]}>{t('Language')}</Text>
+                    <Ionicons name="language-outline" size={18} color={Colors.accent} />
+                    <Text style={[styles.menuItemText, { marginLeft: 8, color: Colors.text }]}>
+                      {t('Language')}
+                    </Text>
                   </View>
                 </TouchableOpacity>
               </>
@@ -193,8 +202,10 @@ export default function Profile() {
                   onPress={() => setShowLanguageSelector(false)}
                   style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}
                 >
-                  <Ionicons name="chevron-back" size={22} color={TEXT} />
-                  <Text style={[styles.menuTitle, { marginLeft: 6 }]}>{t('Language')}</Text>
+                  <Ionicons name="chevron-back" size={22} color={Colors.text} />
+                  <Text style={[styles.menuTitle, { marginLeft: 6, color: Colors.text }]}>
+                    {t('Language')}
+                  </Text>
                 </TouchableOpacity>
 
                 <LanguageSelector
@@ -206,10 +217,10 @@ export default function Profile() {
                     setShowMenu(false);
                   }}
                   colors={{
-                    accent: ACCENT,
-                    card: CARD,
-                    text: TEXT,
-                    border: '#E4D8C8',
+                    accent: Colors.accent,
+                    card: Colors.card,
+                    text: Colors.text,
+                    border: Colors.border,
                   }}
                 />
               </>
@@ -218,7 +229,7 @@ export default function Profile() {
         )}
 
         {/* Perfil */}
-        <View style={styles.card}>
+        <View style={[styles.card, { backgroundColor: Colors.card }]}>
           <View style={styles.topRow}>
             <View>
               <Image
@@ -226,7 +237,7 @@ export default function Profile() {
                 style={styles.avatar}
               />
               <TouchableOpacity style={styles.addPhoto} onPress={pickImage}>
-                <Ionicons name="add" size={16} color={ACCENT} />
+                <Ionicons name="add" size={16} color={Colors.accent} />
               </TouchableOpacity>
             </View>
 
@@ -240,66 +251,71 @@ export default function Profile() {
                   color: Colors.text,
                 }}
               >
-                Toni Gratacós
+                {user?.username}
               </Text>
 
-              <Text
-                style={{
-                  fontSize: 16,
-                  marginBottom: -10,
-                  color: Colors.text,
-                }}
-              >
+              <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
                 {user?.profile_description || 'Encara no has afegit una descripció.'}
               </Text>
 
-              <Text style={styles.points}></Text>
+              <Text style={[styles.points, { color: Colors.text }]}></Text>
               {/* Botón Eventos pasados */}
-              <TouchableOpacity style={styles.pastBtn} activeOpacity={0.8}>
-                <Text style={styles.pastBtnText}>{t('Previus events')}</Text>
+              <TouchableOpacity
+                style={[styles.pastBtn, { backgroundColor: Colors.background }]}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pastBtnText, { color: Colors.accent }]}>
+                  {t('Previus events')}
+                </Text>
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Nivel + barra */}
           <View style={{ marginTop: 12 }}>
-            <View style={styles.progressBg}>
-              <View style={[styles.progressFill, { width: '60%' }]} />
+            <View style={[styles.progressBg, { backgroundColor: Colors.background }]}>
+              <View
+                style={[styles.progressFill, { width: '60%', backgroundColor: Colors.accent }]}
+              />
             </View>
-            <Text style={styles.progressHint}>900 pts.</Text>
+            <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
           </View>
 
           {/* Acciones */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#ECE6DA' }]}>
-              <Text style={[styles.actionText, { color: TEXT }]}>{t('Edit')}</Text>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.background }]}>
+              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Edit')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[
                 styles.actionBtn,
-                { backgroundColor: CARD, borderWidth: 1, borderColor: '#E4D8C8' },
+                { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
               ]}
             >
-              <Text style={[styles.actionText, { color: TEXT }]}>{t('Share')}</Text>
+              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Insignias */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('Achivements')}</Text>
-          <View style={styles.emptyBox}>
-            <Ionicons name="ribbon-outline" size={20} color={MUTED} />
-            <Text style={styles.emptyText}>{t('No achievements yet')}</Text>
+        <View style={[styles.section, { backgroundColor: Colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
+            <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
+            <Text style={[styles.emptyText, { color: Colors.muted }]}>
+              {t('No achievements yet')}
+            </Text>
           </View>
         </View>
 
         {/* Eventos próximos */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{t('Next events')}</Text>
-          <View style={styles.emptyBox}>
-            <Ionicons name="calendar-outline" size={20} color={MUTED} />
-            <Text style={styles.emptyText}>{t('No upcoming events')}</Text>
+        <View style={[styles.section, { backgroundColor: Colors.card }]}>
+          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Next events')}</Text>
+          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
+            <Ionicons name="calendar-outline" size={20} color={Colors.muted} />
+            <Text style={[styles.emptyText, { color: Colors.muted }]}>
+              {t('No upcoming events')}
+            </Text>
           </View>
         </View>
 
@@ -312,13 +328,8 @@ export default function Profile() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: BG,
   },
-  content: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 24,
-  },
+  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -328,7 +339,6 @@ const styles = StyleSheet.create({
   username: {
     fontSize: 22,
     fontWeight: '700',
-    color: TEXT,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -338,7 +348,6 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 16,
     top: 50,
-    backgroundColor: CARD,
     padding: 14,
     borderRadius: 14,
     shadowColor: '#000',
@@ -350,7 +359,6 @@ const styles = StyleSheet.create({
     minWidth: 220,
   },
   menuTitle: {
-    color: TEXT,
     fontWeight: '700',
     fontSize: 15,
     marginBottom: 8,
@@ -359,18 +367,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   menuItemText: {
-    color: TEXT,
     fontSize: 15,
     fontWeight: '500',
   },
   menuDivider: {
     height: 1,
-    backgroundColor: '#E4D8C8',
     marginVertical: 8,
   },
-
   card: {
-    backgroundColor: CARD,
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -397,82 +401,23 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FFF',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#E5E1DA',
   },
-  desc: {
-    color: MUTED,
-    marginBottom: 6,
-  },
-  points: {
-    color: TEXT,
-  },
+  points: {},
   pastBtn: {
     alignSelf: 'flex-start',
     marginTop: 20,
-    backgroundColor: '#EFD6C6',
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
   },
   pastBtnText: {
-    color: ACCENT,
     fontWeight: '700',
     paddingBottom: 2,
     paddingTop: 2,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: BG,
-    borderRadius: 12,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginTop: 14,
-  },
-  statItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  statNumber: {
-    color: TEXT,
-    fontSize: 18,
-    fontWeight: '800',
-  },
-  statLabel: {
-    color: MUTED,
-    fontSize: 12,
-  },
-  divider: {
-    width: 1,
-    height: 26,
-    backgroundColor: '#E4D8C8',
-  },
-  levelText: {
-    color: TEXT,
-    fontWeight: '700',
-    marginBottom: 6,
-  },
-  progressBg: {
-    height: 6,
-    backgroundColor: '#E7E0D2',
-    borderRadius: 999,
-  },
-  progressFill: {
-    height: 6,
-    backgroundColor: '#7057FF',
-    borderRadius: 999,
-    width: '0%',
-  },
-  progressHint: {
-    color: MUTED,
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'right',
   },
   actionsRow: {
     flexDirection: 'row',
@@ -490,7 +435,6 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   section: {
-    backgroundColor: CARD,
     borderRadius: 16,
     padding: 16,
     shadowColor: '#000',
@@ -501,20 +445,31 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   sectionTitle: {
-    color: TEXT,
     fontWeight: '800',
     fontSize: 16,
     marginBottom: 10,
   },
   emptyBox: {
-    backgroundColor: BG,
     borderRadius: 12,
     paddingVertical: 18,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
-    color: MUTED,
     marginTop: 6,
+  },
+  progressBg: {
+    height: 6,
+    borderRadius: 999,
+  },
+  progressFill: {
+    height: 6,
+    borderRadius: 999,
+    width: '0%',
+  },
+  progressHint: {
+    fontSize: 12,
+    marginTop: 6,
+    textAlign: 'right',
   },
 });
