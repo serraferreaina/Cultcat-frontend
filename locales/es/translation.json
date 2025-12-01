@@ -127,5 +127,9 @@
   "Search between dates": "Buscar entre fechas",
   "Search from date": "Buscar desde una fecha",
   "Cancel": "Cancelar",
-  "Perfil actualized correctly": "¡Perfil actualizado correctamente!"
+  "Perfil actualized correctly": "¡Perfil actualizado correctamente!",
+  "assisted": "Asistido",
+  "iHaveAssisted": "He asistido",
+  "iWillAttend": "Asistiré",
+  "wantToGo": "Quiero ir"
 }

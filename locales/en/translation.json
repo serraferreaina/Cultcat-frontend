@@ -127,5 +127,9 @@
   "Search between dates": "Search between dates",
   "Search from date": "Search from date",
   "Cancel": "Cancel",
-  "Perfil actualized correctly": "Profile updated successfully"
+  "Perfil actualized correctly": "Profile updated successfully",
+  "assisted": "Assisted",
+  "iHaveAssisted": "I have assisted",
+  "iWillAttend": "I will attend",
+  "wantToGo": "Want to go"
 }
