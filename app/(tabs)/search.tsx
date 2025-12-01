@@ -128,13 +128,22 @@ export default function CercaScreen() {
     setLoading(true);
 
     try {
-      const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events/?municipi=${encodeURIComponent(municipi)}`,
-      );
+      const query = buildQuery();
+      const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+      const res = await fetch(url);
+
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-      const textData = await res.text(); // primer agafem text
-      const data = textData ? JSON.parse(textData) : []; // només parsegem si hi ha text
+      const textData = await res.text();
+
+      let data = [];
+      try {
+        data = textData.trim() ? JSON.parse(textData) : [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
+        data = [];
+      }
 
       setEvents(data);
       setIsFiltered(true);
@@ -331,6 +340,30 @@ export default function CercaScreen() {
     }
   };
 
+  const buildQuery = (extraParams: string[] = []) => {
+    const params: string[] = [];
+
+    // 🔹 Categories múltiples
+    if (selectedTopics.length > 0) {
+      params.push(...selectedTopics.map((topic) => `categoria=${encodeURIComponent(topic)}`));
+    }
+
+    // 🔹 Municipi
+    if (selectedMunicipi) {
+      params.push(`municipi=${encodeURIComponent(selectedMunicipi)}`);
+    }
+
+    // 🔹 Dates (single, range, from)
+    if (selectedDate) {
+      params.push(`date=${selectedDate.toISOString().slice(0, 10)}`);
+    }
+
+    // 🔹 Afegeix paràmetres extra si la funció que la crida ho necessita
+    params.push(...extraParams);
+
+    return params.length > 0 ? `?${params.join('&')}` : '';
+  };
+
   const handleSearchByTopics = async () => {
     setIsTopicsModalVisible(false);
     setLoading(true);
@@ -338,19 +371,14 @@ export default function CercaScreen() {
     setEvents([]);
 
     try {
-      let url = 'http://nattech.fib.upc.edu:40490/events';
-
-      if (selectedTopics.length === 1) {
-        url += `?categoria=${selectedTopics[0]}`;
-      } else if (selectedTopics.length > 1) {
-        const query = selectedTopics.join(',');
-        url += `?categories=${query}`;
-      }
+      const query = buildQuery();
+      const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       console.log('URL de búsqueda:', url);
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
       const data = await res.json();
 
       if (data.length === 0) {
