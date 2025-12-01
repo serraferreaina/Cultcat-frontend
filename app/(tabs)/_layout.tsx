@@ -1,30 +1,37 @@
-import React from 'react';
+// app/(tabs)/_layout.tsx
 import { Tabs } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
-// MaterialCommunityIcons is used for the unique "cat" icon in the profile tab.
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
-
-const BG = '#F7F0E2';
-const TEXT = '#311C0C';
-const ACCENT = '#C86A2E';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../theme/ThemeContext';
+import { LightColors, DarkColors } from '../../theme/colors';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
+  const insets = useSafeAreaInsets();
+  const { theme } = useTheme();
+  const effectiveScheme = theme || 'light';
+  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
 
   return (
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: ACCENT,
-        tabBarInactiveTintColor: '#8B7355',
+        tabBarActiveTintColor: Colors.accent,
+        tabBarInactiveTintColor: Colors.textSecondary,
         tabBarStyle: {
-          backgroundColor: BG,
-          borderTopColor: 'rgba(200, 106, 46, 0.2)',
+          backgroundColor: Colors.card,
+          borderTopColor: Colors.border,
           borderTopWidth: 1,
-          height: 85,
-          paddingBottom: 12,
+          height: 50 + insets.bottom,
+          paddingBottom: 12 + insets.bottom / 2,
           paddingTop: 4,
+          shadowColor: Colors.shadow,
+          shadowOffset: { width: 0, height: -2 },
+          shadowOpacity: 0.3,
+          shadowRadius: 3,
+          elevation: 5,
         },
         tabBarLabelStyle: {
           fontSize: 11,
@@ -45,7 +52,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="search"
         options={{
@@ -55,7 +61,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="map"
         options={{
@@ -65,7 +70,6 @@ export default function TabsLayout() {
           ),
         }}
       />
-
       <Tabs.Screen
         name="profile"
         options={{

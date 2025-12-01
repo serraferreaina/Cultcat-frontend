@@ -1,38 +1,64 @@
+// app/(auth)/login.tsx
 import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
+import { useRouter } from 'expo-router';
+import GoogleButton from '../../components/GoogleButton';
+import { useTranslation } from 'react-i18next';
+import { useTheme } from '../../theme/ThemeContext';
+import { LightColors, DarkColors } from '../../theme/colors';
 
-export default function Login() {
+export default function LoginScreen() {
+  const router = useRouter();
+  const { theme } = useTheme();
+  const effectiveScheme = theme || 'light';
+  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
+  const { t } = useTranslation();
+
+  const BACKEND_LOGIN_URL = 'http://nattech.fib.upc.edu:40490/login';
+
+  const handleGoogleLogin = async () => {
+    try {
+      await WebBrowser.openBrowserAsync(BACKEND_LOGIN_URL);
+      router.replace('/(tabs)');
+    } catch (error) {
+      console.error('Error durant el login amb Google:', error);
+    }
+  };
+
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Welcome to CultCat</Text>
-      <Image
-        source={require('../../assets/cultcat-logo.png')} // placeholder logo
-        style={styles.logo}
-      />
-      <TouchableOpacity style={styles.button}>
-        <Text style={styles.buttonText}>Login with Google</Text>
+      <Text style={styles.brandTop}>CultCat.</Text>
+      <Text style={styles.title}>{t('Inicia sessió')}</Text>
+
+      <TouchableOpacity>
+        <GoogleButton onPress={handleGoogleLogin} />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={{
+          marginTop: 20,
+          padding: 12,
+          backgroundColor: '#444',
+          borderRadius: 8,
+        }}
+        onPress={() => {
+          if (!global.authToken) {
+            global.authToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
+          }
+          router.replace('/(tabs)');
+        }}
+      >
+        <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>DEV LOGIN</Text>
       </TouchableOpacity>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-    backgroundColor: '#f5f5f5',
-  },
-  title: { fontSize: 28, fontWeight: 'bold', marginBottom: 40 },
-  logo: { width: 120, height: 120, marginBottom: 40 },
-  button: {
-    backgroundColor: '#000',
-    paddingVertical: 14,
-    paddingHorizontal: 40,
-    borderRadius: 8,
-    marginBottom: 15,
-  },
-  secondary: { backgroundColor: '#34A853' },
-  buttonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  container: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
+  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 30 },
+  nextButton: { marginTop: 30 },
+  brandTop: { fontSize: 50, fontWeight: '900', textAlign: 'left', marginBottom: 20 },
 });
