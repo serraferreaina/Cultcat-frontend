@@ -61,6 +61,21 @@ export default function CercaScreen() {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
 
+  const handleDateFilter = async ({ type, date1, date2 }: any) => {
+    let url = 'http://nattech.fib.upc.edu:40490/events/?';
+
+    const d1 = date1.toISOString().slice(0, 10);
+    const d2 = date2?.toISOString().slice(0, 10);
+
+    if (type === 'single') url += `date=${d1}`;
+    if (type === 'range') url += `date=${d1}&date2=${d2}`;
+    if (type === 'from') url += `from_date=${d1}`;
+
+    const res = await fetch(url);
+    const json = await res.json();
+    setEvents(json);
+  };
+
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
@@ -107,79 +122,35 @@ export default function CercaScreen() {
     fetchEvents();
   }, []);
 
-  const handleDateFilter = (filter: {
-    type: 'single' | 'range' | 'from';
-    date1: Date;
-    date2?: Date;
-  }) => {
-    // Guardar la fecha seleccionada
-    setSelectedDate(filter.date1);
-
-    // Aplicar el filtro con la fecha y otras selecciones
-    handleFilterEvents({
-      dateFilter: filter,
-      municipi: selectedMunicipi || undefined,
-      categories: selectedTopics.length > 0 ? selectedTopics : undefined,
-    });
-  };
-
-  const handleFilterEvents = async (filters?: {
-    dateFilter?: { type: 'single' | 'range' | 'from'; date1: Date; date2?: Date };
-    municipi?: string;
-    categories?: string[];
-  }) => {
+  const handleSearchByMunicipi = async (municipi: string) => {
+    setSelectedMunicipi(municipi);
+    setIsMunicipiModalVisible(false);
     setLoading(true);
-    let url = 'http://nattech.fib.upc.edu:40490/events/?';
-
-    // Fecha
-    if (filters?.dateFilter) {
-      const { type, date1, date2 } = filters.dateFilter;
-      const d1 = date1.toISOString().slice(0, 10);
-      const d2 = date2?.toISOString().slice(0, 10);
-
-      if (type === 'single') url += `date=${d1}&`;
-      if (type === 'range' && d2) url += `date=${d1}&date2=${d2}&`;
-      if (type === 'from') url += `from_date=${d1}&`;
-    }
-
-    // Municipi
-    if (filters?.municipi) {
-      url += `municipi=${encodeURIComponent(filters.municipi)}&`;
-    }
-
-    // Categories
-    if (filters?.categories && filters.categories.length > 0) {
-      const query = filters.categories.join(',');
-      url += `categoria=${encodeURIComponent(query)}&`;
-    }
 
     try {
-      const res = await fetch(url);
-      const text = await res.text();
-      const data = text ? JSON.parse(text) : [];
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events/?municipi=${encodeURIComponent(municipi)}`,
+      );
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-      setEvents(Array.isArray(data) ? data : []);
+      const textData = await res.text(); // primer agafem text
+      const data = textData ? JSON.parse(textData) : []; // només parsegem si hi ha text
+
+      setEvents(data);
       setIsFiltered(true);
-      setNoEventsMessage(data.length === 0 ? 'No events match your filters' : null);
+
+      if (data.length === 0) {
+        Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
+          { text: "D'acord" },
+        ]);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
-      setEvents([]);
-      setNoEventsMessage('Error fetching events');
+      Alert.alert('Error', 'Hi ha hagut un problema carregant els esdeveniments.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleSearchByMunicipi = (municipi: string) => {
-    setSelectedMunicipi(municipi);
-    setIsMunicipiModalVisible(false);
-
-    handleFilterEvents({
-      municipi,
-      categories: selectedTopics.length > 0 ? selectedTopics : undefined,
-      dateFilter: selectedDate ? { type: 'single', date1: selectedDate } : undefined,
-    });
   };
 
   const EventCard = React.memo(({ item }: { item: any }) => {
@@ -360,14 +331,44 @@ export default function CercaScreen() {
     }
   };
 
-  const handleSearchByTopics = (topics: string[]) => {
+  const handleSearchByTopics = async () => {
     setIsTopicsModalVisible(false);
+    setLoading(true);
+    setNoEventsMessage(null);
+    setEvents([]);
 
-    handleFilterEvents({
-      municipi: selectedMunicipi || undefined,
-      categories: topics.length > 0 ? topics : undefined,
-      dateFilter: selectedDate ? { type: 'single', date1: selectedDate } : undefined,
-    });
+    try {
+      let url = 'http://nattech.fib.upc.edu:40490/events';
+
+      if (selectedTopics.length === 1) {
+        url += `?categoria=${selectedTopics[0]}`;
+      } else if (selectedTopics.length > 1) {
+        const query = selectedTopics.join(',');
+        url += `?categories=${query}`;
+      }
+
+      console.log('URL de búsqueda:', url);
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+      const data = await res.json();
+
+      if (data.length === 0) {
+        setEvents([]);
+        setNoEventsMessage(t('No events for selected categories'));
+      } else {
+        setEvents(data);
+        setNoEventsMessage(null);
+      }
+
+      setIsFiltered(true);
+    } catch (err: any) {
+      console.error('Error fetching filtered events:', err);
+      setError(err.message);
+      setNoEventsMessage(t('No events for selected categories'));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
@@ -551,7 +552,7 @@ export default function CercaScreen() {
             {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
-              onPress={() => handleSearchByTopics(selectedTopics)}
+              onPress={handleSearchByTopics}
             >
               <Text style={[styles.searchButtonText, { color: Colors.background }]}>
                 {t('search')}
