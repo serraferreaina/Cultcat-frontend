@@ -95,7 +95,8 @@ export default function CercaScreen() {
     setLoadingMore(true);
     try {
       const res = await fetch(`http://nattech.fib.upc.edu:40490/events?page=${page + 1}`);
-      const data = await res.json();
+      const textData = await res.text();
+      const data = textData ? JSON.parse(textData) : [];
       setEvents((prev) => [...prev, ...data]);
       setPage(page + 1);
     } catch (err) {
@@ -110,7 +111,8 @@ export default function CercaScreen() {
       try {
         const res = await fetch('http://nattech.fib.upc.edu:40490/events');
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
+        const textData = await res.text();
+        const data = textData ? JSON.parse(textData) : [];
         setEvents(data);
       } catch (err: any) {
         console.error('Error loading events', err);
@@ -379,7 +381,8 @@ export default function CercaScreen() {
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
-      const data = await res.json();
+      const textData = await res.text();
+      const data = textData ? JSON.parse(textData) : [];
 
       if (data.length === 0) {
         setEvents([]);
