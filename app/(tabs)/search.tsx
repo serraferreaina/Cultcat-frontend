@@ -12,10 +12,11 @@ import {
   Image,
   FlatList,
   ActivityIndicator,
+  Alert,
+  Share,
 } from 'react-native';
 import SearchBar from '../../components/SearchBar';
 import { useTranslation } from 'react-i18next';
-import SearchDate from '../../components/SearchDate';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -24,17 +25,16 @@ import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
-import { Share } from 'react-native';
-import { Alert } from 'react-native';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import { municipisCatalunya } from '../cerca/municipisCatalunya';
+import DateFilterComponent from '../../components/DateFilterComponent';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
-  const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -60,21 +60,6 @@ export default function CercaScreen() {
   const filteredMunicipis = useMemo(() => {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
-
-  const handleDateFilter = async ({ type, date1, date2 }: any) => {
-    let url = 'http://nattech.fib.upc.edu:40490/events/?';
-
-    const d1 = date1.toISOString().slice(0, 10);
-    const d2 = date2?.toISOString().slice(0, 10);
-
-    if (type === 'single') url += `date=${d1}`;
-    if (type === 'range') url += `date=${d1}&date2=${d2}`;
-    if (type === 'from') url += `from_date=${d1}`;
-
-    const res = await fetch(url);
-    const json = await res.json();
-    setEvents(json);
-  };
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -355,11 +340,6 @@ export default function CercaScreen() {
       params.push(`municipi=${encodeURIComponent(selectedMunicipi)}`);
     }
 
-    // 🔹 Dates (single, range, from)
-    if (selectedDate) {
-      params.push(`date=${selectedDate.toISOString().slice(0, 10)}`);
-    }
-
     // 🔹 Afegeix paràmetres extra si la funció que la crida ho necessita
     params.push(...extraParams);
 
@@ -429,9 +409,37 @@ export default function CercaScreen() {
         </TouchableOpacity>
 
         {/* Botó data */}
-        <View style={styles.dateButtonWrapper}>
-          <SearchDate onFilter={handleDateFilter} />
-        </View>
+        <DateFilterComponent
+          mode="one"
+          onModeChange={(m) => console.log('Modo de fecha:', m)}
+          onDatesChange={({ date, date1, date2, fromDate }) => {
+            setIsFiltered(true);
+            let extraParams: string[] = [];
+
+            if (date) {
+              extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
+            }
+            if (date1 && date2) {
+              extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
+              extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
+            }
+            if (fromDate) {
+              extraParams.push(
+                `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+              );
+            }
+
+            const query = buildQuery(extraParams);
+            const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+            setLoading(true);
+            fetch(url)
+              .then((res) => res.json())
+              .then((data) => setEvents(data))
+              .catch((err) => console.error(err))
+              .finally(() => setLoading(false));
+          }}
+        />
 
         {/* Botó altres */}
         <TouchableOpacity
@@ -450,13 +458,6 @@ export default function CercaScreen() {
           <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
         </TouchableOpacity>
       </ScrollView>
-
-      {/* Data seleccionada */}
-      {selectedDate && (
-        <Text style={[styles.dateText, { color: Colors.text }]}>
-          {t('Showing date')} {selectedDate.toLocaleDateString()}
-        </Text>
-      )}
 
       {/* Modal d'altres*/}
       <Modal

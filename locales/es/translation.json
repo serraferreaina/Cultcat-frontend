@@ -123,13 +123,17 @@
   "No achievements yet": "No hay logros aún",
   "Next events": "Próximos eventos",
   "No upcoming events": "No hay eventos próximos",
-  "Search one date": "Buscar una fecha",
-  "Search between dates": "Buscar entre fechas",
-  "Search from date": "Buscar desde una fecha",
+  "singleDate": "Una fecha",
+  "Search between dates": "Entre fechas",
+  "Search from date": "Desde una fecha",
   "Cancel": "Cancelar",
   "Perfil actualized correctly": "¡Perfil actualizado correctamente!",
   "assisted": "Asistido",
   "iHaveAssisted": "He asistido",
   "iWillAttend": "Asistiré",
-  "wantToGo": "Quiero ir"
+  "wantToGo": "Quiero ir",
+  "SelectMode": "Selecciona modo",
+  "startDate": "Fecha inicio",
+  "endDate": "Fecha fin",
+  "selectStartDate": "Selecciona fecha inicio"
 }
