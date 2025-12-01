@@ -123,13 +123,17 @@
   "No achievements yet": "Sense insígnies per ara",
   "Next events": "Pròxims esdeveniments",
   "No upcoming events": "No hi ha events pròxims",
-  "Search one date": "Buscar una data",
-  "Search between dates": "Buscar entre dates",
-  "Search from date": "Buscar des d'una data",
+  "singleDate": "Una data",
+  "Search between dates": "Entre dates",
+  "Search from date": "Des d'una data",
   "Cancel": "Cancel·la",
   "Perfil actualized correctly": "Perfil actualitzat correctament",
   "assisted": "Assistit",
   "iHaveAssisted": "He assistit",
   "iWillAttend": "Hi assistiré",
-  "wantToGo": "Vull anar-hi"
+  "wantToGo": "Vull anar-hi",
+  "SelectMode": "Selecciona mode",
+  "startDate": "Data inici",
+  "endDate": "Data fi",
+  "selectStartDate": "Selecciona data inici"
 }
