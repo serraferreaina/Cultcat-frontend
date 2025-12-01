@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useTranslation } from 'react-i18next';
 
 interface EventStatusContextProps {
   goingEvents: Record<number, boolean>;
@@ -232,6 +233,7 @@ export const useEventStatus = () => {
 
 export const useEventLogic = (event: any) => {
   const { goingEvents, toggleGoing, assistedEvents, toggleAssisted } = useEventStatus();
+  const { t } = useTranslation();
 
   const isPast = () => {
     if (!event.data_inici) return false;
@@ -248,19 +250,19 @@ export const useEventLogic = (event: any) => {
     return {
       isActive: !!assistedEvents[id],
       toggle: () => toggleAssisted(id),
-      textKey: 'Assisted',
-      textKeyInactive: 'I have assisted',
+      textKey: t('assisted'),
+      textKeyInactive: t('iHaveAssisted'),
       isPast: true,
-      colorActive: '#4CAF50', // Green
+      colorActive: '#4CAF50',
     };
   } else {
     return {
       isActive: !!goingEvents[id],
       toggle: () => toggleGoing(id),
-      textKey: 'I will attend',
-      textKeyInactive: 'Want to go',
+      textKey: t('iWillAttend'),
+      textKeyInactive: t('wantToGo'),
       isPast: false,
-      colorActive: '#4CAF50', // Green
+      colorActive: '#4CAF50',
     };
   }
 };
