@@ -307,18 +307,6 @@ export default function Profile() {
             </Text>
           </View>
         </View>
-
-        {/* Eventos próximos */}
-        <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Next events')}</Text>
-          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.muted} />
-            <Text style={[styles.emptyText, { color: Colors.muted }]}>
-              {t('No upcoming events')}
-            </Text>
-          </View>
-        </View>
-
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
