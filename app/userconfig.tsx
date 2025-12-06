@@ -142,27 +142,60 @@ export default function UserConfig() {
   };
 
   const handleLogout = () => {
+    Alert.alert(t('Close session'), t('Are you sure you want to log out?'), [
+      {
+        text: t('Cancel'),
+        style: 'cancel',
+      },
+      {
+        text: t('Close session'),
+        style: 'destructive',
+        onPress: () => {
+          global.authToken = undefined;
+          global.currentUser = null;
+
+          // Redirigir al login
+          router.replace('(auth)/login');
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteAcc = () => {
     Alert.alert(
-      t('Close session') || 'Cerrar sesión',
-      t('Are you sure you want to log out?') || '¿Estás seguro que quieres cerrar sesión?',
+      t('Delete account'),
+      t('Are you sure you want to delete your account?'),
       [
         {
-          text: t('Cancel') || 'Cancelar',
+          text: t('Cancel'),
           style: 'cancel',
         },
         {
-          text: t('Close session') || 'Cerrar sesión',
+          text: t('Delete account'),
           style: 'destructive',
-          onPress: () => {
-            // Borrar sesión en memoria global
-            global.authToken = undefined;
-            global.currentUser = null;
+          onPress: async () => {
+            try {
+              const response = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
+                method: 'DELETE',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+              });
 
-            // Redirigir al login
-            router.replace('(auth)/login');
+              if (response.ok) {
+                Alert.alert('Cuenta eliminada');
+                router.replace('(auth)/login');
+              } else {
+                Alert.alert('Error al eliminar cuenta');
+              }
+            } catch (error) {
+              console.error(error);
+              Alert.alert('Error deleting account');
+            }
           },
         },
       ],
+      { cancelable: true },
     );
   };
 
@@ -309,7 +342,7 @@ export default function UserConfig() {
 
           <View style={styles.dividerLine} />
 
-          <TouchableOpacity style={styles.preferenceItem}>
+          <TouchableOpacity style={styles.preferenceItem} onPress={handleDeleteAcc}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="trash-outline" size={22} color="#E74C3C" />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>

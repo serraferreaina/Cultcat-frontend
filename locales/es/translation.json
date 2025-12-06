@@ -135,5 +135,7 @@
   "SelectMode": "Selecciona modo",
   "startDate": "Fecha inicio",
   "endDate": "Fecha fin",
-  "selectStartDate": "Selecciona fecha inicio"
+  "selectStartDate": "Selecciona fecha inicio",
+  "Are you sure you want to log out?": "Estás seguro de que quieres cerrar sessión?",
+  "Are you sure you want to delete your account?": "Estás seguro de que quieres eliminar tu cuenta?"
 }
