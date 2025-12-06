@@ -184,6 +184,27 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
     }
   };
 
+  // REPORT COMMENT
+  const reportComment = async (commentId: number) => {
+    try {
+      const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${commentId}/report`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Token ${global.authToken}`,
+        },
+      });
+
+      if (!res.ok) {
+        const msg = await res.text();
+        throw new Error(`Server error: ${msg}`);
+      }
+
+      alert('Comentari reportat.');
+    } catch (e) {
+      console.error('Error reporting comment:', e);
+    }
+  };
+
   return (
     <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
       <View style={[styles.backdrop, { backgroundColor: Colors.backdrop || 'rgba(0,0,0,0.4)' }]}>
@@ -249,6 +270,13 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
 
                       <TouchableOpacity onPress={() => remove(item.id)}>
                         <Ionicons name="trash-outline" size={20} color={Colors.text} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                  {item.author_username !== currentUser?.username && (
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                      <TouchableOpacity onPress={() => reportComment(item.id)}>
+                        <Ionicons name="flag-outline" size={20} color={Colors.text} />
                       </TouchableOpacity>
                     </View>
                   )}
