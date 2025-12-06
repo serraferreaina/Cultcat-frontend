@@ -34,6 +34,8 @@ interface PointsImages {
   images: string[];
 }
 
+const router = useRouter();
+
 // --- HELPER COMPONENT: IMAGES CAROUSEL ---
 const Images: React.FC<PointsImages> = ({ images }) => {
   const { theme } = useTheme();
@@ -295,7 +297,7 @@ export default function Home() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/xat')}>
             <Ionicons name="chatbubble-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
         </View>
