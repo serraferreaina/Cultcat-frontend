@@ -8,6 +8,7 @@ interface ChatMessage {
   id: number;
   text: string;
   sender: 'me' | 'other';
+  senderName?: string;
 }
 
 export default function ChatBubble({ message }: { message: ChatMessage }) {
@@ -22,16 +23,29 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
         style={[
           styles.bubble,
           {
-            backgroundColor: isMe ? '#4a90e2' : theme === 'dark' ? '#1a1a1a' : '#ffffff',
+            backgroundColor: isMe ? '#4A90E2' : theme === 'dark' ? '#1a1a1a' : '#ffffff',
 
             alignSelf: isMe ? 'flex-end' : 'flex-start',
           },
         ]}
       >
+        {/* Nom de l'usuari en xats grupals (només si NO soc jo) */}
+        {!isMe && message.senderName && (
+          <Text
+            style={{
+              fontSize: 12,
+              marginBottom: 2,
+              color: Colors.textSecondary,
+              fontWeight: '600',
+            }}
+          >
+            {message.senderName}
+          </Text>
+        )}
+
         <Text
           style={{
             color: isMe ? '#fff' : Colors.text,
-            fontSize: 15,
           }}
         >
           {message.text}
@@ -45,15 +59,11 @@ const styles = StyleSheet.create({
   container: {
     width: '100%',
     marginVertical: 4,
-    paddingHorizontal: 15, // 👈 marge lateral
+    paddingHorizontal: 15,
   },
   bubble: {
     maxWidth: '75%',
     padding: 10,
     borderRadius: 16,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 2,
   },
 });
