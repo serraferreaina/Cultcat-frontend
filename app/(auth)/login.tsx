@@ -44,11 +44,11 @@ const Login: React.FC = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
-  // GOOGLE AUTH CONFIG - DESHABILITADO TEMPORALMENTE
-  const [request, response, promptAsync] = Google.useAuthRequest({
-    clientId: '883633704420-ke1447cs8l1kaku7ac2r6ldl3r5tn6b6.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
-  });
+  // // GOOGLE AUTH CONFIG - DESHABILITADO TEMPORALMENTE
+  // const [request, response, promptAsync] = Google.useAuthRequest({
+  //   clientId: '883633704420-ke1447cs8l1kaku7ac2r6ldl3r5tn6b6.apps.googleusercontent.com',
+  //   scopes: ['profile', 'email'],
+  // });
 
   // ANIMACIÓ ENTRADA
   useEffect(() => {
