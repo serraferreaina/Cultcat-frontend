@@ -22,6 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
+//import { makeRedirectUri } from 'expo-auth-session';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -39,13 +40,18 @@ const Login: React.FC = () => {
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
 
-  // GOOGLE AUTH CONFIG PER EXPO GO ANDROID
   const [request, response, promptAsync] = Google.useAuthRequest({
-    // iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
-    // androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
-    clientId: '883633704420-ke1447cs8l1kaku7ac2r6ldl3r5tn6b6.apps.googleusercontent.com',
+    androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
+    iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
     scopes: ['profile', 'email'],
   });
+
+  useEffect(() => {
+    console.log('GOOGLE REQUEST >>>', request);
+    if (request?.redirectUri) {
+      console.log('🚀 REDIRECT URI UTILITZAT:', request.redirectUri);
+    }
+  }, [request]);
 
   // ANIMACIÓ ENTRADA
   useEffect(() => {
@@ -122,7 +128,7 @@ const Login: React.FC = () => {
   const handleGoogleSignIn = async () => {
     setGoogleLoading('signin');
     try {
-      await promptAsync(); // NO useProxy
+      await promptAsync();
     } catch (error) {
       console.error('Google Sign-In error:', error);
       Alert.alert('Error', 'Failed to initiate Google Sign-In');
@@ -133,7 +139,7 @@ const Login: React.FC = () => {
   const handleGoogleSignUp = async () => {
     setGoogleLoading('signup');
     try {
-      await promptAsync(); // NO useProxy
+      await promptAsync();
     } catch (error) {
       console.error('Google Sign-Up error:', error);
       Alert.alert('Error', 'Failed to initiate Google Sign-Up');
