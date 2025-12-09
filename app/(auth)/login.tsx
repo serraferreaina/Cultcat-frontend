@@ -1,64 +1,515 @@
 // app/(auth)/login.tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Animated,
+  Modal,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+//import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { useRouter } from 'expo-router';
-import GoogleButton from '../../components/GoogleButton';
-import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 
-export default function LoginScreen() {
-  const router = useRouter();
+WebBrowser.maybeCompleteAuthSession();
+
+const { width, height } = Dimensions.get('window');
+
+const Login: React.FC = () => {
   const { theme } = useTheme();
-  const effectiveScheme = theme || 'light';
-  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
-  const { t } = useTranslation();
+  const colors = theme === 'light' ? LightColors : DarkColors;
+  const router = useRouter();
 
-  const BACKEND_LOGIN_URL = 'http://nattech.fib.upc.edu:40490/login';
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showGoogleDisclaimerModal, setShowGoogleDisclaimerModal] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
 
-  const handleGoogleLogin = async () => {
+  // // GOOGLE AUTH CONFIG - DESHABILITADO TEMPORALMENTE
+  // const [request, response, promptAsync] = Google.useAuthRequest({
+  //   clientId: '883633704420-ke1447cs8l1kaku7ac2r6ldl3r5tn6b6.apps.googleusercontent.com',
+  //   scopes: ['profile', 'email'],
+  // });
+
+  // ANIMACIÓ ENTRADA
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  const handleManualLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+    setLoading(true);
     try {
-      await WebBrowser.openBrowserAsync(BACKEND_LOGIN_URL);
-      router.replace('/(tabs)');
+      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/login/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+
+        // Redirigir a tabs
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', data.message || data.detail || 'Invalid credentials');
+      }
     } catch (error) {
-      console.error('Error durant el login amb Google:', error);
+      console.error('Login error:', error);
+      Alert.alert('Error', 'An error occurred during login');
+    } finally {
+      setLoading(false);
     }
   };
 
+  const handleManualRegister = async () => {
+    if (!username || !email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/register/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+
+        // Redirigir a tabs
+        router.replace('/(tabs)');
+      } else {
+        const errorMsg =
+          data.username?.[0] ||
+          data.email?.[0] ||
+          data.password?.[0] ||
+          data.message ||
+          data.detail ||
+          'Registration failed';
+        Alert.alert('Error', errorMsg);
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      Alert.alert('Error', 'An error occurred during registration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleDisclaimer = () => {
+    setShowGoogleDisclaimerModal(true);
+  };
+
+  const dynamicStyles = createDynamicStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <Text style={styles.brandTop}>CultCat.</Text>
-      <Text style={styles.title}>{t('Inicia sessió')}</Text>
-
-      <TouchableOpacity>
-        <GoogleButton onPress={handleGoogleLogin} />
-      </TouchableOpacity>
-
-      <TouchableOpacity
-        style={{
-          marginTop: 20,
-          padding: 12,
-          backgroundColor: '#444',
-          borderRadius: 8,
-        }}
-        onPress={() => {
-          if (!global.authToken) {
-            global.authToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
-          }
-          router.replace('/(tabs)');
-        }}
+    <LinearGradient
+      colors={theme === 'light' ? ['#FFF8F0', '#FFEBD6'] : ['#1C1C1C', '#2C2C2C']}
+      style={styles.gradient}
+    >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
       >
-        <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>DEV LOGIN</Text>
-      </TouchableOpacity>
-    </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
+            <View style={[styles.circleTop, { backgroundColor: `${colors.accent}15` }]} />
+            <View style={[styles.circleBottom, { backgroundColor: `${colors.accent}10` }]} />
+
+            <Animated.View
+              style={[
+                styles.content,
+                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+              ]}
+            >
+              <View style={styles.logoSection}>
+                <Image
+                  source={require('../../assets/cultcat-logo.png')}
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.title, { color: colors.text }]}>
+                  {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  {isRegisterMode
+                    ? 'Join us and start your cultural journey'
+                    : 'Sign in to continue your cultural journey'}
+                </Text>
+              </View>
+
+              <View style={styles.formContainer}>
+                {isRegisterMode && (
+                  <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                    <Ionicons name="person-outline" size={20} color={colors.placeholder} />
+                    <TextInput
+                      style={[dynamicStyles.input, { color: colors.text }]}
+                      placeholder="Username"
+                      placeholderTextColor={colors.placeholder}
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                )}
+
+                <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                  <Ionicons name="mail-outline" size={20} color={colors.placeholder} />
+                  <TextInput
+                    style={[dynamicStyles.input, { color: colors.text }]}
+                    placeholder={isRegisterMode ? 'Email' : 'Email or Username'}
+                    placeholderTextColor={colors.placeholder}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="emailAddress"
+                  />
+                </View>
+
+                <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.placeholder} />
+                  <TextInput
+                    style={[dynamicStyles.input, { color: colors.text }]}
+                    placeholder="Password"
+                    placeholderTextColor={colors.placeholder}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={20}
+                      color={colors.placeholder}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                {!isRegisterMode && (
+                  <TouchableOpacity
+                    style={styles.forgotPassword}
+                    onPress={() => router.push('/changePassword')}
+                  >
+                    <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
+                      Change Password
+                    </Text>
+                  </TouchableOpacity>
+                )}
+
+                <TouchableOpacity
+                  style={[
+                    dynamicStyles.loginButton,
+                    { backgroundColor: colors.accent },
+                    loading && styles.buttonDisabled,
+                  ]}
+                  onPress={isRegisterMode ? handleManualRegister : handleManualLogin}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>
+                      {isRegisterMode ? 'Create Account' : 'Sign In'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchModeButton}
+                  onPress={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setUsername('');
+                    setEmail('');
+                    setPassword('');
+                  }}
+                >
+                  <Text style={[styles.switchModeText, { color: colors.textSecondary }]}>
+                    {isRegisterMode ? 'Already have an account? ' : "Don't have an account? "}
+                    <Text style={{ color: colors.accent, fontWeight: '700' }}>
+                      {isRegisterMode ? 'Sign In' : 'Sign Up'}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
+                  or continue with
+                </Text>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </View>
+
+              <View style={styles.googleButtonsContainer}>
+                <TouchableOpacity
+                  style={[
+                    dynamicStyles.googleButton,
+                    { borderColor: colors.border, backgroundColor: colors.card },
+                  ]}
+                  onPress={handleGoogleDisclaimer}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={require('../../assets/googleLogo.png')}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>
+                    Sign In with Google
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.footer}>
+                <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                  By continuing, you agree to our{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>Terms of Service</Text>{' '}
+                  and{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>Privacy Policy</Text>
+                </Text>
+              </View>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Modal de Disclaimer de Google */}
+      <Modal
+        visible={showGoogleDisclaimerModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowGoogleDisclaimerModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <Animated.View style={[dynamicStyles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalIconContainer, { backgroundColor: `${colors.accent}20` }]}>
+              <Ionicons name="information-circle" size={48} color={colors.accent} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Coming Soon!</Text>
+
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              Google Sign-In is currently under development and will be available soon.
+              {'\n\n'}
+              For now, please use the manual registration to create your account.
+            </Text>
+
+            <TouchableOpacity
+              style={[dynamicStyles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={() => setShowGoogleDisclaimerModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>Got it!</Text>
+            </TouchableOpacity>
+          </Animated.View>
+        </View>
+      </Modal>
+    </LinearGradient>
   );
-}
+};
+
+const createDynamicStyles = (colors: any) =>
+  StyleSheet.create({
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      marginBottom: 16,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    input: { flex: 1, fontSize: 16, marginLeft: 12, fontWeight: '500' },
+    loginButton: {
+      paddingVertical: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    googleButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    modalContent: {
+      borderRadius: 24,
+      padding: 28,
+      alignItems: 'center',
+      width: width * 0.85,
+      maxWidth: 400,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 10 },
+      shadowOpacity: 0.3,
+      shadowRadius: 20,
+      elevation: 10,
+    },
+    modalButton: {
+      paddingVertical: 14,
+      paddingHorizontal: 32,
+      borderRadius: 12,
+      alignItems: 'center',
+      width: '100%',
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+  });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 30 },
-  nextButton: { marginTop: 30 },
-  brandTop: { fontSize: 50, fontWeight: '900', textAlign: 'left', marginBottom: 20 },
+  gradient: { flex: 1 },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  container: { flex: 1, minHeight: height },
+  circleTop: {
+    position: 'absolute',
+    top: -100,
+    right: -80,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+  },
+  circleBottom: {
+    position: 'absolute',
+    bottom: -120,
+    left: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 60,
+    paddingBottom: 40,
+    zIndex: 1,
+    justifyContent: 'space-between',
+  },
+  logoSection: { alignItems: 'center', marginBottom: 32 },
+  logo: { width: 120, height: 120, marginBottom: 16 },
+  title: { fontSize: 32, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5 },
+  subtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: 20 },
+  formContainer: { width: '100%', marginBottom: 24 },
+  forgotPassword: { alignSelf: 'flex-end', marginBottom: 20 },
+  forgotPasswordText: { fontSize: 14, fontWeight: '600' },
+  loginButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
+  buttonDisabled: { opacity: 0.5 },
+  switchModeButton: { alignItems: 'center', marginTop: 16 },
+  switchModeText: { fontSize: 14, fontWeight: '500' },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 28 },
+  divider: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, marginHorizontal: 16, fontWeight: '500' },
+  googleButtonsContainer: { flexDirection: 'row', marginBottom: 24 },
+  googleIcon: { width: 20, height: 20, marginRight: 10 },
+  googleButtonText: { fontSize: 15, fontWeight: '600' },
+  footer: { alignItems: 'center', marginTop: 16 },
+  footerText: { fontSize: 12, textAlign: 'center', lineHeight: 18, paddingHorizontal: 20 },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+    paddingHorizontal: 8,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
 });
+
+export default Login;
