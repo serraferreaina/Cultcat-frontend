@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { useEventStatus, useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface Events {
   id: number;
@@ -220,8 +221,26 @@ export default function Home() {
   useEffect(() => {
     const fetchEvents = async () => {
       try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
+        setLoading(true);
+
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          console.warn('No auth token available');
+          return;
+        }
+
+        const batchSize = 5; // nombre d'events a recuperar
+        const res = await fetch(
+          `http://nattech.fib.upc.edu:40490/events/?batch_size=${batchSize}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          },
+        );
+
         if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
         const data = await res.json();
         setEvents(data);
       } catch (err: any) {
@@ -231,6 +250,7 @@ export default function Home() {
         setLoading(false);
       }
     };
+
     fetchEvents();
   }, []);
 
