@@ -22,6 +22,7 @@ const TEXT = '#311C0C';
 const ACCENT = '#C86A2E';
 const MUTED = '#8B7355';
 const CARD = '#FFF';
+const RED = '#E74C3C';
 
 export default function UserConfig() {
   const { t } = useTranslation();
@@ -170,6 +171,8 @@ export default function UserConfig() {
   };
 
   const handleDeleteAcc = () => {
+    if (!global.authToken) return;
+
     Alert.alert(
       t('Delete account'),
       t('Are you sure you want to delete your account?'),
@@ -183,14 +186,15 @@ export default function UserConfig() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
+              const res = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
                 method: 'DELETE',
                 headers: {
+                  Authorization: `Bearer ${global.authToken}`,
                   'Content-Type': 'application/json',
                 },
               });
 
-              if (response.ok) {
+              if (res.ok) {
                 Alert.alert(t('Cuenta eliminada'));
                 router.replace('(auth)/login');
               } else {
@@ -198,7 +202,7 @@ export default function UserConfig() {
               }
             } catch (error) {
               console.error(error);
-              Alert.alert('Error deleting account');
+              Alert.alert(t('Error al eliminar la cuenta'));
             }
           },
         },
@@ -344,7 +348,7 @@ export default function UserConfig() {
 
           <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="log-out-outline" size={22} color="#E74C3C" />
+              <Ionicons name="log-out-outline" size={22} color={RED} />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
                 {t('Close session')}
               </Text>
