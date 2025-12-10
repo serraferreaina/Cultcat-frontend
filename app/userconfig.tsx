@@ -191,10 +191,10 @@ export default function UserConfig() {
               });
 
               if (response.ok) {
-                Alert.alert('Cuenta eliminada');
+                Alert.alert(t('Cuenta eliminada'));
                 router.replace('(auth)/login');
               } else {
-                Alert.alert('Error al eliminar cuenta');
+                Alert.alert(t('Error al eliminar cuenta'));
               }
             } catch (error) {
               console.error(error);

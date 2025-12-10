@@ -137,5 +137,7 @@
   "endDate": "End date",
   "selectStartDate": "Select start date",
   "Are you sure you want to log out?": "Are you sure you want to log out?",
-  "Are you sure you want to delete your account?": "Are you sure you want to delete your account?"
+  "Are you sure you want to delete your account?": "Are you sure you want to delete your account?",
+  "Account deleted": "Account deleted",
+  "Error deleting account": "Error deleting account"
 }

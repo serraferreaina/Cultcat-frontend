@@ -137,5 +137,7 @@
   "endDate": "Fecha fin",
   "selectStartDate": "Selecciona fecha inicio",
   "Are you sure you want to log out?": "Estás seguro de que quieres cerrar sessión?",
-  "Are you sure you want to delete your account?": "Estás seguro de que quieres eliminar tu cuenta?"
+  "Are you sure you want to delete your account?": "Estás seguro de que quieres eliminar tu cuenta?",
+  "Account deleted": "Cuenta eliminada",
+  "Error deleting account": "Error al eliminar cuenta"
 }
