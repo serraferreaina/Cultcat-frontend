@@ -29,9 +29,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       const json = await AsyncStorage.getItem('savedEvents');
       if (json) setSavedEvents(JSON.parse(json));
-    } catch (e) {
-
-    }
+    } catch (e) {}
 
     // 2. Load API data
     try {
@@ -52,16 +50,14 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         assistedMap[parseInt(item.event_id, 10)] = true;
       });
       setAssistedEvents(assistedMap);
-    } catch (err) {
-    }
+    } catch (err) {}
   };
 
   // --- Persist locally saved events ---
   const persistSaved = async (updated: Record<number, boolean>) => {
     try {
       await AsyncStorage.setItem('savedEvents', JSON.stringify(updated));
-    } catch (e) {
-    }
+    } catch (e) {}
   };
 
   // --- Generic Helper for API Toggles ---
@@ -89,9 +85,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
           body: JSON.stringify({ state }),
         });
       }
-    } catch (err) {
-      
-    }
+    } catch (err) {}
   };
 
   // --- Toggle "Want to Go" ---
