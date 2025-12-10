@@ -16,6 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAccount } from '../api';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -171,38 +172,23 @@ export default function UserConfig() {
   };
 
   const handleDeleteAcc = () => {
-    if (!global.authToken) return;
-
     Alert.alert(
       t('Delete account'),
       t('Are you sure you want to delete your account?'),
       [
-        {
-          text: t('Cancel'),
-          style: 'cancel',
-        },
+        { text: t('Cancel'), style: 'cancel' },
         {
           text: t('Delete account'),
           style: 'destructive',
           onPress: async () => {
             try {
-              const res = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
-                method: 'DELETE',
-                headers: {
-                  Authorization: `Bearer ${global.authToken}`,
-                  'Content-Type': 'application/json',
-                },
-              });
+              await deleteAccount();
+              Alert.alert(t('Account deleted'));
 
-              if (res.ok) {
-                Alert.alert(t('Cuenta eliminada'));
-                router.replace('(auth)/login');
-              } else {
-                Alert.alert(t('Error al eliminar cuenta'));
-              }
-            } catch (error) {
-              console.error(error);
-              Alert.alert(t('Error al eliminar la cuenta'));
+              router.replace('(auth)/login');
+            } catch (e) {
+              console.error(e);
+              Alert.alert(t('Error deleting account'));
             }
           },
         },
