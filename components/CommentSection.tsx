@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface Comment {
   id: number;
@@ -50,9 +51,15 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
 
   const openProfile = async (username: string) => {
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`http://nattech.fib.upc.edu:40490/profile/`, {
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 nuevo formato
         },
       });
 
@@ -63,11 +70,10 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
       try {
         data = JSON.parse(text);
       } catch (err) {
-        console.error('El servidor NO ha retornat JSON. Mira si el username existeix.');
+        console.error('El servidor NO ha retornado JSON. Revisa si el username existe.');
         return;
       }
 
-      // 🔥 Normalitzam EXACTAMENT igual que al perfil
       const normalized = {
         id: data.id ?? 0,
         username: data.username ?? '',
@@ -79,7 +85,7 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
       setProfileData(normalized);
       setProfileModalVisible(true);
     } catch (e) {
-      console.error('Error carregant perfil:', e);
+      console.error('Error cargando perfil:', e);
     }
   };
 
@@ -90,17 +96,24 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
     try {
       setLoading(true);
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/`, {
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 JWT Bearer
         },
       });
 
-      if (!res.ok) throw new Error('Error fetching comments');
+      if (!res.ok) throw new Error(`Error fetching comments: ${res.status}`);
       const data = await res.json();
       setComments(data);
     } catch (e) {
-      console.error('Error load comments:', e);
+      console.error('Error loading comments:', e);
     } finally {
       setLoading(false);
     }
@@ -115,11 +128,17 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
     if (!newComment.trim()) return;
 
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/create`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 nuevo formato JWT
         },
         body: JSON.stringify({ text: newComment }),
       });
@@ -139,10 +158,16 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
   //ESBORRAR COMENTARI
   const remove = async (commentId: number) => {
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${commentId}/delete`, {
         method: 'DELETE',
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 nuevo formato JWT
         },
       });
 
@@ -162,11 +187,17 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
     if (!editingComment) return;
 
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${editingComment.id}/edit`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 JWT Bearer
         },
         body: JSON.stringify({ text: editedText }),
       });
@@ -187,10 +218,16 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
   // REPORT COMMENT
   const reportComment = async (commentId: number) => {
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${commentId}/report`, {
         method: 'POST',
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 JWT Bearer
         },
       });
 

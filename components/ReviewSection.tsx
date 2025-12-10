@@ -17,6 +17,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
@@ -85,13 +86,21 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
     try {
       setLoading(true);
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/reviews/event/${eventId}/`, {
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` }, // 🔹 JWT Bearer
       });
 
+      if (!res.ok) throw new Error(`Error fetching reviews: ${res.status}`);
       const data = await res.json();
 
-      // Fix for reviews with invalid user object from backend
+      // Filtro de reviews con usuario válido
       const safeData = data.filter((r: any) => r.user && typeof r.user === 'object');
 
       setReviews(safeData);
@@ -127,8 +136,13 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
     if (rating === 0) return;
 
     try {
-      const form = new FormData();
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
 
+      const form = new FormData();
       form.append('user', String(currentUser.id));
       form.append('event', String(eventId));
       form.append('rating', String(rating));
@@ -144,11 +158,12 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
 
       const res = await fetch(`${BASE_URL}/reviews/create/`, {
         method: 'POST',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` }, // 🔹 JWT Bearer
         body: form,
       });
 
       const created = await res.json();
+
       if (created.detail === 'Ya existe una review para este usuario y evento.') {
         alert('Ja tens una ressenya per aquest esdeveniment.');
         return;
@@ -174,9 +189,15 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
 
   const remove = async (id: number) => {
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       await fetch(`${BASE_URL}/reviews/${id}/`, {
         method: 'DELETE',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` }, // 🔹 JWT Bearer
       });
 
       setReviews((prev) => prev.filter((r) => r.id !== id));
@@ -221,9 +242,15 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
         } as any),
       );
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/reviews/${editingReview.id}/edit/`, {
         method: 'PUT',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` }, // 🔹 JWT Bearer
         body: form,
       });
 
@@ -244,10 +271,16 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
         ? `${BASE_URL}/reviews/${reviewId}/upvote/remove/`
         : `${BASE_URL}/reviews/${reviewId}/upvote/`;
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(url, {
         method: alreadyUpvoted ? 'DELETE' : 'POST',
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`, // 🔹 JWT Bearer
         },
       });
 

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -35,9 +36,11 @@ export default function UserConfig() {
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
 
   const handleSave = async () => {
-    if (!global.authToken) return;
-
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
+
+      // 2. Construir FormData
       let formData = new FormData();
       formData.append('id', global.currentUser?.id?.toString() ?? '0');
       formData.append('username', username);
@@ -57,14 +60,14 @@ export default function UserConfig() {
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          Authorization: `Token ${global.authToken}`,
-          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`, // <--- nuevo formato JWT
         },
         body: formData,
       });
 
       const data = await res.json();
 
+      // 3. Actualizar usuario global
       global.currentUser = {
         id: data.id ?? global.currentUser?.id ?? 0,
         username: data.username ?? username,
@@ -99,11 +102,12 @@ export default function UserConfig() {
         formData.append('profilePic', imageUri);
       }
 
+      const token = await AsyncStorage.getItem('authToken');
+
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          Authorization: `Token ${global.authToken}`,
-          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -150,8 +154,12 @@ export default function UserConfig() {
       {
         text: t('Close session'),
         style: 'destructive',
-        onPress: () => {
-          global.authToken = undefined;
+        onPress: async () => {
+          // Limpiar tokens de AsyncStorage
+          await AsyncStorage.removeItem('authToken');
+          await AsyncStorage.removeItem('refreshToken');
+
+          // Limpiar usuario global si lo estás usando
           global.currentUser = null;
 
           // Redirigir al login
@@ -221,10 +229,13 @@ export default function UserConfig() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.removePhotoBtn}
-                onPress={() => {
+                onPress={async () => {
                   setAvatar(DEFAULT_AVATAR);
 
-                  if (global.authToken) updateProfilePicture(DEFAULT_AVATAR);
+                  const token = await AsyncStorage.getItem('authToken');
+                  if (token) {
+                    updateProfilePicture(DEFAULT_AVATAR);
+                  }
                 }}
               >
                 <Text style={styles.removePhotoText}>{t('Eliminar foto')}</Text>
