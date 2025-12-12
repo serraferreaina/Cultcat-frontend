@@ -16,12 +16,14 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAccount } from '../api';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
 const ACCENT = '#C86A2E';
 const MUTED = '#8B7355';
 const CARD = '#FFF';
+const RED = '#E74C3C';
 
 export default function UserConfig() {
   const { t } = useTranslation();
@@ -174,31 +176,19 @@ export default function UserConfig() {
       t('Delete account'),
       t('Are you sure you want to delete your account?'),
       [
-        {
-          text: t('Cancel'),
-          style: 'cancel',
-        },
+        { text: t('Cancel'), style: 'cancel' },
         {
           text: t('Delete account'),
           style: 'destructive',
           onPress: async () => {
             try {
-              const response = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
-                method: 'DELETE',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-              });
+              await deleteAccount();
+              Alert.alert(t('Account deleted'));
 
-              if (response.ok) {
-                Alert.alert('Cuenta eliminada');
-                router.replace('(auth)/login');
-              } else {
-                Alert.alert('Error al eliminar cuenta');
-              }
-            } catch (error) {
-              console.error(error);
-              Alert.alert('Error deleting account');
+              router.replace('(auth)/login');
+            } catch (e) {
+              console.error(e);
+              Alert.alert(t('Error deleting account'));
             }
           },
         },
@@ -344,7 +334,7 @@ export default function UserConfig() {
 
           <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="log-out-outline" size={22} color="#E74C3C" />
+              <Ionicons name="log-out-outline" size={22} color={RED} />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
                 {t('Close session')}
               </Text>

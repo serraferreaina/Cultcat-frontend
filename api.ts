@@ -68,9 +68,23 @@ export async function api(path: string, options: RequestInit = {}) {
     throw new Error('API error');
   }
 
-  return res.json();
+  const text = await res.text();
+  if (!text) {
+    return null; // DELETE sin contenido
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.log('⚠️ No JSON response:', text);
+    return null;
+  }
 }
 
 export function getProfile() {
   return api('/profile/');
+}
+
+export function deleteAccount() {
+  return api('/profile/delete/', { method: 'DELETE' });
 }
