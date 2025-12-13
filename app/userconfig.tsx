@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { deleteAccount } from '../api';
+import { deleteAccount, logout } from '../api';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -157,15 +157,15 @@ export default function UserConfig() {
         text: t('Close session'),
         style: 'destructive',
         onPress: async () => {
-          // Limpiar tokens de AsyncStorage
-          await AsyncStorage.removeItem('authToken');
-          await AsyncStorage.removeItem('refreshToken');
+          try {
+            await logout();
+            Alert.alert(t('Logged out'));
 
-          // Limpiar usuario global si lo estás usando
-          global.currentUser = null;
-
-          // Redirigir al login
-          router.replace('(auth)/login');
+            router.replace('(auth)/login');
+          } catch (e) {
+            console.error(e);
+            Alert.alert(t('Error logging out'));
+          }
         },
       },
     ]);

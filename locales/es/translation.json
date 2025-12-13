@@ -139,5 +139,7 @@
   "Are you sure you want to log out?": "Estás seguro de que quieres cerrar sessión?",
   "Are you sure you want to delete your account?": "Estás seguro de que quieres eliminar tu cuenta?",
   "Account deleted": "Cuenta eliminada",
-  "Error deleting account": "Error al eliminar cuenta"
+  "Error deleting account": "Error al eliminar cuenta",
+  "Logged out": "Sesión cerrada",
+  "Error logging out": "Error cerrando sesión"
 }
