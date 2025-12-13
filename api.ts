@@ -85,6 +85,17 @@ export function getProfile() {
   return api('/profile/');
 }
 
+export async function logout() {
+  const refresh = await AsyncStorage.getItem('refreshToken');
+
+  await api('/api/auth/logout/', {
+    method: 'POST',
+    body: JSON.stringify({ refresh }),
+  });
+
+  await AsyncStorage.multiRemove(['authToken', 'refreshToken']);
+}
+
 export function deleteAccount() {
   return api('/profile/delete/', { method: 'DELETE' });
 }
