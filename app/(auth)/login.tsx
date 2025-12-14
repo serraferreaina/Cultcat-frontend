@@ -22,7 +22,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-//import { makeRedirectUri } from 'expo-auth-session';
+import { useRouter } from 'expo-router';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -43,15 +43,17 @@ const Login: React.FC = () => {
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
     iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
-    scopes: ['profile', 'email'],
+    scopes: ['openid', 'email', 'profile'],
   });
 
-  useEffect(() => {
+  const router = useRouter();
+
+  /*useEffect(() => {
     console.log('GOOGLE REQUEST >>>', request);
     if (request?.redirectUri) {
       console.log('🚀 REDIRECT URI UTILITZAT:', request.redirectUri);
     }
-  }, [request]);
+  }, [request]);*/
 
   // ANIMACIÓ ENTRADA
   useEffect(() => {
@@ -64,15 +66,17 @@ const Login: React.FC = () => {
   // MANEIG RESPONSE GOOGLE
   useEffect(() => {
     if (response?.type === 'success') {
-      const { authentication } = response;
-      if (authentication?.accessToken) {
-        handleGoogleAuth(authentication.accessToken);
-      } else {
-        Alert.alert('Google Sign-In', 'No access token returned by Google.');
-        setGoogleLoading(null);
+      const idToken = response.authentication?.idToken;
+      console.log('🪪 ID TOKEN REBUT:', idToken);
+
+      if (!idToken) {
+        Alert.alert('Error', 'Google no ha retornat cap ID Token');
+        return;
       }
-    } else if (response?.type && response.type !== 'success') {
-      setGoogleLoading(null);
+
+      handleGoogleAuth(idToken);
+    } else if (response?.type === 'error') {
+      console.log('❌ GOOGLE AUTH ERROR:', response.error);
     }
   }, [response]);
 
@@ -107,28 +111,30 @@ const Login: React.FC = () => {
     try {
       const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/google/token/', {
         method: 'POST',
-        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ google_token: googleToken }),
       });
+
       const data = await res.json();
-      if (res.ok && data.token) {
-        await AsyncStorage.setItem('authToken', data.token);
-        Alert.alert('Success', 'Authentication successful!');
+      console.log('BACKEND RESPONSE:', data);
+
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+        router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', data.message || 'Google authentication failed');
+        Alert.alert('Error', 'Google authentication failed');
       }
-    } catch (error) {
-      console.error('Google auth error:', error);
-      Alert.alert('Error', 'An error occurred during authentication');
-    } finally {
-      setGoogleLoading(null);
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Network error');
     }
   };
 
   const handleGoogleSignIn = async () => {
     setGoogleLoading('signin');
     try {
-      await promptAsync();
+      await promptAsync({ showInRecents: true });
     } catch (error) {
       console.error('Google Sign-In error:', error);
       Alert.alert('Error', 'Failed to initiate Google Sign-In');
@@ -139,7 +145,7 @@ const Login: React.FC = () => {
   const handleGoogleSignUp = async () => {
     setGoogleLoading('signup');
     try {
-      await promptAsync();
+      await promptAsync({ showInRecents: true });
     } catch (error) {
       console.error('Google Sign-Up error:', error);
       Alert.alert('Error', 'Failed to initiate Google Sign-Up');
