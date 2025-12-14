@@ -60,7 +60,10 @@ export default function MapScreen() {
   const [offset, setOffset] = useState(0);
   const [loadingEvents, setLoadingEvents] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [currentRegion, setCurrentRegion] = useState<{latitude: number, longitude: number} | null>(null);
+  const [currentRegion, setCurrentRegion] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
   const openEventDetail = (id: number) => {
     setSelectedEvent(null);
@@ -87,11 +90,11 @@ export default function MapScreen() {
       if (!res.ok) throw new Error('Error loading events');
 
       const textData = await res.text();
-      
+
       let data: EventItem[] = [];
       try {
         const jsonData = textData.trim() ? JSON.parse(textData) : [];
-        data = Array.isArray(jsonData) ? jsonData : (jsonData.results || []);
+        data = Array.isArray(jsonData) ? jsonData : jsonData.results || [];
       } catch (e) {
         console.error('JSON PARSE ERROR:', textData);
         data = [];
@@ -163,7 +166,7 @@ export default function MapScreen() {
           <ActivityIndicator color={Colors.accent} />
         </View>
       )}
-      
+
       <MapView
         ref={mapRef}
         style={styles.map}
@@ -178,10 +181,11 @@ export default function MapScreen() {
         }}
         onRegionChangeComplete={(region) => {
           const latKm = region.latitudeDelta * 111;
-          const lonKm = region.longitudeDelta * 111 * Math.cos(region.latitude * Math.PI / 180);
+          const lonKm = region.longitudeDelta * 111 * Math.cos((region.latitude * Math.PI) / 180);
           const areaKm2 = latKm * lonKm;
 
-          const regionChanged = !currentRegion || 
+          const regionChanged =
+            !currentRegion ||
             Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.3 ||
             Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.3;
 
@@ -193,39 +197,40 @@ export default function MapScreen() {
           }
         }}
       >
-        {Array.isArray(events) && events.map((event) => {
-          const images = event.imatges ? event.imatges.split(',').map((i) => i.trim()) : [];
-          const imageUrl =
-            images.length > 0
-              ? `https://agenda.cultura.gencat.cat${images[0]}`
-              : 'https://via.placeholder.com/100x100/FFA500/FFFFFF?text=E';
+        {Array.isArray(events) &&
+          events.map((event) => {
+            const images = event.imatges ? event.imatges.split(',').map((i) => i.trim()) : [];
+            const imageUrl =
+              images.length > 0
+                ? `https://agenda.cultura.gencat.cat${images[0]}`
+                : 'https://via.placeholder.com/100x100/FFA500/FFFFFF?text=E';
 
-          return (
-            <Marker
-              key={event.id}
-              coordinate={{
-                latitude: Number(event.latitud),
-                longitude: Number(event.longitud),
-              }}
-              tracksViewChanges={false}
-              onPress={(e) => {
-                e.stopPropagation();
-                setSelectedEvent(event);
-              }}
-            >
-              <View style={styles.markerContainer}>
-                <View
-                  style={[
-                    styles.markerCircle,
-                    { backgroundColor: Colors.background, borderColor: Colors.accent },
-                  ]}
-                >
-                  <Image source={{ uri: imageUrl }} style={styles.markerImage} />
+            return (
+              <Marker
+                key={event.id}
+                coordinate={{
+                  latitude: Number(event.latitud),
+                  longitude: Number(event.longitud),
+                }}
+                tracksViewChanges={false}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                }}
+              >
+                <View style={styles.markerContainer}>
+                  <View
+                    style={[
+                      styles.markerCircle,
+                      { backgroundColor: Colors.background, borderColor: Colors.accent },
+                    ]}
+                  >
+                    <Image source={{ uri: imageUrl }} style={styles.markerImage} />
+                  </View>
                 </View>
-              </View>
-            </Marker>
-          );
-        })}
+              </Marker>
+            );
+          })}
       </MapView>
 
       {selectedEvent && (
