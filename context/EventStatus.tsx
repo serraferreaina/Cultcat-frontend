@@ -59,7 +59,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         savedMap[parseInt(item.event_id, 10)] = true;
       });
       setSavedEvents(savedMap);
-      
+
       // Persist to AsyncStorage
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
     } catch (err) {
