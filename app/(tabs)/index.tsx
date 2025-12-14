@@ -89,12 +89,12 @@ interface FeedCardProps {
   onToggleSave: (id: number) => Promise<void>;
 }
 
-const FeedCard: React.FC<FeedCardProps> = ({ 
-  item, 
-  onOpenComments, 
+const FeedCard: React.FC<FeedCardProps> = ({
+  item,
+  onOpenComments,
   onOpenReviews,
   savedEvents,
-  onToggleSave
+  onToggleSave,
 }) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -263,13 +263,13 @@ export default function Home() {
     const isSaved = savedEvents[eventId] || false;
 
     // Actualización optimista del UI
-    setSavedEvents(prev => ({ ...prev, [eventId]: !isSaved }));
+    setSavedEvents((prev) => ({ ...prev, [eventId]: !isSaved }));
 
     try {
       if (isSaved) {
         // Eliminar de guardados
-        await api(`/save/${eventId}/`, { 
-          method: 'DELETE' 
+        await api(`/save/${eventId}/`, {
+          method: 'DELETE',
         });
       } else {
         // Añadir a guardados con el state requerido
@@ -279,8 +279,8 @@ export default function Home() {
         });
       }
     } catch (err: any) {
-      setSavedEvents(prev => ({ ...prev, [eventId]: isSaved }));
-      
+      setSavedEvents((prev) => ({ ...prev, [eventId]: isSaved }));
+
       if (err.message === 'Unauthorized') {
         console.log('⚠️ User not authenticated, redirecting to login...');
       }
