@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
 import {
   View,
@@ -12,8 +13,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
-import { useEventStatus } from '../context/EventStatus';
 import { EventCard } from '../components/EventCard2';
+import { api } from '../api';
 
 interface Events {
   id: number;
@@ -23,38 +24,82 @@ interface Events {
   imatges: string | null;
 }
 
+interface SavedEventResponse {
+  event_id: string;
+  event_title: string;
+  state: string;
+  created_at: string;
+}
+
 export default function SavedEventsScreen() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
-
-  const { savedEvents, goingEvents, toggleSaved, toggleGoing } = useEventStatus();
   const router = useRouter();
 
   const [events, setEvents] = useState<Events[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data: Events[] = await res.json();
-        setEvents(data);
-      } catch (err: any) {
-        console.error('Error loading events:', err);
-        setError(err.message);
-      } finally {
+  const loadSavedEvents = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const savedData: SavedEventResponse[] = await api('/saved-events/?state=wishlist');
+
+      if (savedData.length === 0) {
+        setEvents([]);
         setLoading(false);
+        return;
       }
-    };
-    fetchEvents();
+
+      const basicEvents: Events[] = savedData.map((item) => ({
+        id: parseInt(item.event_id),
+        titol: item.event_title,
+        descripcio: null,
+        imgApp: null,
+        imatges: null,
+      }));
+
+      setEvents(basicEvents);
+      setLoading(false);
+
+      const eventIds = savedData.map((item) => item.event_id);
+
+      const eventsPromises = eventIds.map(async (id) => {
+        try {
+          const eventData = await api(`/events/${id}/`);
+          return eventData;
+        } catch (err: any) {
+          console.error(`❌ Error loading event ${id}:`, err.message || err);
+          const basicEvent = basicEvents.find((e) => e.id === parseInt(id));
+          return basicEvent || null;
+        }
+      });
+
+      const eventsData = await Promise.all(eventsPromises);
+      const validEvents = eventsData.filter((event) => event !== null);
+
+      if (validEvents.length > 0) {
+        setEvents(validEvents);
+      }
+    } catch (err: any) {
+      console.error('❌ Error loading saved events:', err);
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSavedEvents();
   }, []);
 
-  const savedEventsList = React.useMemo(
-    () => events.filter((ev) => savedEvents[ev.id]),
-    [events, savedEvents],
+  // Recargar eventos cada vez que la pantalla recibe foco
+  useFocusEffect(
+    React.useCallback(() => {
+      loadSavedEvents();
+    }, []),
   );
 
   if (loading)
@@ -77,13 +122,24 @@ export default function SavedEventsScreen() {
           { justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.background },
         ]}
       >
-        <Text style={{ color: Colors.text }}>
+        <Text style={{ color: Colors.text, marginBottom: 16 }}>
           {t('Error loading events')}: {error}
         </Text>
+        <TouchableOpacity
+          onPress={loadSavedEvents}
+          style={{
+            backgroundColor: Colors.accent,
+            paddingHorizontal: 20,
+            paddingVertical: 10,
+            borderRadius: 8,
+          }}
+        >
+          <Text style={{ color: Colors.card, fontWeight: '600' }}>{t('Retry')}</Text>
+        </TouchableOpacity>
       </View>
     );
 
-  if (savedEventsList.length === 0)
+  if (events.length === 0)
     return (
       <View
         style={[
@@ -111,20 +167,28 @@ export default function SavedEventsScreen() {
 
       {/* Events list */}
       <FlatList
-        data={savedEventsList}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
+        data={events}
+        keyExtractor={(item, index) => item?.id?.toString() || `event-${index}`}
+        renderItem={({ item }) => {
+          return (
+            <EventCard
+              item={item}
+              router={router}
+              Colors={Colors}
+              onUnsaved={(eventId) => {
+                setEvents((prevEvents) => prevEvents.filter((event) => event.id !== eventId));
+              }}
+            />
+          );
+        }}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
-        extraData={savedEvents}
       />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   header: {
     flexDirection: 'row',
     alignItems: 'center',

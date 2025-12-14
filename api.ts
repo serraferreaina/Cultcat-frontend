@@ -12,21 +12,21 @@ async function refreshAccessToken() {
     body: JSON.stringify({ refresh }),
   });
 
-  const data = await res.json();
-
-  if (!res.ok || !data.access) {
-    console.log('❌ Refresh token invalid or expired');
+  if (!res.ok) {
     return null;
   }
 
-  // Guarda els nous tokens
+  const data = await res.json();
+
+  if (!data.access) {
+    return null;
+  }
+
   await AsyncStorage.setItem('authToken', data.access);
 
   if (data.refresh) {
     await AsyncStorage.setItem('refreshToken', data.refresh);
   }
-
-  console.log('🔄 Access token refreshed');
 
   return data.access;
 }
@@ -43,16 +43,12 @@ export async function api(path: string, options: RequestInit = {}) {
     },
   });
 
-  // 🔥 Access token caducat → 401
   if (res.status === 401) {
-    console.log('⚠️ Access token expired, trying refresh…');
-
     const newToken = await refreshAccessToken();
     if (!newToken) {
-      throw new Error('Unauthorized'); // logout natural
+      throw new Error('Unauthorized');
     }
 
-    // 🔁 Tornem a fer la crida amb el token nou
     res = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
@@ -64,8 +60,8 @@ export async function api(path: string, options: RequestInit = {}) {
   }
 
   if (!res.ok) {
-    console.log('API ERROR:', res.status, await res.text());
-    throw new Error('API error');
+    const errorText = await res.text();
+    throw new Error(`HTTP error! status: ${res.status}`);
   }
 
   return res.json();
