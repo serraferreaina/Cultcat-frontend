@@ -1,9 +1,17 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, Image, Share, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  Image,
+  Share,
+  StyleSheet,
+  ActivityIndicator,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-// 1. Import the hook directly here
 import { useEventStatus } from '../context/EventStatus';
+import { api } from '../api';
 
 interface Event {
   id: number;
@@ -22,20 +30,18 @@ interface Event {
 
 interface EventCardProps {
   item: Event;
-  // We REMOVED all the toggle/status props from here.
-  // The card handles them internally now.
   router: any;
   Colors: { [key: string]: string };
+  onUnsaved?: (eventId: number) => void;
 }
 
-export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors }) => {
-  // 2. Consume the context INSIDE the card
+export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
   const { goingEvents, savedEvents, assistedEvents, toggleGoing, toggleSaved, toggleAssisted } =
     useEventStatus();
 
   const { t } = useTranslation();
+  const [isUnsaving, setIsUnsaving] = useState(false);
 
-  // Safe checks using the context values
   const isGoing = !!goingEvents[item.id];
   const isSaved = !!savedEvents[item.id];
   const isAssisted = !!assistedEvents[item.id];
@@ -49,20 +55,35 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors }) =>
 
   const imageToShow = images[0];
 
-  // --- Logic to check if event is past ---
   const isEventPast = (): boolean => {
-    if (!item.data_inici) return false; // If no date, assume future/current
+    if (!item.data_inici) return false;
 
     const eventDate = new Date(item.data_inici);
     const today = new Date();
-    // Reset time to midnight for simple date comparison
     today.setHours(0, 0, 0, 0);
 
-    // If event is strictly before today
     return eventDate < today;
   };
 
   const isPast = isEventPast();
+
+  const handleToggleSaved = async () => {
+    if (isUnsaving) return;
+
+    setIsUnsaving(true);
+
+    try {
+      await toggleSaved(item.id);
+
+      if (isSaved && onUnsaved) {
+        onUnsaved(item.id);
+      }
+    } catch (err: any) {
+      console.error('❌ Error toggling saved:', err);
+    } finally {
+      setIsUnsaving(false);
+    }
+  };
 
   return (
     <TouchableOpacity
@@ -80,18 +101,25 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors }) =>
         <View style={styles.labelContainer}>
           {item.espai && <Label text={item.espai} color={Colors.accent} />}
           {item.localitat && <Label text={item.localitat} color={Colors.accent} />}
-          {/* Add other labels as needed */}
         </View>
 
         <View style={styles.cardButtonsRow}>
           <View style={styles.cardButtonsLeft}>
-            {/* Save Button */}
-            <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
-              <Ionicons
-                name={isSaved ? 'bookmark' : 'bookmark-outline'}
-                size={20}
-                color={Colors.text}
-              />
+            {/* Save Button with loading */}
+            <TouchableOpacity
+              style={styles.iconButton}
+              onPress={handleToggleSaved}
+              disabled={isUnsaving}
+            >
+              {isUnsaving ? (
+                <ActivityIndicator size="small" color={Colors.text} />
+              ) : (
+                <Ionicons
+                  name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                  size={20}
+                  color={Colors.text}
+                />
+              )}
             </TouchableOpacity>
 
             {/* Comments */}
@@ -116,7 +144,6 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors }) =>
 
           {/* DYNAMIC BUTTON LOGIC */}
           {isPast ? (
-            // --- PAST EVENT: Show ASSISTED Button ---
             <TouchableOpacity
               style={[
                 styles.button,

@@ -164,7 +164,7 @@ export default function SearchResultsScreen() {
           data={users}
           keyExtractor={(item) => item.username}
           renderItem={({ item }) => (
-            <UserCard user={item} onPress={() => router.push(`/user/${item.username}`)} />
+            <UserCard user={item} onPress={() => router.push(`/user/${item.id}`)} />
           )}
           contentContainerStyle={{ paddingBottom: 20 }}
         />

@@ -28,6 +28,7 @@
       "bundleIdentifier": "com.anonymous.cultcatfrontend"
     },
     "android": {
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"

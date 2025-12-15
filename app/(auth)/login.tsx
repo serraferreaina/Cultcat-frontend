@@ -14,9 +14,11 @@ import {
   Platform,
   ScrollView,
   Animated,
+  Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Google from 'expo-auth-session/providers/google';
+
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
@@ -80,32 +82,7 @@ const Login: React.FC = () => {
     }
   }, [response]);
 
-  const handleManualLogin = async () => {
-    if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-    setLoading(true);
-    try {
-      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/login/', {
-        method: 'POST',
-        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: email.toLowerCase().trim(), password }),
-      });
-      const data = await res.json();
-      if (res.ok && data.token) {
-        await AsyncStorage.setItem('authToken', data.token);
-        Alert.alert('Success', 'Logged in successfully!');
-      } else {
-        Alert.alert('Error', data.message || 'Invalid credentials');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      Alert.alert('Error', 'An error occurred during login');
-    } finally {
-      setLoading(false);
-    }
-  };
+
 
   const handleGoogleAuth = async (googleToken: string) => {
     try {
@@ -130,8 +107,8 @@ const Login: React.FC = () => {
       Alert.alert('Error', 'Network error');
     }
   };
-
-  const handleGoogleSignIn = async () => {
+  
+ const handleGoogleSignIn = async () => {
     setGoogleLoading('signin');
     try {
       await promptAsync({ showInRecents: true });
@@ -142,15 +119,89 @@ const Login: React.FC = () => {
     }
   };
 
-  const handleGoogleSignUp = async () => {
-    setGoogleLoading('signup');
-    try {
-      await promptAsync({ showInRecents: true });
-    } catch (error) {
-      console.error('Google Sign-Up error:', error);
-      Alert.alert('Error', 'Failed to initiate Google Sign-Up');
-      setGoogleLoading(null);
+
+  const handleManualLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
     }
+    setLoading(true);
+    try {
+      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/login/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+
+        // Redirigir a tabs
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', data.message || data.detail || 'Invalid credentials');
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      Alert.alert('Error', 'An error occurred during login');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualRegister = async () => {
+    if (!username || !email || !password) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (password.length < 8) {
+      Alert.alert('Error', 'Password must be at least 8 characters long');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/register/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+
+        // Redirigir a tabs
+        router.replace('/(tabs)');
+      } else {
+        const errorMsg =
+          data.username?.[0] ||
+          data.email?.[0] ||
+          data.password?.[0] ||
+          data.message ||
+          data.detail ||
+          'Registration failed';
+        Alert.alert('Error', errorMsg);
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      Alert.alert('Error', 'An error occurred during registration');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleDisclaimer = () => {
+    setShowGoogleDisclaimerModal(true);
   };
 
   const dynamicStyles = createDynamicStyles(colors);
@@ -185,18 +236,37 @@ const Login: React.FC = () => {
                   style={styles.logo}
                   resizeMode="contain"
                 />
-                <Text style={[styles.title, { color: colors.text }]}>Welcome Back</Text>
+                <Text style={[styles.title, { color: colors.text }]}>
+                  {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+                </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                  Sign in to continue your cultural journey
+                  {isRegisterMode
+                    ? 'Join us and start your cultural journey'
+                    : 'Sign in to continue your cultural journey'}
                 </Text>
               </View>
 
               <View style={styles.formContainer}>
+                {isRegisterMode && (
+                  <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                    <Ionicons name="person-outline" size={20} color={colors.placeholder} />
+                    <TextInput
+                      style={[dynamicStyles.input, { color: colors.text }]}
+                      placeholder="Username"
+                      placeholderTextColor={colors.placeholder}
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                )}
+
                 <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
                   <Ionicons name="mail-outline" size={20} color={colors.placeholder} />
                   <TextInput
                     style={[dynamicStyles.input, { color: colors.text }]}
-                    placeholder="Email"
+                    placeholder={isRegisterMode ? 'Email' : 'Email or Username'}
                     placeholderTextColor={colors.placeholder}
                     value={email}
                     onChangeText={setEmail}
@@ -228,14 +298,16 @@ const Login: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
-                <TouchableOpacity
-                  style={styles.forgotPassword}
-                  onPress={() => Alert.alert('Reset password', 'Implement forgot password flow')}
-                >
-                  <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
-                    Forgot Password?
-                  </Text>
-                </TouchableOpacity>
+                {!isRegisterMode && (
+                  <TouchableOpacity
+                    style={styles.forgotPassword}
+                    onPress={() => router.push('/changePassword')}
+                  >
+                    <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
+                      Change Password
+                    </Text>
+                  </TouchableOpacity>
+                )}
 
                 <TouchableOpacity
                   style={[
@@ -243,15 +315,34 @@ const Login: React.FC = () => {
                     { backgroundColor: colors.accent },
                     loading && styles.buttonDisabled,
                   ]}
-                  onPress={handleManualLogin}
+                  onPress={isRegisterMode ? handleManualRegister : handleManualLogin}
                   disabled={loading}
                   activeOpacity={0.8}
                 >
                   {loading ? (
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
-                    <Text style={styles.loginButtonText}>Sign In</Text>
+                    <Text style={styles.loginButtonText}>
+                      {isRegisterMode ? 'Create Account' : 'Sign In'}
+                    </Text>
                   )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchModeButton}
+                  onPress={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setUsername('');
+                    setEmail('');
+                    setPassword('');
+                  }}
+                >
+                  <Text style={[styles.switchModeText, { color: colors.textSecondary }]}>
+                    {isRegisterMode ? 'Already have an account? ' : "Don't have an account? "}
+                    <Text style={{ color: colors.accent, fontWeight: '700' }}>
+                      {isRegisterMode ? 'Sign In' : 'Sign Up'}
+                    </Text>
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -268,50 +359,18 @@ const Login: React.FC = () => {
                   style={[
                     dynamicStyles.googleButton,
                     { borderColor: colors.border, backgroundColor: colors.card },
-                    (googleLoading === 'signup' || !request) && styles.buttonDisabled,
-                  ]}
-                  onPress={handleGoogleSignUp}
-                  disabled={googleLoading !== null || !request}
-                  activeOpacity={0.7}
-                >
-                  {googleLoading === 'signup' ? (
-                    <ActivityIndicator color={colors.accent} size="small" />
-                  ) : (
-                    <>
-                      <Image
-                        source={require('../../assets/googleLogo.png')}
-                        style={styles.googleIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={[styles.googleButtonText, { color: colors.text }]}>
-                        Create Account
-                      </Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    dynamicStyles.googleButton,
-                    { borderColor: colors.border, backgroundColor: colors.card },
-                    (googleLoading === 'signin' || !request) && styles.buttonDisabled,
                   ]}
                   onPress={handleGoogleSignIn}
-                  disabled={googleLoading !== null || !request}
                   activeOpacity={0.7}
                 >
-                  {googleLoading === 'signin' ? (
-                    <ActivityIndicator color={colors.accent} size="small" />
-                  ) : (
-                    <>
-                      <Image
-                        source={require('../../assets/googleLogo.png')}
-                        style={styles.googleIcon}
-                        resizeMode="contain"
-                      />
-                      <Text style={[styles.googleButtonText, { color: colors.text }]}>Sign In</Text>
-                    </>
-                  )}
+                  <Image
+                    source={require('../../assets/googleLogo.png')}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>
+                    Sign In with Google
+                  </Text>
                 </TouchableOpacity>
               </View>
 
@@ -415,10 +474,12 @@ const styles = StyleSheet.create({
   forgotPasswordText: { fontSize: 14, fontWeight: '600' },
   loginButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
   buttonDisabled: { opacity: 0.5 },
+  switchModeButton: { alignItems: 'center', marginTop: 16 },
+  switchModeText: { fontSize: 14, fontWeight: '500' },
   dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 28 },
   divider: { flex: 1, height: 1 },
   dividerText: { fontSize: 13, marginHorizontal: 16, fontWeight: '500' },
-  googleButtonsContainer: { flexDirection: 'row', gap: 12, marginBottom: 24 },
+  googleButtonsContainer: { flexDirection: 'row', marginBottom: 24 },
   googleIcon: { width: 20, height: 20, marginRight: 10 },
   googleButtonText: { fontSize: 15, fontWeight: '600' },
   footer: { alignItems: 'center', marginTop: 16 },

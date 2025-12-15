@@ -15,12 +15,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { deleteAccount, logout } from '../api';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
 const ACCENT = '#C86A2E';
 const MUTED = '#8B7355';
 const CARD = '#FFF';
+const RED = '#E74C3C';
 
 export default function UserConfig() {
   const { t } = useTranslation();
@@ -35,9 +38,11 @@ export default function UserConfig() {
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
 
   const handleSave = async () => {
-    if (!global.authToken) return;
-
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) return;
+
+      // 2. Construir FormData
       let formData = new FormData();
       formData.append('id', global.currentUser?.id?.toString() ?? '0');
       formData.append('username', username);
@@ -57,14 +62,14 @@ export default function UserConfig() {
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          Authorization: `Token ${global.authToken}`,
-          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`, // <--- nuevo formato JWT
         },
         body: formData,
       });
 
       const data = await res.json();
 
+      // 3. Actualizar usuario global
       global.currentUser = {
         id: data.id ?? global.currentUser?.id ?? 0,
         username: data.username ?? username,
@@ -99,11 +104,12 @@ export default function UserConfig() {
         formData.append('profilePic', imageUri);
       }
 
+      const token = await AsyncStorage.getItem('authToken');
+
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          Authorization: `Token ${global.authToken}`,
-          'Content-Type': 'multipart/form-data',
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -142,27 +148,52 @@ export default function UserConfig() {
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      t('Close session') || 'Cerrar sesión',
-      t('Are you sure you want to log out?') || '¿Estás seguro que quieres cerrar sesión?',
-      [
-        {
-          text: t('Cancel') || 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: t('Close session') || 'Cerrar sesión',
-          style: 'destructive',
-          onPress: () => {
-            // Borrar sesión en memoria global
-            global.authToken = undefined;
-            global.currentUser = null;
+    Alert.alert(t('Close session'), t('Are you sure you want to log out?'), [
+      {
+        text: t('Cancel'),
+        style: 'cancel',
+      },
+      {
+        text: t('Close session'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await logout();
+            Alert.alert(t('Logged out'));
 
-            // Redirigir al login
             router.replace('(auth)/login');
+          } catch (e) {
+            console.error(e);
+            Alert.alert(t('Error logging out'));
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleDeleteAcc = () => {
+    Alert.alert(
+      t('Delete account'),
+      t('Are you sure you want to delete your account?'),
+      [
+        { text: t('Cancel'), style: 'cancel' },
+        {
+          text: t('Delete account'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await deleteAccount();
+              Alert.alert(t('Account deleted'));
+
+              router.replace('(auth)/login');
+            } catch (e) {
+              console.error(e);
+              Alert.alert(t('Error deleting account'));
+            }
           },
         },
       ],
+      { cancelable: true },
     );
   };
 
@@ -188,10 +219,13 @@ export default function UserConfig() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.removePhotoBtn}
-                onPress={() => {
+                onPress={async () => {
                   setAvatar(DEFAULT_AVATAR);
 
-                  if (global.authToken) updateProfilePicture(DEFAULT_AVATAR);
+                  const token = await AsyncStorage.getItem('authToken');
+                  if (token) {
+                    updateProfilePicture(DEFAULT_AVATAR);
+                  }
                 }}
               >
                 <Text style={styles.removePhotoText}>{t('Eliminar foto')}</Text>
@@ -300,7 +334,7 @@ export default function UserConfig() {
 
           <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="log-out-outline" size={22} color="#E74C3C" />
+              <Ionicons name="log-out-outline" size={22} color={RED} />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>
                 {t('Close session')}
               </Text>
@@ -309,7 +343,7 @@ export default function UserConfig() {
 
           <View style={styles.dividerLine} />
 
-          <TouchableOpacity style={styles.preferenceItem}>
+          <TouchableOpacity style={styles.preferenceItem} onPress={handleDeleteAcc}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="trash-outline" size={22} color="#E74C3C" />
               <Text style={[styles.preferenceText, { color: '#E74C3C' }]}>

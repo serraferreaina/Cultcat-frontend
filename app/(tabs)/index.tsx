@@ -16,16 +16,17 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-// Import context and the smart hook
-import { useEventStatus, useEventLogic } from '../../context/EventStatus';
+import { useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../../api';
 
 interface Events {
   id: number;
   titol: string;
   descripcio: string | null;
-  imgApp: string | null;
+  img_app: string | null;
   imatges: string | null;
   data_inici?: string | null;
 }
@@ -80,31 +81,49 @@ const Images: React.FC<PointsImages> = ({ images }) => {
 };
 
 // --- MAIN COMPONENT: FEED CARD ---
-// We extract this so hooks can be used safely inside it
 interface FeedCardProps {
   item: Events;
   onOpenComments: (id: number) => void;
   onOpenReviews: (id: number) => void;
+  savedEvents: { [key: number]: boolean };
+  onToggleSave: (id: number) => Promise<void>;
 }
 
-const FeedCard: React.FC<FeedCardProps> = ({ item, onOpenComments, onOpenReviews }) => {
+const FeedCard: React.FC<FeedCardProps> = ({
+  item,
+  onOpenComments,
+  onOpenReviews,
+  savedEvents,
+  onToggleSave,
+}) => {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  // Hooks usage (Safe here because FeedCard is a component)
-  const { savedEvents, toggleSaved } = useEventStatus();
   const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(item);
 
   const isSaved = savedEvents[item.id] || false;
 
-  const images =
-    item.imatges && item.imatges.trim() !== ''
-      ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
-      : item.imgApp && item.imgApp.trim() !== ''
-        ? [`https://agenda.cultura.gencat.cat${item.imgApp}`]
-        : ['https://via.placeholder.com/300x200'];
+  const images = React.useMemo(() => {
+    if (item.imatges && item.imatges.trim() !== '') {
+      const imageUrls = item.imatges.split(',').map((url) => {
+        const trimmedUrl = url.trim();
+        const decodedUrl = decodeURIComponent(trimmedUrl);
+        const fullUrl = `https://agenda.cultura.gencat.cat${decodedUrl}`;
+        return fullUrl;
+      });
+      return imageUrls;
+    }
+
+    if (item.img_app && item.img_app.trim() !== '') {
+      const decodedUrl = decodeURIComponent(item.img_app.trim());
+      const imageUrl = `https://agenda.cultura.gencat.cat${decodedUrl}`;
+      return [imageUrl];
+    }
+
+    return ['https://via.placeholder.com/375x250?text=Sin+Imagen'];
+  }, [item.imatges, item.img_app, item.id]);
 
   const handleShare = () => {
     const url = `https://tu-app.com/event/${item.id}`;
@@ -143,7 +162,7 @@ const FeedCard: React.FC<FeedCardProps> = ({ item, onOpenComments, onOpenReviews
       <View style={styles.cardFooter}>
         <View style={styles.leftFooter}>
           {/* Save */}
-          <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(item.id)}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => onToggleSave(item.id)}>
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
               size={20}
@@ -191,6 +210,7 @@ export default function Home() {
   const { t } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
 
   const [selectedFeed, setSelectedFeed] = useState('paraTi');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
@@ -198,6 +218,9 @@ export default function Home() {
   const [events, setEvents] = useState<Events[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // Estado local para eventos guardados
+  const [savedEvents, setSavedEvents] = useState<{ [key: number]: boolean }>({});
 
   // Modals state
   const [modalOpen, setModalOpen] = useState(false);
@@ -215,21 +238,97 @@ export default function Home() {
       ? `← ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
       : feedOptions.find((o) => o.value === selectedFeed)?.label;
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const data = await res.json();
-        setEvents(data);
-      } catch (err: any) {
-        console.error('Error al cargar eventos:', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
+  const BATCH_SIZE = 25;
+
+  const [offset, setOffset] = useState(0);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Cargar eventos guardados desde la API
+  const loadSavedEvents = async () => {
+    try {
+      const data = await api('/saved-events/?state=wishlist');
+      const savedMap: { [key: number]: boolean } = {};
+      data.forEach((event: any) => {
+        savedMap[parseInt(event.event_id)] = true;
+      });
+      setSavedEvents(savedMap);
+    } catch (err) {
+      console.error('Error loading saved events:', err);
+    }
+  };
+
+  // Función para guardar/quitar de guardados
+  const handleToggleSave = async (eventId: number) => {
+    const isSaved = savedEvents[eventId] || false;
+
+    // Actualización optimista del UI
+    setSavedEvents((prev) => ({ ...prev, [eventId]: !isSaved }));
+
+    try {
+      if (isSaved) {
+        // Eliminar de guardados
+        await api(`/save/${eventId}/`, {
+          method: 'DELETE',
+        });
+      } else {
+        // Añadir a guardados con el state requerido
+        await api(`/save/${eventId}/`, {
+          method: 'POST',
+          body: JSON.stringify({ state: 'wishlist' }),
+        });
       }
-    };
-    fetchEvents();
+    } catch (err: any) {
+      setSavedEvents((prev) => ({ ...prev, [eventId]: isSaved }));
+
+      if (err.message === 'Unauthorized') {
+        console.log('⚠️ User not authenticated, redirecting to login...');
+      }
+    }
+  };
+
+  const fetchEvents = async (reset = false) => {
+    try {
+      if (loadingMore) return;
+
+      reset ? setLoading(true) : setLoadingMore(true);
+
+      const currentOffset = reset ? 0 : offset;
+
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events/?batch_size=${BATCH_SIZE}&offset=${currentOffset}&order_by_date=desc`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data = await res.json();
+      const newEvents = data.results || [];
+
+      setEvents((prev: Events[]) => {
+        const map = new Map<number, Events>();
+
+        prev.forEach((e: Events) => map.set(e.id, e));
+        newEvents.forEach((e: Events) => map.set(e.id, e));
+
+        return Array.from(map.values());
+      });
+
+      setOffset(currentOffset + BATCH_SIZE);
+
+      if (newEvents.length < BATCH_SIZE) {
+        setHasMore(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents(true);
+    loadSavedEvents();
   }, []);
 
   const notifications = () => setUnreadNotifications(0);
@@ -295,7 +394,7 @@ export default function Home() {
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconButton}>
+          <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/xat')}>
             <Ionicons name="chatbubble-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
         </View>
@@ -334,9 +433,24 @@ export default function Home() {
             item={item}
             onOpenComments={handleOpenComments}
             onOpenReviews={handleOpenReviews}
+            savedEvents={savedEvents}
+            onToggleSave={handleToggleSave}
           />
         )}
         contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
+        onEndReached={() => {
+          if (hasMore && !loadingMore) {
+            fetchEvents();
+          }
+        }}
+        onEndReachedThreshold={0.5}
+        ListFooterComponent={
+          loadingMore ? (
+            <View style={{ paddingVertical: 20 }}>
+              <ActivityIndicator size="small" color={Colors.accent} />
+            </View>
+          ) : null
+        }
       />
 
       <CommentSection

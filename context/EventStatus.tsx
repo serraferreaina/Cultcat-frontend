@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
+import { api } from '../api';
 
 interface EventStatusContextProps {
   goingEvents: Record<number, boolean>;
@@ -9,6 +10,7 @@ interface EventStatusContextProps {
   toggleGoing: (eventId: number) => Promise<void>;
   toggleSaved: (eventId: number) => Promise<void>;
   toggleAssisted: (eventId: number) => Promise<void>;
+  refreshSavedEvents: () => Promise<void>;
 }
 
 const EventStatusContext = createContext<EventStatusContextProps | undefined>(undefined);
@@ -24,53 +26,59 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const loadInitialData = async () => {
-    // 1. Load locally saved events
+    // 1. Load locally saved events first (for instant UI)
     try {
       const json = await AsyncStorage.getItem('savedEvents');
       if (json) setSavedEvents(JSON.parse(json));
     } catch (e) {
-      console.warn('Error loading saved events from storage:', e);
+      console.error('Error loading local saved events:', e);
     }
 
-    // 2. Load API data
-    if (global.authToken) {
-      try {
-        // A. Load "Want To Go"
-        const resGoing = await fetch(
-          'http://nattech.fib.upc.edu:40490/saved-events/?state=wantToGo',
-          {
-            headers: { Authorization: `Token ${global.authToken}` },
-          },
-        );
+    // 2. Load API data and sync
+    try {
+      // A. Load "Want To Go"
+      const goingData = await api('/saved-events/?state=wantToGo');
+      const goingMap: Record<number, boolean> = {};
+      goingData.forEach((item: any) => {
+        goingMap[parseInt(item.event_id, 10)] = true;
+      });
+      setGoingEvents(goingMap);
 
-        if (resGoing.ok) {
-          const data = await resGoing.json();
-          const goingMap: Record<number, boolean> = {};
-          data.forEach((item: any) => {
-            goingMap[parseInt(item.event_id, 10)] = true;
-          });
-          setGoingEvents(goingMap);
-        }
+      // B. Load "Attended"
+      const assistedData = await api('/saved-events/?state=attended');
+      const assistedMap: Record<number, boolean> = {};
+      assistedData.forEach((item: any) => {
+        assistedMap[parseInt(item.event_id, 10)] = true;
+      });
+      setAssistedEvents(assistedMap);
 
-        // B. Load "Attended" (Backend calls it 'attended', we map it to 'assistedEvents')
-        const resAssisted = await fetch(
-          'http://nattech.fib.upc.edu:40490/saved-events/?state=attended',
-          {
-            headers: { Authorization: `Token ${global.authToken}` },
-          },
-        );
+      // C. Load "Wishlist" (Saved/Bookmarked)
+      const savedData = await api('/saved-events/?state=wishlist');
+      const savedMap: Record<number, boolean> = {};
+      savedData.forEach((item: any) => {
+        savedMap[parseInt(item.event_id, 10)] = true;
+      });
+      setSavedEvents(savedMap);
 
-        if (resAssisted.ok) {
-          const data = await resAssisted.json();
-          const assistedMap: Record<number, boolean> = {};
-          data.forEach((item: any) => {
-            assistedMap[parseInt(item.event_id, 10)] = true;
-          });
-          setAssistedEvents(assistedMap);
-        }
-      } catch (err) {
-        console.error('Error loading API events:', err);
-      }
+      // Persist to AsyncStorage
+      await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
+    } catch (err) {
+      console.error('Error loading API data:', err);
+    }
+  };
+
+  // Function to refresh saved events from API
+  const refreshSavedEvents = async () => {
+    try {
+      const savedData = await api('/saved-events/?state=wishlist');
+      const savedMap: Record<number, boolean> = {};
+      savedData.forEach((item: any) => {
+        savedMap[parseInt(item.event_id, 10)] = true;
+      });
+      setSavedEvents(savedMap);
+      await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
+    } catch (err) {
+      console.error('Error refreshing saved events:', err);
     }
   };
 
@@ -79,67 +87,35 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     try {
       await AsyncStorage.setItem('savedEvents', JSON.stringify(updated));
     } catch (e) {
-      console.warn('Error saving events to storage:', e);
+      console.error('Error persisting saved events:', e);
     }
   };
 
   // --- Generic Helper for API Toggles ---
-  // Updated type to accept 'attended' instead of 'assisted'
   const handleApiToggle = async (
     eventId: number,
     isActive: boolean,
-    state: 'wantToGo' | 'attended',
+    state: 'wantToGo' | 'attended' | 'wishlist',
     onFail: () => void,
   ) => {
-    if (!global.authToken) {
-      console.warn('No token available, toggled only locally.');
-      return;
-    }
-
     try {
       if (isActive) {
         // DELETE logic
         console.log(`Removing event ${eventId} from ${state}`);
-        const res = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
+        await api(`/save/${eventId}/`, {
           method: 'DELETE',
-          headers: { Authorization: `Token ${global.authToken}` },
         });
-
-        if (!res.ok) {
-          // Fallback: Try setting to 'wishlist' to overwrite/remove
-          console.log('DELETE failed, trying fallback to wishlist state...');
-          const fallbackRes = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Token ${global.authToken}`,
-            },
-            body: JSON.stringify({ state: 'wishlist' }),
-          });
-
-          if (!fallbackRes.ok) throw new Error(`HTTP error! status: ${fallbackRes.status}`);
-        }
       } else {
         // POST logic (Add)
         console.log(`Adding event ${eventId} to ${state}`);
-        const res = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
+        await api(`/save/${eventId}/`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Token ${global.authToken}`,
-          },
-          body: JSON.stringify({ state }), // This now sends "attended" or "wantToGo"
+          body: JSON.stringify({ state }),
         });
-
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('API Error Response:', errorText);
-          throw new Error(`HTTP error! status: ${res.status}`);
-        }
       }
     } catch (err) {
-      console.error(`Error toggling "${state}" on server:`, err);
-      onFail(); // Execute rollback
+      console.error(`Error toggling ${state}:`, err);
+      onFail();
     }
   };
 
@@ -165,7 +141,6 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     const updated = { ...assistedEvents, [eventId]: !isCurrentlyAssisted };
     setAssistedEvents(updated);
 
-    // HERE IS THE FIX: We pass 'attended' string to the API helper
     await handleApiToggle(eventId, isCurrentlyAssisted, 'attended', () => {
       // Revert
       setAssistedEvents({ ...assistedEvents, [eventId]: isCurrentlyAssisted });
@@ -176,37 +151,18 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const toggleSaved = async (eventId: number) => {
     const isCurrentlySaved = savedEvents[eventId] || false;
 
+    // Update local state optimistically
     const updated = { ...savedEvents, [eventId]: !isCurrentlySaved };
     setSavedEvents(updated);
     await persistSaved(updated);
 
-    if (!global.authToken) return;
-
-    try {
-      // 1. Ensure event exists in backend
-      const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Token ${global.authToken}`,
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-      // 2. If we are un-saving, delete
-      if (isCurrentlySaved) {
-        await fetch(`http://nattech.fib.upc.edu:40490/saved-events/${eventId}/`, {
-          method: 'DELETE',
-          headers: { Authorization: `Token ${global.authToken}` },
-        });
-      }
-    } catch (err) {
-      console.error('Error saving event on server:', err);
-      // Revert
+    // Use the same API endpoint as everywhere else: /save/{eventId}/
+    await handleApiToggle(eventId, isCurrentlySaved, 'wishlist', async () => {
+      // Rollback local state
       const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
       setSavedEvents(reverted);
       await persistSaved(reverted);
-    }
+    });
   };
 
   return (
@@ -218,6 +174,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         toggleGoing,
         toggleSaved,
         toggleAssisted,
+        refreshSavedEvents,
       }}
     >
       {children}

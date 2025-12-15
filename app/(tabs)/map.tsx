@@ -56,9 +56,59 @@ export default function MapScreen() {
 
   const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
 
+  const BATCH_SIZE = 100;
+  const [offset, setOffset] = useState(0);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
+  const [currentRegion, setCurrentRegion] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
+
   const openEventDetail = (id: number) => {
     setSelectedEvent(null);
     router.push(`/events/${id}`);
+  };
+
+  const fetchEventsByCenter = async (latitude: number, longitude: number, reset = false) => {
+    if (loadingEvents && !reset) return;
+    if (!hasMore && !reset) return;
+
+    setLoadingEvents(true);
+
+    const currentOffset = reset ? 0 : offset;
+
+    try {
+      const url =
+        `http://nattech.fib.upc.edu:40490/events` +
+        `?latitud=${latitude}` +
+        `&longitud=${longitude}` +
+        `&batch_size=${BATCH_SIZE}` +
+        `&offset=${currentOffset}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Error loading events');
+
+      const textData = await res.text();
+
+      let data: EventItem[] = [];
+      try {
+        const jsonData = textData.trim() ? JSON.parse(textData) : [];
+        data = Array.isArray(jsonData) ? jsonData : jsonData.results || [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
+        data = [];
+      }
+
+      setEvents((prev) => (reset ? data : [...prev, ...data]));
+      setOffset(reset ? data.length : currentOffset + data.length);
+      setHasMore(data.length === BATCH_SIZE);
+    } catch (err: any) {
+      console.error('Error fetching events:', err);
+      setError(err.message);
+    } finally {
+      setLoadingEvents(false);
+    }
   };
 
   useEffect(() => {
@@ -75,18 +125,10 @@ export default function MapScreen() {
   }, []);
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(t('Error loading events'));
-        const data: EventItem[] = await res.json();
-        setEvents(data);
-      } catch (err: any) {
-        setError(err.message);
-      }
-    };
-    fetchEvents();
-  }, []);
+    if (location) {
+      fetchEventsByCenter(location.latitude, location.longitude, true);
+    }
+  }, [location]);
 
   if (loading || !location) {
     return (
@@ -109,55 +151,86 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {loadingEvents && (
+        <View
+          style={{
+            position: 'absolute',
+            top: 20,
+            alignSelf: 'center',
+            backgroundColor: Colors.card,
+            padding: 8,
+            borderRadius: 20,
+            zIndex: 1000,
+          }}
+        >
+          <ActivityIndicator color={Colors.accent} />
+        </View>
+      )}
+
       <MapView
         ref={mapRef}
         style={styles.map}
         showsUserLocation
-        animationEnabled
         clusteringEnabled
         clusterColor={Colors.accent}
-        clusterTextColor={Colors.card}
-        spiderLineColor={Colors.accent}
         initialRegion={{
           latitude: location.latitude,
           longitude: location.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitudeDelta: 0.1,
+          longitudeDelta: 0.1,
+        }}
+        onRegionChangeComplete={(region) => {
+          const latKm = region.latitudeDelta * 111;
+          const lonKm = region.longitudeDelta * 111 * Math.cos((region.latitude * Math.PI) / 180);
+          const areaKm2 = latKm * lonKm;
+
+          const regionChanged =
+            !currentRegion ||
+            Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.3 ||
+            Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.3;
+
+          if (regionChanged) {
+            setCurrentRegion({ latitude: region.latitude, longitude: region.longitude });
+            setOffset(0);
+            setHasMore(true);
+            fetchEventsByCenter(region.latitude, region.longitude, true);
+          }
         }}
       >
-        {events.map((event) => {
-          const images = event.imatges ? event.imatges.split(',').map((i) => i.trim()) : [];
-          const imageUrl =
-            images.length > 0
-              ? `https://agenda.cultura.gencat.cat${images[0]}`
-              : 'https://via.placeholder.com/100x100/FFA500/FFFFFF?text=E';
+        {Array.isArray(events) &&
+          events.map((event) => {
+            const images = event.imatges ? event.imatges.split(',').map((i) => i.trim()) : [];
+            const imageUrl =
+              images.length > 0
+                ? `https://agenda.cultura.gencat.cat${images[0]}`
+                : 'https://via.placeholder.com/100x100/FFA500/FFFFFF?text=E';
 
-          return (
-            <Marker
-              key={event.id}
-              coordinate={{
-                latitude: Number(event.latitud),
-                longitude: Number(event.longitud),
-              }}
-              tracksViewChanges={false}
-              onPress={(e) => {
-                e.stopPropagation();
-                setSelectedEvent(event);
-              }}
-            >
-              <View style={styles.markerContainer}>
-                <View
-                  style={[
-                    styles.markerCircle,
-                    { backgroundColor: Colors.background, borderColor: Colors.accent },
-                  ]}
-                >
-                  <Image source={{ uri: imageUrl }} style={styles.markerImage} />
+            return (
+              <Marker
+                key={event.id}
+                coordinate={{
+                  latitude: Number(event.latitud),
+                  longitude: Number(event.longitud),
+                }}
+                tracksViewChanges={false}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setSelectedEvent(event);
+                }}
+              >
+                <View style={styles.markerContainer}>
+                  <View
+                    style={[
+                      styles.markerCircle,
+                      { backgroundColor: Colors.background, borderColor: Colors.accent },
+                    ]}
+                  >
+                    <Image source={{ uri: imageUrl }} style={styles.markerImage} />
+                  </View>
                 </View>
-              </View>
-            </Marker>
-          );
-        })}
+              </Marker>
+            );
+          })}
       </MapView>
 
       {selectedEvent && (
@@ -287,6 +360,7 @@ export default function MapScreen() {
           </TouchableOpacity>
         </Modal>
       )}
+
       {/* COMMENTS */}
       {selectedEvent && (
         <CommentSection

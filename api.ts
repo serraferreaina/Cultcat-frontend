@@ -1,21 +1,97 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const API_URL = 'http://nattech.fib.upc.edu:40490';
+
+async function refreshAccessToken() {
+  const refresh = await AsyncStorage.getItem('refreshToken');
+  if (!refresh) return null;
+
+  const res = await fetch(`${API_URL}/api/token/refresh/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!res.ok) {
+    return null;
+  }
+
+  const data = await res.json();
+
+  if (!data.access) {
+    return null;
+  }
+
+  await AsyncStorage.setItem('authToken', data.access);
+
+  if (data.refresh) {
+    await AsyncStorage.setItem('refreshToken', data.refresh);
+  }
+
+  return data.access;
+}
+
 export async function api(path: string, options: RequestInit = {}) {
-  const res = await fetch(`http://nattech.fib.upc.edu:40490${path}`, {
+  let token = await AsyncStorage.getItem('authToken');
+
+  let res = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Token ${global.authToken}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
 
-  if (!res.ok) {
-    console.log('API ERROR:', res.status, await res.text());
-    throw new Error('API error');
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (!newToken) {
+      throw new Error('Unauthorized');
+    }
+
+    res = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${newToken}`,
+        ...options.headers,
+      },
+    });
   }
 
-  return res.json();
+  if (!res.ok) {
+    const errorText = await res.text();
+    throw new Error(`HTTP error! status: ${res.status}`);
+  }
+
+  const text = await res.text();
+  if (!text) {
+    return null; // DELETE sin contenido
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    console.log('⚠️ No JSON response:', text);
+    return null;
+  }
 }
 
 export function getProfile() {
   return api('/profile/');
+}
+
+export async function logout() {
+  const refresh = await AsyncStorage.getItem('refreshToken');
+
+  await api('/api/auth/logout/', {
+    method: 'POST',
+    body: JSON.stringify({ refresh }),
+  });
+
+  await AsyncStorage.multiRemove(['authToken', 'refreshToken']);
+}
+
+export function deleteAccount() {
+  return api('/profile/delete/', { method: 'DELETE' });
 }

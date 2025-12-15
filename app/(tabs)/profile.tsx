@@ -12,6 +12,7 @@ import { getProfile } from '../../api';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
@@ -51,12 +52,16 @@ export default function Profile() {
   useFocusEffect(
     React.useCallback(() => {
       const loadUser = async () => {
-        if (!global.authToken) return;
-
         try {
+          const token = await AsyncStorage.getItem('authToken');
+          if (!token) return; // No hay sesión
+
           const res = await fetch('http://nattech.fib.upc.edu:40490/profile/', {
-            headers: { Authorization: `Token ${global.authToken}` },
+            headers: { Authorization: `Bearer ${token}` },
           });
+
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
           const data = await res.json();
 
           const normalized = {
@@ -64,10 +69,15 @@ export default function Profile() {
             username: data.username ?? '',
             profile_description: data.bio ?? '',
             email: data.email ?? '',
-            profile_picture: data.profilePic ?? DEFAULT_AVATAR,
+            profile_picture:
+              data.profilePic ??
+              'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png',
           };
 
+          // Actualizamos global.currentUser si lo estás usando en otras partes
           global.currentUser = normalized;
+
+          // Actualizamos estado local del componente
           setUser(normalized);
         } catch (err) {
           console.error('Error cargando perfil:', err);
@@ -307,18 +317,6 @@ export default function Profile() {
             </Text>
           </View>
         </View>
-
-        {/* Eventos próximos */}
-        <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Next events')}</Text>
-          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-            <Ionicons name="calendar-outline" size={20} color={Colors.muted} />
-            <Text style={[styles.emptyText, { color: Colors.muted }]}>
-              {t('No upcoming events')}
-            </Text>
-          </View>
-        </View>
-
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
