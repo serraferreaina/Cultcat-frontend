@@ -17,7 +17,8 @@ import {
   Modal,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-//import * as Google from 'expo-auth-session/providers/google';
+import * as Google from 'expo-auth-session/providers/google';
+
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
@@ -32,23 +33,31 @@ const { width, height } = Dimensions.get('window');
 const Login: React.FC = () => {
   const { theme } = useTheme();
   const colors = theme === 'light' ? LightColors : DarkColors;
-  const router = useRouter();
 
-  const [isRegisterMode, setIsRegisterMode] = useState(false);
-  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState<'signin' | 'signup' | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [showGoogleDisclaimerModal, setShowGoogleDisclaimerModal] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
 
-  // // GOOGLE AUTH CONFIG - DESHABILITADO TEMPORALMENTE
-  // const [request, response, promptAsync] = Google.useAuthRequest({
-  //   clientId: '883633704420-ke1447cs8l1kaku7ac2r6ldl3r5tn6b6.apps.googleusercontent.com',
-  //   scopes: ['profile', 'email'],
-  // });
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
+    iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
+    scopes: ['openid', 'email', 'profile'],
+  });
+
+  const router = useRouter();
+
+  /*useEffect(() => {
+    console.log('GOOGLE REQUEST >>>', request);
+    if (request?.redirectUri) {
+      console.log('🚀 REDIRECT URI UTILITZAT:', request.redirectUri);
+    }
+  }, [request]);*/
 
   // ANIMACIÓ ENTRADA
   useEffect(() => {
@@ -57,6 +66,58 @@ const Login: React.FC = () => {
       Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
     ]).start();
   }, []);
+
+  // MANEIG RESPONSE GOOGLE
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.authentication?.idToken;
+      console.log('🪪 ID TOKEN REBUT:', idToken);
+
+      if (!idToken) {
+        Alert.alert('Error', 'Google no ha retornat cap ID Token');
+        return;
+      }
+
+      handleGoogleAuth(idToken);
+    } else if (response?.type === 'error') {
+      console.log('❌ GOOGLE AUTH ERROR:', response.error);
+    }
+  }, [response]);
+
+  const handleGoogleAuth = async (googleToken: string) => {
+    try {
+      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/google/token/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_token: googleToken }),
+      });
+
+      const data = await res.json();
+      console.log('BACKEND RESPONSE:', data);
+
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', 'Google authentication failed');
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', 'Network error');
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading('signin');
+    try {
+      await promptAsync({ showInRecents: true });
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      Alert.alert('Error', 'Failed to initiate Google Sign-In');
+      setGoogleLoading(null);
+    }
+  };
 
   const handleManualLogin = async () => {
     if (!email || !password) {
@@ -136,10 +197,6 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleDisclaimer = () => {
-    setShowGoogleDisclaimerModal(true);
   };
 
   const dynamicStyles = createDynamicStyles(colors);
@@ -298,7 +355,7 @@ const Login: React.FC = () => {
                     dynamicStyles.googleButton,
                     { borderColor: colors.border, backgroundColor: colors.card },
                   ]}
-                  onPress={handleGoogleDisclaimer}
+                  onPress={handleGoogleSignIn}
                   activeOpacity={0.7}
                 >
                   <Image
@@ -324,38 +381,6 @@ const Login: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
-
-      {/* Modal de Disclaimer de Google */}
-      <Modal
-        visible={showGoogleDisclaimerModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowGoogleDisclaimerModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <Animated.View style={[dynamicStyles.modalContent, { backgroundColor: colors.card }]}>
-            <View style={[styles.modalIconContainer, { backgroundColor: `${colors.accent}20` }]}>
-              <Ionicons name="information-circle" size={48} color={colors.accent} />
-            </View>
-
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Coming Soon!</Text>
-
-            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              Google Sign-In is currently under development and will be available soon.
-              {'\n\n'}
-              For now, please use the manual registration to create your account.
-            </Text>
-
-            <TouchableOpacity
-              style={[dynamicStyles.modalButton, { backgroundColor: colors.accent }]}
-              onPress={() => setShowGoogleDisclaimerModal(false)}
-              activeOpacity={0.8}
-            >
-              <Text style={styles.modalButtonText}>Got it!</Text>
-            </TouchableOpacity>
-          </Animated.View>
-        </View>
-      </Modal>
     </LinearGradient>
   );
 };
@@ -403,30 +428,6 @@ const createDynamicStyles = (colors: any) =>
       shadowOpacity: 0.1,
       shadowRadius: 8,
       elevation: 3,
-    },
-    modalContent: {
-      borderRadius: 24,
-      padding: 28,
-      alignItems: 'center',
-      width: width * 0.85,
-      maxWidth: 400,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 10 },
-      shadowOpacity: 0.3,
-      shadowRadius: 20,
-      elevation: 10,
-    },
-    modalButton: {
-      paddingVertical: 14,
-      paddingHorizontal: 32,
-      borderRadius: 12,
-      alignItems: 'center',
-      width: '100%',
-      shadowColor: colors.accent,
-      shadowOffset: { width: 0, height: 4 },
-      shadowOpacity: 0.3,
-      shadowRadius: 8,
-      elevation: 5,
     },
   });
 
@@ -478,38 +479,6 @@ const styles = StyleSheet.create({
   googleButtonText: { fontSize: 15, fontWeight: '600' },
   footer: { alignItems: 'center', marginTop: 16 },
   footerText: { fontSize: 12, textAlign: 'center', lineHeight: 18, paddingHorizontal: 20 },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  modalIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: '700',
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  modalMessage: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 24,
-    paddingHorizontal: 8,
-  },
-  modalButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
-  },
 });
 
 export default Login;

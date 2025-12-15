@@ -5,6 +5,8 @@ import { EventStatusProvider } from '../context/EventStatus'; // añadir import
 import DevAuthWrapper from './(auth)/DevAuthWrapper';
 import UserLoader from './UserLoader';
 
+//"scheme": "com.googleusercontent.apps.883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj" --> pk surti google.com
+
 export default function RootLayout() {
   return (
     <DevAuthWrapper>
