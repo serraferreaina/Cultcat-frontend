@@ -41,6 +41,8 @@ const Login: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [fadeAnim] = useState(new Animated.Value(0));
   const [slideAnim] = useState(new Animated.Value(50));
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
 
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
@@ -82,8 +84,6 @@ const Login: React.FC = () => {
     }
   }, [response]);
 
-
-
   const handleGoogleAuth = async (googleToken: string) => {
     try {
       const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/google/token/', {
@@ -107,8 +107,8 @@ const Login: React.FC = () => {
       Alert.alert('Error', 'Network error');
     }
   };
-  
- const handleGoogleSignIn = async () => {
+
+  const handleGoogleSignIn = async () => {
     setGoogleLoading('signin');
     try {
       await promptAsync({ showInRecents: true });
@@ -118,7 +118,6 @@ const Login: React.FC = () => {
       setGoogleLoading(null);
     }
   };
-
 
   const handleManualLogin = async () => {
     if (!email || !password) {
@@ -198,10 +197,6 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleGoogleDisclaimer = () => {
-    setShowGoogleDisclaimerModal(true);
   };
 
   const dynamicStyles = createDynamicStyles(colors);
