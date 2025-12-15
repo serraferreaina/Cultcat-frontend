@@ -61,6 +61,11 @@ export default function CercaScreen() {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
 
+  const BATCH_SIZE = 25;
+
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
@@ -69,44 +74,49 @@ export default function CercaScreen() {
 
   const handleCloseModal = () => {
     setIsTopicsModalVisible(false);
-    console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
   };
 
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  const loadMoreEvents = async () => {
-    if (loadingMore || isFiltered) return;
-    setLoadingMore(true);
+  const loadMoreEvents = () => {
+    if (!hasMore || loadingMore || isFiltered) return;
+    fetchEvents();
+  };
+
+  const fetchEvents = async (reset = false) => {
+    if (loadingMore) return;
+
+    reset ? setLoading(true) : setLoadingMore(true);
+
     try {
-      const res = await fetch(`http://nattech.fib.upc.edu:40490/events?page=${page + 1}`);
-      const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
-      setEvents((prev) => [...prev, ...data]);
-      setPage(page + 1);
-    } catch (err) {
-      console.error('Error al cargar más eventos:', err);
+      const currentOffset = reset ? 0 : offset;
+
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&order_by_date=desc`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data = await res.json();
+      const newEvents = data.results || [];
+
+      setEvents((prev) => (reset ? newEvents : [...prev, ...newEvents]));
+      setOffset(currentOffset + BATCH_SIZE);
+
+      if (newEvents.length < BATCH_SIZE) {
+        setHasMore(false);
+      }
+    } catch (err: any) {
+      setError(err.message);
     } finally {
+      setLoading(false);
       setLoadingMore(false);
     }
   };
 
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const textData = await res.text();
-        const data = textData ? JSON.parse(textData) : [];
-        setEvents(data);
-      } catch (err: any) {
-        console.error('Error loading events', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvents();
+    fetchEvents(true);
   }, []);
 
   const handleSearchByMunicipi = async (municipi: string) => {
@@ -330,17 +340,14 @@ export default function CercaScreen() {
   const buildQuery = (extraParams: string[] = []) => {
     const params: string[] = [];
 
-    // 🔹 Categories múltiples
     if (selectedTopics.length > 0) {
       params.push(...selectedTopics.map((topic) => `categoria=${encodeURIComponent(topic)}`));
     }
 
-    // 🔹 Municipi
     if (selectedMunicipi) {
       params.push(`municipi=${encodeURIComponent(selectedMunicipi)}`);
     }
 
-    // 🔹 Afegeix paràmetres extra si la funció que la crida ho necessita
     params.push(...extraParams);
 
     return params.length > 0 ? `?${params.join('&')}` : '';
@@ -355,8 +362,6 @@ export default function CercaScreen() {
     try {
       const query = buildQuery();
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-      console.log('URL de búsqueda:', url);
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -665,35 +670,13 @@ export default function CercaScreen() {
 
       <FlatList
         data={events}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
+        keyExtractor={(item) => item.id.toString()}
         renderItem={renderEvent}
-        contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 20 }}
-        onEndReached={isFiltered ? undefined : loadMoreEvents}
+        onEndReached={loadMoreEvents}
         onEndReachedThreshold={0.5}
-        ListHeaderComponent={
-          <Text
-            style={{
-              fontSize: 18,
-              fontWeight: '600',
-              marginTop: 12,
-              marginLeft: 12,
-              marginBottom: 8,
-              color: Colors.text,
-            }}
-          >
-            {isFiltered ? t('Filtered events') : t('All events')}
-          </Text>
-        }
         ListFooterComponent={
           loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
         }
-        ListEmptyComponent={() => (
-          <View style={{ paddingVertical: 20 }}>
-            <Text style={{ textAlign: 'center', color: Colors.text }}>
-              {noEventsMessage || t('No events available')}
-            </Text>
-          </View>
-        )}
       />
 
       {/* COMMENTS */}
