@@ -48,7 +48,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     try {
       const data = await api('/notifications/');
       setNotifications(data);
-      
+
       // Comptar notificacions no llegides
       const unreadCount = data.filter((n: Notification) => !n.read).length;
       onNotificationCountChange(unreadCount);
@@ -71,16 +71,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       await api(`/notifications/${notificationId}/mark-read/`, {
         method: 'POST',
       });
-      
+
       // Actualitzar l'estat local
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n)),
       );
-      
+
       // Actualitzar el comptador
-      const unreadCount = notifications.filter(
-        (n) => !n.read && n.id !== notificationId
-      ).length;
+      const unreadCount = notifications.filter((n) => !n.read && n.id !== notificationId).length;
       onNotificationCountChange(unreadCount);
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -92,7 +90,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       await api('/notifications/mark-read/', {
         method: 'POST',
       });
-      
+
       // Actualitzar totes les notificacions com a llegides
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       onNotificationCountChange(0);
@@ -128,7 +126,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     if (diffMins < 60) return `${diffMins} ${t('min ago')}`;
     if (diffHours < 24) return `${diffHours} ${t('hours ago')}`;
     if (diffDays < 7) return `${diffDays} ${t('days ago')}`;
-    
+
     return date.toLocaleDateString();
   };
 
@@ -171,30 +169,21 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </Text>
         </View>
 
-        {!item.read && (
-          <View style={[styles.unreadDot, { backgroundColor: Colors.accent }]} />
-        )}
+        {!item.read && <View style={[styles.unreadDot, { backgroundColor: Colors.accent }]} />}
       </View>
     </TouchableOpacity>
   );
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      transparent={false}
-      onRequestClose={onClose}
-    >
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={[styles.container, { backgroundColor: Colors.background }]}>
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: Colors.border }]}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
-          
-          <Text style={[styles.headerTitle, { color: Colors.text }]}>
-            {t('Notifications')}
-          </Text>
+
+          <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Notifications')}</Text>
 
           {notifications.some((n) => !n.read) && (
             <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
