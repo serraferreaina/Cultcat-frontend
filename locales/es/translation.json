@@ -107,7 +107,7 @@
   "Write a short description": "Escribe una breve descripción",
   "Preferences": "Preferencias",
   "Notifications": "Notificaciones",
-  "Privacity": "Privacidad",
+  "Privacy policy": "Política de privacidad",
   "Segurity": "Seguridad",
   "Account": "Cuenta",
   "Change password": "Cambiar contraseña",
@@ -135,11 +135,17 @@
   "SelectMode": "Selecciona modo",
   "startDate": "Fecha inicio",
   "endDate": "Fecha fin",
-  "selectStartDate": "Selecciona fecha inicio",
   "Are you sure you want to log out?": "Estás seguro de que quieres cerrar sessión?",
   "Are you sure you want to delete your account?": "Estás seguro de que quieres eliminar tu cuenta?",
   "Account deleted": "Cuenta eliminada",
   "Error deleting account": "Error al eliminar cuenta",
   "Logged out": "Sesión cerrada",
-  "Error logging out": "Error cerrando sesión"
+  "Error logging out": "Error cerrando sesión",
+  "selectStartDate": "Selecciona fecha inicio",
+  "Config preferences": "Configurar preferencias",
+  "Initial preferences saved": "Preferencias iniciales guardadas",
+  "Initial Settings": "Configuración inicial",
+  "Next": "Siguiente",
+  "Your preferences has been saved": "Tus preferencias han sido guardadas",
+  "Your preferences has not been saved": "Tus preferencias no se han podido guardar correctamente"
 }
