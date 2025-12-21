@@ -21,6 +21,7 @@ import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../api';
+import NotificationsScreen from '../../components/NotificationScreen';
 
 interface Events {
   id: number;
@@ -227,6 +228,7 @@ export default function Home() {
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
   const [reviewVisible, setReviewVisible] = useState(false);
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
+  const [notificationsVisible, setNotificationsVisible] = useState(false);
 
   const feedOptions = [
     { label: t('For you'), value: 'paraTi' },
@@ -331,8 +333,6 @@ export default function Home() {
     loadSavedEvents();
   }, []);
 
-  const notifications = () => setUnreadNotifications(0);
-
   const dropdown = () => {
     if (selectedFeed === 'siguiendo') setSelectedFeed('paraTi');
     else setIsDropdownVisible(!isDropdownVisible);
@@ -351,6 +351,14 @@ export default function Home() {
   const handleOpenReviews = (id: number) => {
     setSelectedEventId(id);
     setReviewVisible(true);
+  };
+
+  const handleOpenNotifications = () => {
+    setNotificationsVisible(true);
+  };
+
+  const handleNotificationCountChange = (count: number) => {
+    setUnreadNotifications(count);
   };
 
   if (load)
@@ -384,7 +392,7 @@ export default function Home() {
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-          <TouchableOpacity onPress={notifications} style={styles.iconButton}>
+          <TouchableOpacity onPress={handleOpenNotifications} style={styles.iconButton}>
             <Ionicons name="notifications-outline" size={26} color={Colors.text} />
             {unreadNotifications > 0 && (
               <View style={[styles.badge, { backgroundColor: Colors.accentHover }]}>
@@ -466,6 +474,12 @@ export default function Home() {
           onClose={() => setReviewVisible(false)}
         />
       )}
+
+      <NotificationsScreen
+        visible={notificationsVisible}
+        onClose={() => setNotificationsVisible(false)}
+        onNotificationCountChange={handleNotificationCountChange}
+      />
     </View>
   );
 }
