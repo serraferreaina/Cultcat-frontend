@@ -11,7 +11,7 @@ const NotificationsContext = createContext<NotificationsContextType>({
   setNotificationsEnabled: () => {},
 });
 
-export const NotificationsProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notificationsEnabled, setNotificationsState] = useState(true);
 
   useEffect(() => {

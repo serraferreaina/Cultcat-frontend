@@ -304,7 +304,7 @@ export default function UserConfig() {
               )
             }
           >
-          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="document-text-outline" size={22} color={TEXT} />
               <Text style={styles.preferenceText}>{t('Privacy policy')}</Text>
             </View>

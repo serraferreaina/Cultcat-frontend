@@ -33,7 +33,7 @@ export default function Welcome() {
   }, []);
 
   const goNext = () => router.replace('/(auth)/login');
-  
+
   const toggleTheme = () => {
     const newTheme = theme === 'dark' ? 'light' : 'dark';
     setTheme(newTheme);
