@@ -107,7 +107,7 @@
   "Write a short description": "Write a short description",
   "Preferences": "Preferences",
   "Notifications": "Notifications",
-  "Privacity": "Privacy",
+  "Privacy policy": "Privacy policy",
   "Segurity": "Security",
   "Account": "Account",
   "Change password": "Change password",
@@ -135,11 +135,17 @@
   "SelectMode": "Select mode",
   "startDate": "Start date",
   "endDate": "End date",
-  "selectStartDate": "Select start date",
   "Are you sure you want to log out?": "Are you sure you want to log out?",
   "Are you sure you want to delete your account?": "Are you sure you want to delete your account?",
   "Account deleted": "Account deleted",
   "Error deleting account": "Error deleting account",
   "Logged out": "Logged out",
-  "Error logging out": "Error logging out"
+  "Error logging out": "Error logging out",
+  "selectStartDate": "Select start date",
+  "Config preferences": "Configure preferences",
+  "Initial preferences saved": "Initial preferences saved",
+  "Initial Settings": "Initial Settings",
+  "Next": "Next",
+  "Your preferences has been saved": "Your preferences has been saved",
+  "Your preferences has not been saved": "Your preferences has not been saved successfully"
 }

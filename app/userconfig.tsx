@@ -9,14 +9,17 @@ import {
   TouchableOpacity,
   TextInput,
   Alert,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+import { useNotifications } from '../context/NotificationContext';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deleteAccount, logout } from '../api';
+import * as WebBrowser from 'expo-web-browser';
 
 const BG = '#F7F0E2';
 const TEXT = '#311C0C';
@@ -36,6 +39,7 @@ export default function UserConfig() {
   const [email, setEmail] = useState(global.currentUser?.email ?? '');
   const [phone, setPhone] = useState('+34 600 000 000');
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
+  const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
 
   const handleSave = async () => {
     try {
@@ -290,30 +294,32 @@ export default function UserConfig() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{t('Preferences')}</Text>
 
-          <TouchableOpacity style={styles.preferenceItem}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="notifications-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Notifications')}</Text>
+          <View style={styles.dividerLine} />
+
+          <TouchableOpacity
+            style={styles.preferenceItem}
+            onPress={() =>
+              WebBrowser.openBrowserAsync(
+                'https://www.privacypolicies.com/live/2089d660-61b9-4d0c-a4f3-4231974ef74e',
+              )
+            }
+          >
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Ionicons name="document-text-outline" size={22} color={TEXT} />
+              <Text style={styles.preferenceText}>{t('Privacy policy')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>
 
           <View style={styles.dividerLine} />
 
-          <TouchableOpacity style={styles.preferenceItem}>
+          <TouchableOpacity
+            style={styles.preferenceItem}
+            onPress={() => router.push('/SetupScreen')}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="lock-closed-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Privacity')}</Text>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={MUTED} />
-          </TouchableOpacity>
-
-          <View style={styles.dividerLine} />
-
-          <TouchableOpacity style={styles.preferenceItem}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="shield-checkmark-outline" size={22} color={TEXT} />
-              <Text style={styles.preferenceText}>{t('Segurity')}</Text>
+              <Ionicons name="heart-outline" size={22} color={TEXT} />
+              <Text style={styles.preferenceText}>{t('Config preferences')}</Text>
             </View>
             <Ionicons name="chevron-forward" size={20} color={MUTED} />
           </TouchableOpacity>

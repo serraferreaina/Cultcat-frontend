@@ -1,8 +1,9 @@
-// app/index.tsx
+import { useEffect } from 'react';
 import { View, Text, Image, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import '../i18n';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
@@ -15,17 +16,38 @@ export default function Welcome() {
   const { t, i18n } = useTranslation();
   const { theme, setTheme } = useTheme();
 
-  const effectiveScheme = theme || 'light';
-  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
+
+  // Cargar idioma guardado al iniciar
+  useEffect(() => {
+    (async () => {
+      try {
+        const storedLang = await AsyncStorage.getItem('appLanguage');
+        if (storedLang && ['en', 'es', 'ca'].includes(storedLang)) {
+          await i18n.changeLanguage(storedLang);
+        }
+      } catch (e) {
+        console.error('Error cargando idioma:', e);
+      }
+    })();
+  }, []);
 
   const goNext = () => router.replace('/(auth)/login');
-  const toggleTheme = () => setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
-  const changeLanguage = (lang: 'en' | 'es' | 'ca') => i18n.changeLanguage(lang);
+  
+  const toggleTheme = () => {
+    const newTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(newTheme);
+  };
+
+  const changeLanguage = async (lang: 'en' | 'es' | 'ca') => {
+    await i18n.changeLanguage(lang);
+    await AsyncStorage.setItem('appLanguage', lang);
+  };
 
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
       <View style={styles.topBar}>
-        <ThemeToggle theme={effectiveScheme} accentColor={Colors.accent} onToggle={toggleTheme} />
+        <ThemeToggle theme={theme} accentColor={Colors.accent} onToggle={toggleTheme} />
 
         <LanguageSelector
           currentLanguage={i18n.language}
@@ -52,7 +74,6 @@ export default function Welcome() {
           resizeMode="contain"
         />
 
-        {/* Floating NextButton */}
         <View style={styles.nextButtonWrapper}>
           <NextButton accentColor={Colors.accent} onPress={goNext} />
         </View>
@@ -90,7 +111,7 @@ const styles = StyleSheet.create({
   logo: {
     width: '70%',
     height: '70%',
-    marginBottom: 90, // move image up by increasing this value
+    marginBottom: 90,
   },
   nextButtonWrapper: {
     position: 'absolute',

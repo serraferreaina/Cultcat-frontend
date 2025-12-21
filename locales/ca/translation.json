@@ -107,7 +107,7 @@
   "Write a short description": "Escriu una breu descripció",
   "Preferences": "Preferències",
   "Notifications": "Notificacions",
-  "Privacity": "Privacitat",
+  "Privacy policy": "Política de privacitat",
   "Segurity": "Seguretat",
   "Account": "Compte",
   "Change password": "Canviar contrasenya",
@@ -135,11 +135,17 @@
   "SelectMode": "Selecciona mode",
   "startDate": "Data inici",
   "endDate": "Data fi",
-  "selectStartDate": "Selecciona data inici",
   "Are you sure you want to log out?": "Estàs segur de que vols tancar sessió?",
   "Are you sure you want to delete your account?": "Estàs segur de que vols eliminar el teu compte?",
   "Account deleted": "Compte eliminat",
   "Error deleting account": "Error al eliminar compte",
   "Logged out": "Sessió tancada",
-  "Error logging out": "Error tancant sessió"
+  "Error logging out": "Error tancant sessió",
+  "selectStartDate": "Selecciona data inici",
+  "Config preferences": "Configurar preferències",
+  "Initial preferences saved": "Preferències inicials desades",
+  "Initial Settings": "Configuració inicial",
+  "Next": "Següent",
+  "Your preferences has been saved": "Les teves preferències han estat desades",
+  "Your preferences has not been saved": "Les teves preferències no s'han pogut desar correctament"
 }

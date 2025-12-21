@@ -15,13 +15,9 @@ export function ThemeToggle({ theme, accentColor, onToggle }: ThemeToggleProps) 
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = async () => {
-    // Soft haptic feedback
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-
-    // Reset rotation
     rotateAnim.setValue(0);
 
-    // Combine scale bounce + smooth spin
     Animated.parallel([
       Animated.sequence([
         Animated.spring(scaleAnim, {
