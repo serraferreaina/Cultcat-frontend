@@ -17,6 +17,7 @@ import { LightColors, DarkColors } from '../../../theme/colors';
 import ChatBubble from '../../../components/ChatBubble';
 import ChatInput from '../../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { getChatMessages, sendChatMessage } from '../../api/chat';
 
 interface GroupMessage {
   id: number;
@@ -37,28 +38,50 @@ export default function GroupChatScreen() {
   const flatListRef = useRef<FlatList<GroupMessage>>(null);
 
   useEffect(() => {
-    // TODO: substituir per GET /group-chats/:id/messages
-    setMessages([
-      { id: 1, text: 'Hola, equip! 😄', sender: 'other', senderName: 'Anna' },
-      { id: 2, text: 'Tot bé, organitzem la sortida?', sender: 'me' },
-      { id: 3, text: 'Jo puc dissabte!', sender: 'other', senderName: 'Pau' },
-    ]);
-  }, []);
+    async function loadMessages() {
+      try {
+        const data = await getChatMessages(Number(id));
 
-  const sendMessage = (text: string) => {
+        const formatted = data.map((m: any) => ({
+          id: m.id.toString(),
+          text: m.content,
+          sender: 'other', // backend encara no diu qui és
+        }));
+
+        setMessages(formatted);
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 50);
+      } catch (e) {
+        console.error('Error loading group messages', e);
+      }
+    }
+
+    loadMessages();
+  }, [id]);
+
+  const sendMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    const newMessage: GroupMessage = {
-      id: Date.now(),
-      text,
-      sender: 'me',
-    };
+    try {
+      const response = await sendChatMessage(Number(id), text);
 
-    setMessages((prev) => [...prev, newMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: response.id.toString(),
+          text: response.content,
+          sender: 'me',
+        },
+      ]);
 
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 50);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    } catch (e) {
+      console.error('Error sending group message', e);
+    }
   };
 
   const styles = StyleSheet.create({

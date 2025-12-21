@@ -8,6 +8,9 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import ChatListItem from '../../components/ChatListItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { getConnections } from '../api/connections';
+import { getUsers } from '../api/users';
+import { getGroupChats } from '../api/groupchats';
 
 interface ChatItem {
   id: number;
@@ -29,29 +32,44 @@ export default function ChatList() {
   const ORANGE = '#d87c3a';
 
   useEffect(() => {
-    setTimeout(() => {
-      setIndividualChats([
-        { id: 1, username: 'maria', lastMessage: 'Hola! Com va?', profile: null },
-        { id: 2, username: 'joan23', lastMessage: 'Quedem avui?', profile: null },
-      ]);
+    async function loadAllChats() {
+      try {
+        const [connections, users, chats] = await Promise.all([
+          getConnections(),
+          getUsers(),
+          getGroupChats(),
+        ]);
 
-      setGroupChats([
-        {
-          id: 101,
-          username: 'Sortida a Besalú',
-          lastMessage: 'Anna: Portaré la càmera 📷',
-          profile: null,
-        },
-        {
-          id: 102,
-          username: 'Amics del teatre',
-          lastMessage: 'Pau: Compreu les entrades!',
-          profile: null,
-        },
-      ]);
+        const individual = connections.map((c: any) => {
+          const user = users.find((u: any) => u.id === c.user_id);
 
-      setLoading(false);
-    }, 300);
+          return {
+            id: c.chat_id,
+            username: c.username,
+            lastMessage: '',
+            profile: user?.profilePic || null,
+          };
+        });
+
+        const groups = chats
+          .filter((c: any) => c.name) // ← això detecta grups
+          .map((c: any) => ({
+            id: c.chat_id,
+            username: c.name,
+            lastMessage: '',
+            profile: null,
+          }));
+
+        setIndividualChats(individual);
+        setGroupChats(groups);
+      } catch (e) {
+        console.error('Error loading chats', e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadAllChats();
   }, []);
 
   const data = tab === 'individual' ? individualChats : groupChats;
