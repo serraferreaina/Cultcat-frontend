@@ -20,7 +20,7 @@ import ChatInput from '../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getChatMessages, sendChatMessage } from '../api/chat';
 import { getConnections } from '../api/connections';
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
   const { theme } = useTheme();
@@ -57,10 +57,15 @@ export default function ChatScreen() {
       try {
         const data = await getChatMessages(Number(id));
 
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (!storedUserId) return;
+
+        const myUserId = Number(storedUserId);
+
         const formatted = data.map((m: any) => ({
           id: m.id.toString(),
           text: m.content,
-          sender: 'other',
+          sender: m.sender === myUserId ? 'me' : 'other',
         }));
 
         setMessages(formatted);

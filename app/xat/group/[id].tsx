@@ -18,6 +18,7 @@ import ChatBubble from '../../../components/ChatBubble';
 import ChatInput from '../../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getChatMessages, sendChatMessage } from '../../api/chat';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface GroupMessage {
   id: number;
@@ -42,10 +43,16 @@ export default function GroupChatScreen() {
       try {
         const data = await getChatMessages(Number(id));
 
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (!storedUserId) return;
+
+        const myUserId = Number(storedUserId);
+
         const formatted = data.map((m: any) => ({
           id: m.id.toString(),
           text: m.content,
-          sender: 'other', // backend encara no diu qui és
+          sender: m.sender === myUserId ? 'me' : 'other',
+          senderId: m.sender, // opcional, per mostrar nom
         }));
 
         setMessages(formatted);
