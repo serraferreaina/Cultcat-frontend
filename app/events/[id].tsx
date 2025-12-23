@@ -60,6 +60,19 @@ export default function EventDetail() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
 
+  const shouldHideEvent = (event: EventData): boolean => {
+    if (!event.data_fi) return false;
+
+    const endDate = new Date(event.data_fi);
+    const targetDate = new Date('2924-06-30');
+
+    return (
+      endDate.getFullYear() === targetDate.getFullYear() &&
+      endDate.getMonth() === targetDate.getMonth() &&
+      endDate.getDate() === targetDate.getDate()
+    );
+  };
+
   useEffect(() => {
     if (!eventId) return;
 
@@ -68,6 +81,14 @@ export default function EventDetail() {
         const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`);
         if (!res.ok) throw new Error('Event not found');
         const data = await res.json();
+
+        // Si l'esdeveniment ha de ser ocult, mostra error
+        if (shouldHideEvent(data)) {
+          setError('Event not available');
+          setLoading(false);
+          return;
+        }
+
         setEvent(data);
       } catch (err: any) {
         setError(err.message);

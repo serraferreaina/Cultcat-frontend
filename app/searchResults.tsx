@@ -34,6 +34,20 @@ export default function SearchResultsScreen() {
   const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
 
+  const shouldHideEvent = (event: any): boolean => {
+    if (!event.data_fi) return false;
+
+    const endDate = new Date(event.data_fi);
+    const targetDate = new Date('2924-06-30');
+
+    // Compara només any, mes i dia (ignora hora)
+    return (
+      endDate.getFullYear() === targetDate.getFullYear() &&
+      endDate.getMonth() === targetDate.getMonth() &&
+      endDate.getDate() === targetDate.getDate()
+    );
+  };
+
   const fetchEvents = async (query: string) => {
     if (!query.trim()) return;
     setLoading(true);
@@ -44,7 +58,13 @@ export default function SearchResultsScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const textData = await res.text();
       const data = textData ? JSON.parse(textData) : [];
-      setEvents(Array.isArray(data) ? data : []);
+
+      // Filtra esdeveniments amb data_fi = 30/06/2924
+      const filteredData = Array.isArray(data)
+        ? data.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      setEvents(filteredData);
     } catch (err) {
       console.error(err);
       Alert.alert('Error', 'There was a problem fetching events.');
