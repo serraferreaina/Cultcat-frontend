@@ -93,7 +93,7 @@ export default function EventDetail() {
 
     if (endDate && endDate !== startDate) {
       const end = new Date(endDate);
-      return `${start.toLocaleDateString('ca-ES', options)} - ${end.toLocaleDateString('ca-ES', options)}`;
+      return `Data inici: ${start.toLocaleDateString('ca-ES', options)} - Data fi: ${end.toLocaleDateString('ca-ES', options)}`;
     }
 
     return start.toLocaleDateString('ca-ES', options);
