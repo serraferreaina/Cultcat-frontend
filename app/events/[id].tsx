@@ -79,6 +79,26 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
+  // Función para formatear la fecha
+  const formatEventDate = (startDate: string | null, endDate: string | null): string => {
+    if (!startDate) return t('Date not available');
+
+    const start = new Date(startDate);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    };
+
+    if (endDate && endDate !== startDate) {
+      const end = new Date(endDate);
+      return `${start.toLocaleDateString('ca-ES', options)} - ${end.toLocaleDateString('ca-ES', options)}`;
+    }
+
+    return start.toLocaleDateString('ca-ES', options);
+  };
+
   if (load) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
@@ -200,6 +220,14 @@ export default function EventDetail() {
         </View>
       </View>
 
+      {/* EVENT DATE */}
+      <View style={styles.dateContainer}>
+        <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
+        <Text style={[styles.eventDate, { color: Colors.text }]}>
+          {formatEventDate(event.data_inici, event.data_fi)}
+        </Text>
+      </View>
+
       <Text style={[styles.description, { color: Colors.text }]}>
         {event.descripcio?.trim() || t('No description available')}
       </Text>
@@ -291,6 +319,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: { fontSize: 22, fontWeight: '700' },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 12,
+    gap: 8,
+  },
+  eventDate: {
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
   description: {
     fontSize: 16,
     lineHeight: 22,
