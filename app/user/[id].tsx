@@ -1,12 +1,21 @@
 // app/user/[id].tsx
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { sendConnectionRequest } from '../../api';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
@@ -53,6 +62,18 @@ export default function PublicProfile() {
       <Text style={{ marginTop: 50, textAlign: 'center', color: Colors.text }}>User not found</Text>
     );
 
+  const handleConection = async () => {
+    try {
+      setConnecting(true);
+      await sendConnectionRequest(id as string);
+      setConnectionStatus('pending'); // feedback inmediato
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setConnecting(false);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: Colors.background }]}
@@ -95,6 +116,14 @@ export default function PublicProfile() {
                 <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
               </View>
             </View>
+
+            <TouchableOpacity
+              disabled={disabled || connecting}
+              onPress={handleConection}
+              style={[styles.connectButton, { backgroundColor, opacity: disabled ? 0.7 : 1 }]}
+            >
+              <Text style={styles.connectButtonText}>{text}</Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -184,5 +213,15 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     marginTop: 6,
+  },
+  connectButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  connectButtonText: {
+    color: '#FFF',
+    fontWeight: '700',
   },
 });
