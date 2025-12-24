@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../api';
 
 declare global {
@@ -16,6 +17,9 @@ export default function UserLoader({ children }: { children: React.ReactNode }) 
     const loadUser = async () => {
       try {
         const data = await api('/profile/');
+
+        // 👇 CLAU PER ALS XATS
+        await AsyncStorage.setItem('userId', data.id.toString());
 
         global.currentUser = {
           id: data.id ?? 0,

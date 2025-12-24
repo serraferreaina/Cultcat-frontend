@@ -98,6 +98,7 @@ const Login: React.FC = () => {
       if (res.ok && data.access) {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
         router.replace('/(tabs)');
       } else {
         Alert.alert('Error', 'Google authentication failed');
@@ -138,6 +139,7 @@ const Login: React.FC = () => {
       if (res.ok && data.access) {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
 
         // Redirigir a tabs
         router.replace('/(tabs)');

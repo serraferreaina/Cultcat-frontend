@@ -18,7 +18,9 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import ChatBubble from '../../components/ChatBubble';
 import ChatInput from '../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
-
+import { getChatMessages, sendChatMessage } from '../api/chat';
+import { getConnections } from '../api/connections';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
   const { theme } = useTheme();
@@ -30,27 +32,76 @@ export default function ChatScreen() {
   const [messages, setMessages] = useState<any[]>([]);
   const flatListRef = useRef<FlatList<any>>(null);
 
-  useEffect(() => {
-    setMessages([
-      { id: 1, text: 'Hola!', sender: 'other' },
-      { id: 2, text: 'Ei, què tal?', sender: 'me' },
-    ]);
-  }, []);
+  const [chatUsername, setChatUsername] = useState<string>('Usuari');
 
-  const sendMessage = (text: string) => {
+  useEffect(() => {
+    async function loadChatUser() {
+      try {
+        const connections = await getConnections();
+
+        const connection = connections.find((c: any) => c.chat_id === Number(id));
+
+        if (connection) {
+          setChatUsername(connection.username);
+        }
+      } catch (e) {
+        console.error('Error loading chat user', e);
+      }
+    }
+
+    loadChatUser();
+  }, [id]);
+
+  useEffect(() => {
+    async function loadMessages() {
+      try {
+        const data = await getChatMessages(Number(id));
+
+        const storedUserId = await AsyncStorage.getItem('userId');
+        if (!storedUserId) return;
+
+        const myUserId = Number(storedUserId);
+
+        const formatted = data.map((m: any) => ({
+          id: m.id.toString(),
+          text: m.content,
+          sender: m.sender === myUserId ? 'me' : 'other',
+        }));
+
+        setMessages(formatted);
+
+        setTimeout(() => {
+          flatListRef.current?.scrollToEnd({ animated: false });
+        }, 50);
+      } catch (e) {
+        console.error('Error loading messages', e);
+      }
+    }
+
+    loadMessages();
+  }, [id]);
+
+  const sendMessage = async (text: string) => {
     if (!text.trim()) return;
 
-    const newMessage = {
-      id: Date.now(),
-      text,
-      sender: 'me',
-    };
+    try {
+      const response = await sendChatMessage(Number(id), text);
 
-    setMessages((prev) => [...prev, newMessage]);
+      setMessages((prev) => [
+        ...prev,
+        {
+          id: response.id,
+          text: response.content,
+          sender: 'me',
+        },
+      ]);
 
-    setTimeout(() => {
-      flatListRef.current?.scrollToEnd({ animated: true });
-    }, 50);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 50);
+    } catch (e) {
+      console.error(e);
+    }
   };
 
   const styles = StyleSheet.create({
@@ -100,7 +151,7 @@ export default function ChatScreen() {
             style={styles.avatar}
           />
 
-          <Text style={styles.title}>{name}</Text>
+          <Text style={styles.title}>{chatUsername}</Text>
         </View>
 
         {/* MISSATGES */}
@@ -108,7 +159,7 @@ export default function ChatScreen() {
           ref={flatListRef}
           data={messages}
           renderItem={({ item }) => <ChatBubble message={item} />}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.id.toString()}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingVertical: 20 }}
           style={{ flex: 1, backgroundColor: Colors.background }}
