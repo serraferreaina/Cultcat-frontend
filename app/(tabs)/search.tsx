@@ -76,6 +76,20 @@ export default function CercaScreen() {
     setIsTopicsModalVisible(false);
   };
 
+  const shouldHideEvent = (event: any): boolean => {
+    if (!event.data_fi) return false;
+
+    const endDate = new Date(event.data_fi);
+    const targetDate = new Date('2924-06-30');
+
+    // Compara només any, mes i dia (ignora hora)
+    return (
+      endDate.getFullYear() === targetDate.getFullYear() &&
+      endDate.getMonth() === targetDate.getMonth() &&
+      endDate.getDate() === targetDate.getDate()
+    );
+  };
+
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
 
@@ -99,7 +113,7 @@ export default function CercaScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      const newEvents = data.results || [];
+      const newEvents = (data.results || []).filter((event: any) => !shouldHideEvent(event));
 
       setEvents((prev) => (reset ? newEvents : [...prev, ...newEvents]));
       setOffset(currentOffset + BATCH_SIZE);
@@ -142,10 +156,13 @@ export default function CercaScreen() {
         data = [];
       }
 
-      setEvents(data);
+      // Filtra esdeveniments amb data_fi = 30/06/2924
+      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+
+      setEvents(filteredData);
       setIsFiltered(true);
 
-      if (data.length === 0) {
+      if (filteredData.length === 0) {
         Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
           { text: "D'acord" },
         ]);
@@ -369,11 +386,14 @@ export default function CercaScreen() {
       const textData = await res.text();
       const data = textData ? JSON.parse(textData) : [];
 
-      if (data.length === 0) {
+      // Filtra esdeveniments amb data_fi = 30/06/2924
+      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+
+      if (filteredData.length === 0) {
         setEvents([]);
         setNoEventsMessage(t('No events for selected categories'));
       } else {
-        setEvents(data);
+        setEvents(filteredData);
         setNoEventsMessage(null);
       }
 

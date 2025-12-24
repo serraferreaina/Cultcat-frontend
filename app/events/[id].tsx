@@ -8,17 +8,17 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
+  Share,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
-// 1. IMPORT SMART HOOK
 import { useEventStatus, useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
-import { Share } from 'react-native';
+import WeatherIcon from '../../components/WeatherIcon';
 
 interface EventData {
   id: number;
@@ -35,16 +35,17 @@ interface EventData {
   espai: string | null;
   localitat: string | null;
   georeferencia: string | null;
+  latitud: number | null;
+  longitud: number | null;
   telefon: string | null;
   email: string | null;
-  data_inici: string | null; // Updated to match API (snake_case)
-  data_fi: string | null; // Updated to match API
+  data_inici: string | null;
+  data_fi: string | null;
 }
 
 export default function EventDetail() {
   const { t } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
-  // Handle array or string id
   const eventId = Array.isArray(id) ? id[0] : id;
 
   const { theme } = useTheme();
@@ -56,13 +57,22 @@ export default function EventDetail() {
 
   const { savedEvents, toggleSaved } = useEventStatus();
 
-  // COMENTARIS
   const [modalOpen, setModalOpen] = useState(false);
-
-  // RESSENYES
   const [reviewVisible, setReviewVisible] = useState(false);
 
-  // 2. ADD FETCH LOGIC (This fixes the infinite loading)
+  const shouldHideEvent = (event: EventData): boolean => {
+    if (!event.data_fi) return false;
+
+    const endDate = new Date(event.data_fi);
+    const targetDate = new Date('2924-06-30');
+
+    return (
+      endDate.getFullYear() === targetDate.getFullYear() &&
+      endDate.getMonth() === targetDate.getMonth() &&
+      endDate.getDate() === targetDate.getDate()
+    );
+  };
+
   useEffect(() => {
     if (!eventId) return;
 
@@ -71,9 +81,16 @@ export default function EventDetail() {
         const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`);
         if (!res.ok) throw new Error('Event not found');
         const data = await res.json();
+
+        // Si l'esdeveniment ha de ser ocult, mostra error
+        if (shouldHideEvent(data)) {
+          setError('Event not available');
+          setLoading(false);
+          return;
+        }
+
         setEvent(data);
       } catch (err: any) {
-        console.error(err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -83,7 +100,26 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
-  // Loading View
+  // Función para formatear la fecha
+  const formatEventDate = (startDate: string | null, endDate: string | null): string => {
+    if (!startDate) return t('Date not available');
+
+    const start = new Date(startDate);
+    const options: Intl.DateTimeFormatOptions = {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+    };
+
+    if (endDate && endDate !== startDate) {
+      const end = new Date(endDate);
+      return `Data inici: ${start.toLocaleDateString('ca-ES', options)} - Data fi: ${end.toLocaleDateString('ca-ES', options)}`;
+    }
+
+    return start.toLocaleDateString('ca-ES', options);
+  };
+
   if (load) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
@@ -92,7 +128,6 @@ export default function EventDetail() {
     );
   }
 
-  // Error View
   if (error || !event) {
     return (
       <View style={[styles.center, { backgroundColor: Colors.background }]}>
@@ -104,9 +139,6 @@ export default function EventDetail() {
     );
   }
 
-  // 3. USE SMART LOGIC (Must be called after event is loaded/checked)
-  // We use a helper component to safely use the hook, or just use it here carefully
-  // Since we returned early for null event, this is safe.
   const LogicWrapper = () => {
     const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(event);
 
@@ -148,9 +180,37 @@ export default function EventDetail() {
 
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
+      {/* WEATHER INFO */}
+      {(() => {
+        // Primero intentar con latitud/longitud separados
+        if (
+          event.latitud !== null &&
+          event.longitud !== null &&
+          !isNaN(event.latitud) &&
+          !isNaN(event.longitud)
+        ) {
+          return <WeatherIcon latitude={event.latitud} longitude={event.longitud} />;
+        }
+
+        // Si no, intentar con georeferencia
+        if (event.georeferencia) {
+          const coords = event.georeferencia.split(',');
+
+          if (coords.length === 2) {
+            const lat = parseFloat(coords[0].trim());
+            const lon = parseFloat(coords[1].trim());
+
+            if (!isNaN(lat) && !isNaN(lon)) {
+              return <WeatherIcon latitude={lat} longitude={lon} />;
+            }
+          }
+        }
+
+        return null;
+      })()}
+
       {/* BUTTONS */}
       <View style={styles.topButtons}>
-        {/* 4. RENDER THE DYNAMIC BUTTON */}
         <LogicWrapper />
 
         <View style={styles.iconsRow}>
@@ -179,6 +239,14 @@ export default function EventDetail() {
             <Ionicons name="share-social-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
         </View>
+      </View>
+
+      {/* EVENT DATE */}
+      <View style={styles.dateContainer}>
+        <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
+        <Text style={[styles.eventDate, { color: Colors.text }]}>
+          {formatEventDate(event.data_inici, event.data_fi)}
+        </Text>
       </View>
 
       <Text style={[styles.description, { color: Colors.text }]}>
@@ -272,6 +340,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: { fontSize: 22, fontWeight: '700' },
+  dateContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 12,
+    gap: 8,
+  },
+  eventDate: {
+    fontSize: 15,
+    fontWeight: '700',
+    flex: 1,
+  },
   description: {
     fontSize: 16,
     lineHeight: 22,
