@@ -29,23 +29,22 @@ export default function RootLayout() {
       }
     })();
   }, []);
-  
+
   useEffect(() => {
-        const bootstrap = async () => {
-        const token = await AsyncStorage.getItem('authToken');
-        const isLogged = await AsyncStorage.getItem('isLoggedIn');
+    const bootstrap = async () => {
+      const token = await AsyncStorage.getItem('authToken');
+      const isLogged = await AsyncStorage.getItem('isLoggedIn');
 
-        setLogged(!!token && isLogged === 'true');
-        setIsReady(true);
+      setLogged(!!token && isLogged === 'true');
+      setIsReady(true);
     };
-  bootstrap();
-
+    bootstrap();
   }, []);
 
   if (!isReady) {
     return null; // o un componente de carga/splash
   }
-  
+
   if (!logged) {
     return <Redirect href="/(auth)/login" />;
   }
@@ -66,6 +65,5 @@ export default function RootLayout() {
         </ThemeProvider>
       </UserLoader>
     </DevAuthWrapper>
-
   );
 }
