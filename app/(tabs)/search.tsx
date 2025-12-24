@@ -27,7 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
-import { municipisCatalunya } from '../cerca/municipisCatalunya';
+import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
 
 export default function CercaScreen() {

@@ -1,40 +1,68 @@
+// api.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const API_URL = 'http://nattech.fib.upc.edu:40490';
 
-async function refreshAccessToken() {
-  const refresh = await AsyncStorage.getItem('refreshToken');
-  if (!refresh) return null;
+const AUTH_TOKEN_KEY = 'authToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
 
-  const res = await fetch(`${API_URL}/api/token/refresh/`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refresh }),
-  });
-
-  if (!res.ok) {
-    return null;
-  }
-
-  const data = await res.json();
-
-  if (!data.access) {
-    return null;
-  }
-
-  await AsyncStorage.setItem('authToken', data.access);
-
-  if (data.refresh) {
-    await AsyncStorage.setItem('refreshToken', data.refresh);
-  }
-
-  return data.access;
+/**
+ * Logout dur: neteja tokens
+ */
+export async function logout() {
+  await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, 'isLoggedIn']);
 }
 
-export async function api(path: string, options: RequestInit = {}) {
-  let token = await AsyncStorage.getItem('authToken');
+/**
+ * Refresh access token
+ */
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
 
-  let res = await fetch(`${API_URL}${path}`, {
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/api/auth/token/refresh/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!res.ok) {
+      await logout();
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (!data.access) {
+      await logout();
+      return null;
+    }
+
+    await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.access);
+    return data.access;
+  } catch (error) {
+    await logout();
+    return null;
+  }
+}
+
+/**
+ * API wrapper amb Bearer + refresh automàtic
+ */
+export async function api(path: string, options: RequestInit = {}): Promise<any> {
+  const token = await AsyncStorage.getItem('authToken');
+
+  if (!token) {
+    return Promise.reject({ silent: true });
+  }
+
+  let response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
@@ -43,13 +71,15 @@ export async function api(path: string, options: RequestInit = {}) {
     },
   });
 
-  if (res.status === 401) {
+  // Si token caducat → intentem refresh
+  if (response.status === 401) {
     const newToken = await refreshAccessToken();
+
     if (!newToken) {
       throw new Error('Unauthorized');
     }
 
-    res = await fetch(`${API_URL}${path}`, {
+    response = await fetch(`${API_URL}${path}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
@@ -59,39 +89,22 @@ export async function api(path: string, options: RequestInit = {}) {
     });
   }
 
-  if (!res.ok) {
-    const errorText = await res.text();
-    throw new Error(`HTTP error! status: ${res.status}`);
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'API Error');
   }
 
-  const text = await res.text();
-  if (!text) {
-    return null; // DELETE sin contenido
-  }
-
-  try {
-    return JSON.parse(text);
-  } catch (e) {
-    console.log('⚠️ No JSON response:', text);
-    return null;
-  }
+  return response.json();
 }
 
-export function getProfile() {
-  return api('/profile/');
-}
+/**
+ * Helpers d’API (exemples)
+ */
 
-export async function logout() {
-  const refresh = await AsyncStorage.getItem('refreshToken');
+export const getProfile = () => api('/profile/');
 
-  await api('/api/auth/logout/', {
-    method: 'POST',
-    body: JSON.stringify({ refresh }),
-  });
+export const getUserProfile = (id: number) => api(`/api/users/${id}/`);
 
-  await AsyncStorage.multiRemove(['authToken', 'refreshToken']);
-}
+export const getEvents = () => api('/api/events/');
 
-export function deleteAccount() {
-  return api('/profile/delete/', { method: 'DELETE' });
-}
+export const getEventById = (id: number) => api(`/api/events/${id}/`);

@@ -18,6 +18,7 @@ import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
@@ -55,6 +56,7 @@ interface Props {
 export default function ReviewSection({ eventId, visible, onClose }: Props) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const currentUser = global.currentUser as {
@@ -305,7 +307,13 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
       <View style={styles.backdrop}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.card, { backgroundColor: Colors.card }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: Colors.card,
+              paddingBottom: insets.bottom + 8,
+            },
+          ]}
         >
           {/* HEADER */}
           <View style={styles.header}>

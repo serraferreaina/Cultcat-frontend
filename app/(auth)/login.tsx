@@ -85,6 +85,7 @@ const Login: React.FC = () => {
   }, [response]);
 
   const handleGoogleAuth = async (googleToken: string) => {
+    await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'isLoggedIn']);
     try {
       const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/google/token/', {
         method: 'POST',

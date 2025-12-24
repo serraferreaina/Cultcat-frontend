@@ -5,8 +5,8 @@ import { useTheme } from '../../../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../../../theme/colors';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { authFetch } from '../../../api/http';
-import { getUsers } from '../../../api/users';
+import { authFetch } from '../../../../api/http';
+import { getUsers } from '../../../../api/users';
 
 interface Member {
   id: number;

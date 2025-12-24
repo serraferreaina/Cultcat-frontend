@@ -11,12 +11,14 @@ import {
   StyleSheet,
   ActivityIndicator,
   Image,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export interface Comment {
   id: number;
@@ -35,6 +37,7 @@ interface Props {
 export default function CommentSection({ eventId, visible, onClose }: Props) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const currentUser = global.currentUser;
@@ -216,29 +219,56 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
   };
 
   // REPORT COMMENT
+
   const reportComment = async (commentId: number) => {
     try {
       const token = await AsyncStorage.getItem('authToken');
       if (!token) {
-        console.warn('No auth token available');
+        Alert.alert('Error', 'No authentication token found.');
         return;
       }
 
       const res = await fetch(`${BASE_URL}/events/${eventId}/comments/${commentId}/report`, {
         method: 'POST',
         headers: {
-          Authorization: `Bearer ${token}`, // 🔹 JWT Bearer
+          Authorization: `Bearer ${token}`,
         },
       });
 
-      if (!res.ok) {
-        const msg = await res.text();
-        throw new Error(`Server error: ${msg}`);
+      const text = await res.text();
+
+      // 🔹 Intentem parsejar JSON si és possible
+      let data: any = null;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        // no passa res
       }
 
-      alert('Comentari reportat.');
+      if (!res.ok) {
+        const detail = data?.detail ?? 'No es pot reportar aquest comentari.';
+
+        // 🎯 Casos coneguts
+        if (detail.includes('already reported')) {
+          Alert.alert('Comentari ja reportat', 'Ja has reportat aquest comentari anteriorment.');
+          return;
+        }
+
+        if (detail.includes('your own comment')) {
+          Alert.alert('Acció no permesa', 'No pots reportar els teus propis comentaris.');
+          return;
+        }
+
+        // fallback
+        Alert.alert('No s’ha pogut reportar', detail);
+        return;
+      }
+
+      // ✅ Cas correcte
+      Alert.alert('Comentari reportat', 'Gràcies. El comentari ha estat reportat correctament.');
     } catch (e) {
-      console.error('Error reporting comment:', e);
+      console.error('Unexpected error reporting comment:', e);
+      Alert.alert('Error', 'Hi ha hagut un problema inesperat. Torna-ho a provar més tard.');
     }
   };
 
@@ -247,7 +277,13 @@ export default function CommentSection({ eventId, visible, onClose }: Props) {
       <View style={[styles.backdrop, { backgroundColor: Colors.backdrop || 'rgba(0,0,0,0.4)' }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.card, { backgroundColor: Colors.card }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: Colors.card,
+              paddingBottom: insets.bottom + 8,
+            },
+          ]}
         >
           {/* HEADER */}
           <View style={styles.header}>

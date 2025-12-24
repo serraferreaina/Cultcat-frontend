@@ -18,9 +18,11 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import ChatBubble from '../../components/ChatBubble';
 import ChatInput from '../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getChatMessages, sendChatMessage } from '../api/chat';
-import { getConnections } from '../api/connections';
+import { getChatMessages, sendChatMessage } from '../../api/chat';
+import { getConnections } from '../../api/connections';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getProfile } from '../../api';
+
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
   const { theme } = useTheme();
@@ -55,18 +57,28 @@ export default function ChatScreen() {
   useEffect(() => {
     async function loadMessages() {
       try {
+        // 1️⃣ Usuari loguejat real
+        const me = await getProfile();
+        const myUserId = me.id;
+
+        console.log('🧑‍💻 MY USER ID >>>', myUserId);
+
+        // 2️⃣ Missatges del xat
         const data = await getChatMessages(Number(id));
 
-        const storedUserId = await AsyncStorage.getItem('userId');
-        if (!storedUserId) return;
+        console.log('📩 RAW MESSAGES >>>', data);
 
-        const myUserId = Number(storedUserId);
+        const formatted = data.map((m: any) => {
+          const isMine = m.sender === myUserId;
 
-        const formatted = data.map((m: any) => ({
-          id: m.id.toString(),
-          text: m.content,
-          sender: m.sender === myUserId ? 'me' : 'other',
-        }));
+          console.log('MSG ID:', m.id, 'SENDER:', m.sender, 'MY ID:', myUserId, 'IS MINE?', isMine);
+
+          return {
+            id: m.id.toString(),
+            text: m.content,
+            sender: isMine ? 'me' : 'other',
+          };
+        });
 
         setMessages(formatted);
 
@@ -74,7 +86,7 @@ export default function ChatScreen() {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 50);
       } catch (e) {
-        console.error('Error loading messages', e);
+        console.error('❌ Error loading messages', e);
       }
     }
 

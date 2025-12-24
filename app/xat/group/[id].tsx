@@ -17,7 +17,7 @@ import { LightColors, DarkColors } from '../../../theme/colors';
 import ChatBubble from '../../../components/ChatBubble';
 import ChatInput from '../../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getChatMessages, sendChatMessage } from '../../api/chat';
+import { getChatMessages, sendChatMessage } from '../../../api/chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface GroupMessage {

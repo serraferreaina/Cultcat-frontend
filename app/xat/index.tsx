@@ -8,9 +8,9 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import ChatListItem from '../../components/ChatListItem';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { getConnections } from '../api/connections';
-import { getUsers } from '../api/users';
-import { getGroupChats } from '../api/groupchats';
+import { getConnections } from '../../api/connections';
+import { getUsers } from '../../api/users';
+import { getGroupChats } from '../../api/groupchats';
 
 interface ChatItem {
   id: number;
