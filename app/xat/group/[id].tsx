@@ -19,41 +19,100 @@ import ChatInput from '../../../components/ChatInput';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getChatMessages, sendChatMessage } from '../../../api/chat';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { getProfile } from '../../../api';
+import { getConnections } from '../../../api/connections';
+import { getGroupChats } from '../../../api/groupchats';
 
-interface GroupMessage {
-  id: number;
+type UiMessage = {
+  id: string;
   text: string;
   sender: 'me' | 'other';
-  senderName?: string;
-}
+  senderId?: number; // ✅ IMPORTANT (per grups / debug)
+  senderName?: string; // (en individuals no cal, però no molesta)
+};
 
-export default function GroupChatScreen() {
-  const { id, groupName, groupAvatar } = useLocalSearchParams();
+export default function ChatScreen() {
+  const { id } = useLocalSearchParams();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  const name = Array.isArray(groupName) ? groupName[0] : groupName || 'Grup';
-  const avatar = Array.isArray(groupAvatar) ? groupAvatar[0] : groupAvatar || null;
+  const [messages, setMessages] = useState<UiMessage[]>([]);
+  const [myUserId, setMyUserId] = useState<number | null>(null); // ✅ AFEGIT
+  const flatListRef = useRef<FlatList<UiMessage>>(null);
 
-  const [messages, setMessages] = useState<GroupMessage[]>([]);
-  const flatListRef = useRef<FlatList<GroupMessage>>(null);
+  const [chatUsername, setChatUsername] = useState<string>('Usuari');
+  const [userMap, setUserMap] = useState<
+    Record<
+      number,
+      {
+        username: string;
+        profilePic: string | null;
+      }
+    >
+  >({});
+  const [groupName, setGroupName] = useState<string>('Grup');
+
+  useEffect(() => {
+    async function loadGroup() {
+      try {
+        const groups = await getGroupChats(); // endpoint que ja tens
+        const group = groups.find((g: any) => g.chat_id === Number(id));
+
+        if (group) {
+          setGroupName(group.name);
+        }
+      } catch (e) {
+        console.error('Error loading group info', e);
+      }
+    }
+
+    loadGroup();
+  }, [id]);
 
   useEffect(() => {
     async function loadMessages() {
       try {
+        // 1️⃣ Usuari loguejat real
+        const me = await getProfile();
+        const myId = me.id;
+
+        const map: Record<number, { username: string; profilePic: string | null }> = {
+          [myId]: {
+            username: me.username,
+            profilePic: me.profile_picture ?? null,
+          },
+        };
+
+        const connections = await getConnections();
+        connections.forEach((c: any) => {
+          map[c.user_id] = {
+            username: c.username,
+            profilePic: c.profile_picture ?? null,
+          };
+        });
+
+        setUserMap(map);
+
+        console.log('👥 USER MAP >>>', map);
+
+        console.log('🧑‍💻 MY USER ID >>>', myId);
+
+        // 2️⃣ Missatges del xat
         const data = await getChatMessages(Number(id));
+        console.log('📩 RAW MESSAGES >>>', data);
+        const formatted: UiMessage[] = data.map((m: any) => {
+          const isMine = m.sender === myId;
+          const user = map[m.sender];
 
-        const storedUserId = await AsyncStorage.getItem('userId');
-        if (!storedUserId) return;
-
-        const myUserId = Number(storedUserId);
-
-        const formatted = data.map((m: any) => ({
-          id: m.id.toString(),
-          text: m.content,
-          sender: m.sender === myUserId ? 'me' : 'other',
-          senderId: m.sender, // opcional, per mostrar nom
-        }));
+          return {
+            id: m.id.toString(),
+            text: m.content,
+            sender: isMine ? 'me' : 'other',
+            senderId: m.sender,
+            senderName: !isMine ? user?.username : undefined,
+            senderAvatar: !isMine ? user?.profilePic : undefined,
+          };
+        });
 
         setMessages(formatted);
 
@@ -61,7 +120,7 @@ export default function GroupChatScreen() {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 50);
       } catch (e) {
-        console.error('Error loading group messages', e);
+        console.error('❌ Error loading messages', e);
       }
     }
 
@@ -80,6 +139,7 @@ export default function GroupChatScreen() {
           id: response.id.toString(),
           text: response.content,
           sender: 'me',
+          senderId: myUserId ?? undefined, // ✅ evita "variable no existeix"
         },
       ]);
 
@@ -87,7 +147,7 @@ export default function GroupChatScreen() {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 50);
     } catch (e) {
-      console.error('Error sending group message', e);
+      console.error(e);
     }
   };
 
@@ -96,10 +156,14 @@ export default function GroupChatScreen() {
       flexDirection: 'row',
       alignItems: 'center',
       paddingVertical: 10,
-      paddingHorizontal: 16,
+      paddingHorizontal: 14,
       backgroundColor: Colors.card,
       borderBottomWidth: 1,
       borderBottomColor: Colors.border,
+      shadowColor: '#000',
+      shadowOpacity: 0.1,
+      shadowRadius: 6,
+      elevation: 3,
     },
     avatar: {
       width: 36,
@@ -114,10 +178,6 @@ export default function GroupChatScreen() {
       fontWeight: '600',
       color: Colors.text,
     },
-    membersButton: {
-      marginLeft: 'auto',
-      paddingLeft: 10,
-    },
   });
 
   return (
@@ -125,7 +185,7 @@ export default function GroupChatScreen() {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -10}
       >
         {/* HEADER */}
         <View style={styles.header}>
@@ -133,33 +193,20 @@ export default function GroupChatScreen() {
             <Ionicons name="arrow-back" size={26} color={Colors.text} />
           </TouchableOpacity>
 
-          <Image
-            source={avatar ? { uri: avatar } : require('../../../assets/foto_perfil1.jpg')}
-            style={styles.avatar}
-          />
+          <Image source={require('../../../assets/foto_perfil1.jpg')} style={styles.avatar} />
+
+          <Text style={styles.title}>{groupName}</Text>
 
           <TouchableOpacity
-            style={{ flexDirection: 'row', alignItems: 'center' }}
+            style={{ marginLeft: 'auto', marginRight: 10 }}
             onPress={() =>
               router.push({
-                pathname: `/xat/group/members/${id}`,
-                params: { groupName: name },
+                pathname: '/xat/group/members/[id]',
+                params: { id, groupName },
               })
             }
           >
-            <Text style={styles.title}>{name}</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.membersButton}
-            onPress={() =>
-              router.push({
-                pathname: `/xat/group/members/${id}`,
-                params: { groupName: name },
-              })
-            }
-          >
-            <Ionicons name="people-outline" size={22} color={Colors.text} />
+            <Ionicons name="people-outline" size={26} color={Colors.text} />
           </TouchableOpacity>
         </View>
 
@@ -167,11 +214,11 @@ export default function GroupChatScreen() {
         <FlatList
           ref={flatListRef}
           data={messages}
+          renderItem={({ item }) => <ChatBubble message={item as any} />}
           keyExtractor={(item) => item.id.toString()}
-          renderItem={({ item }) => <ChatBubble message={item} />}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingVertical: 20 }}
-          style={{ flex: 1 }}
+          style={{ flex: 1, backgroundColor: Colors.background }}
         />
 
         {/* INPUT */}

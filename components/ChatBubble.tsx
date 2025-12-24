@@ -5,10 +5,11 @@ import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 
 interface ChatMessage {
-  id: number;
+  id: string; // ✅ al teu codi els ids són string
   text: string;
   sender: 'me' | 'other';
-  senderName?: string;
+  senderId?: number; // ✅ nou
+  senderName?: string; // ✅ opcional (per grups)
 }
 
 export default function ChatBubble({ message }: { message: ChatMessage }) {
@@ -24,7 +25,6 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
           styles.bubble,
           {
             backgroundColor: isMe ? '#4A90E2' : theme === 'dark' ? '#1a1a1a' : '#ffffff',
-
             alignSelf: isMe ? 'flex-end' : 'flex-start',
           },
         ]}
@@ -43,13 +43,7 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
           </Text>
         )}
 
-        <Text
-          style={{
-            color: isMe ? '#fff' : Colors.text,
-          }}
-        >
-          {message.text}
-        </Text>
+        <Text style={{ color: isMe ? '#fff' : Colors.text }}>{message.text}</Text>
       </View>
     </View>
   );

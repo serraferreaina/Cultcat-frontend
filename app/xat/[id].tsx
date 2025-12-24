@@ -22,6 +22,7 @@ import { getChatMessages, sendChatMessage } from '../../api/chat';
 import { getConnections } from '../../api/connections';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../api';
+import { getUsers } from '../../api/users';
 
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
@@ -35,6 +36,25 @@ export default function ChatScreen() {
   const flatListRef = useRef<FlatList<any>>(null);
 
   const [chatUsername, setChatUsername] = useState<string>('Usuari');
+  const [chatAvatar, setChatAvatar] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadHeader() {
+      const me = await getProfile();
+      const users = await getUsers();
+      const connections = await getConnections();
+
+      const connection = connections.find((c: any) => c.chat_id === Number(id));
+      if (!connection) return;
+
+      setChatUsername(connection.username);
+
+      const otherUser = users.find((u: any) => u.username === connection.username);
+      setChatAvatar(otherUser?.profilePic ?? null);
+    }
+
+    loadHeader();
+  }, [id]);
 
   useEffect(() => {
     async function loadChatUser() {
@@ -159,7 +179,7 @@ export default function ChatScreen() {
           </TouchableOpacity>
 
           <Image
-            source={pic ? { uri: pic } : require('../../assets/foto_perfil1.jpg')}
+            source={chatAvatar ? { uri: chatAvatar } : require('../../assets/foto_perfil1.jpg')}
             style={styles.avatar}
           />
 

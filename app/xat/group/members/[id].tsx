@@ -8,44 +8,44 @@ import { Ionicons } from '@expo/vector-icons';
 import { authFetch } from '../../../../api/http';
 import { getUsers } from '../../../../api/users';
 
-interface Member {
+type GroupMember = {
   id: number;
   username: string;
-  avatar: string | null;
-}
+  profilePicture: string | null;
+};
 
 export default function GroupMembersScreen() {
-  const { id, groupName } = useLocalSearchParams();
+  const { id } = useLocalSearchParams();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  const name = Array.isArray(groupName) ? groupName[0] : groupName || 'Membres del grup';
-
-  const [members, setMembers] = useState<Member[]>([]);
+  const [members, setMembers] = useState<GroupMember[]>([]);
 
   useEffect(() => {
     async function loadMembers() {
       try {
-        const [chats, users] = await Promise.all([
-          authFetch('http://nattech.fib.upc.edu:40490/chats/').then((r) => r.json()),
-          getUsers(),
-        ]);
+        // 1️⃣ Chats (per trobar aquest grup)
+        const chats = await authFetch('http://nattech.fib.upc.edu:40490/chats/').then((r) =>
+          r.json(),
+        );
+
+        // 2️⃣ Users (per fotos)
+        const users = await getUsers();
 
         const group = chats.find((c: any) => c.chat_id === Number(id));
-
         if (!group) return;
 
-        const mappedMembers = group.participants.map((p: any) => {
-          const user = users.find((u: any) => u.id === p.id);
+        const mapped = group.participants.map((p: any) => {
+          const fullUser = users.find((u: any) => u.id === p.id);
 
           return {
             id: p.id,
             username: p.username,
-            avatar: user?.profilePic || null,
+            profilePicture: fullUser?.profilePic ?? null,
           };
         });
 
-        setMembers(mappedMembers);
+        setMembers(mapped);
       } catch (e) {
         console.error('Error loading group members', e);
       }
@@ -98,7 +98,6 @@ export default function GroupMembersScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={26} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{name}</Text>
       </View>
 
       <FlatList
@@ -108,10 +107,13 @@ export default function GroupMembersScreen() {
           <View style={styles.item}>
             <Image
               source={
-                item.avatar ? { uri: item.avatar } : require('../../../../assets/foto_perfil1.jpg')
+                item.profilePicture
+                  ? { uri: item.profilePicture }
+                  : require('../../../../assets/foto_perfil1.jpg')
               }
               style={styles.avatar}
             />
+
             <Text style={styles.name}>{item.username}</Text>
           </View>
         )}
