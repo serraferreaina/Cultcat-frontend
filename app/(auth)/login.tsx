@@ -18,19 +18,20 @@ import {
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Google from 'expo-auth-session/providers/google';
-
 import * as WebBrowser from 'expo-web-browser';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 WebBrowser.maybeCompleteAuthSession();
 
 const { width, height } = Dimensions.get('window');
 
 const Login: React.FC = () => {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const colors = theme === 'light' ? LightColors : DarkColors;
 
@@ -71,7 +72,7 @@ const Login: React.FC = () => {
       console.log('🪪 ID TOKEN REBUT:', idToken);
 
       if (!idToken) {
-        Alert.alert('Error', 'Google no ha retornat cap ID Token');
+        Alert.alert(t('Error'), t('Google authentication failed'));
         return;
       }
 
@@ -99,11 +100,11 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('isLoggedIn', 'true');
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', 'Google authentication failed');
+        Alert.alert(t('Error'), t('Google authentication failed'));
       }
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'Network error');
+      Alert.alert(t('Error'), t('Network error'));
     }
   };
 
@@ -113,14 +114,14 @@ const Login: React.FC = () => {
       await promptAsync({ showInRecents: true });
     } catch (error) {
       console.error('Google Sign-In error:', error);
-      Alert.alert('Error', 'Failed to initiate Google Sign-In');
+      Alert.alert(t('Error'), t('Failed to initiate Google Sign-In'));
       setGoogleLoading(null);
     }
   };
 
   const handleManualLogin = async () => {
     if (!email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('Error'), t('Please fill in all fields'));
       return;
     }
     setLoading(true);
@@ -142,11 +143,11 @@ const Login: React.FC = () => {
         // Redirigir a tabs
         router.replace('/(tabs)');
       } else {
-        Alert.alert('Error', data.message || data.detail || 'Invalid credentials');
+        Alert.alert(t('Error'), data.message || data.detail || t('Invalid credentials'));
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert('Error', 'An error occurred during login');
+      Alert.alert(t('Error'), t('An error occurred during login'));
     } finally {
       setLoading(false);
     }
@@ -154,12 +155,12 @@ const Login: React.FC = () => {
 
   const handleManualRegister = async () => {
     if (!username || !email || !password) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('Error'), t('Please fill in all fields'));
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert('Error', 'Password must be at least 8 characters long');
+      Alert.alert(t('Error'), t('Password must be at least 8 characters long'));
       return;
     }
 
@@ -192,12 +193,12 @@ const Login: React.FC = () => {
           data.password?.[0] ||
           data.message ||
           data.detail ||
-          'Registration failed';
-        Alert.alert('Error', errorMsg);
+          t('Registration failed');
+        Alert.alert(t('Error'), errorMsg);
       }
     } catch (error) {
       console.error('Register error:', error);
-      Alert.alert('Error', 'An error occurred during registration');
+      Alert.alert(t('Error'), t('An error occurred during registration'));
     } finally {
       setLoading(false);
     }
@@ -244,12 +245,12 @@ const Login: React.FC = () => {
                   resizeMode="contain"
                 />
                 <Text style={[styles.title, { color: colors.text }]}>
-                  {isRegisterMode ? 'Create Account' : 'Welcome Back'}
+                  {isRegisterMode ? t('Create Account') : t('Welcome Back')}
                 </Text>
                 <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
                   {isRegisterMode
-                    ? 'Join us and start your cultural journey'
-                    : 'Sign in to continue your cultural journey'}
+                    ? t('Join us and start your cultural journey')
+                    : t('Sign in to continue your cultural journey')}
                 </Text>
               </View>
 
@@ -259,7 +260,7 @@ const Login: React.FC = () => {
                     <Ionicons name="person-outline" size={20} color={colors.placeholder} />
                     <TextInput
                       style={[dynamicStyles.input, { color: colors.text }]}
-                      placeholder="Username"
+                      placeholder={t('Username')}
                       placeholderTextColor={colors.placeholder}
                       value={username}
                       onChangeText={setUsername}
@@ -273,7 +274,7 @@ const Login: React.FC = () => {
                   <Ionicons name="mail-outline" size={20} color={colors.placeholder} />
                   <TextInput
                     style={[dynamicStyles.input, { color: colors.text }]}
-                    placeholder={isRegisterMode ? 'Email' : 'Email or Username'}
+                    placeholder={isRegisterMode ? t('Email') : t('Email or Username')}
                     placeholderTextColor={colors.placeholder}
                     value={email}
                     onChangeText={setEmail}
@@ -288,7 +289,7 @@ const Login: React.FC = () => {
                   <Ionicons name="lock-closed-outline" size={20} color={colors.placeholder} />
                   <TextInput
                     style={[dynamicStyles.input, { color: colors.text }]}
-                    placeholder="Password"
+                    placeholder={t('Password')}
                     placeholderTextColor={colors.placeholder}
                     value={password}
                     onChangeText={setPassword}
@@ -311,7 +312,7 @@ const Login: React.FC = () => {
                     onPress={() => router.push('/changePassword')}
                   >
                     <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
-                      Change Password
+                      {t('Change password')}
                     </Text>
                   </TouchableOpacity>
                 )}
@@ -330,7 +331,7 @@ const Login: React.FC = () => {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <Text style={styles.loginButtonText}>
-                      {isRegisterMode ? 'Create Account' : 'Sign In'}
+                      {isRegisterMode ? t('Create Account') : t('Sign In')}
                     </Text>
                   )}
                 </TouchableOpacity>
@@ -345,9 +346,9 @@ const Login: React.FC = () => {
                   }}
                 >
                   <Text style={[styles.switchModeText, { color: colors.textSecondary }]}>
-                    {isRegisterMode ? 'Already have an account? ' : "Don't have an account? "}
+                    {isRegisterMode ? t('Already have an account? ') : t("Don't have an account? ")}
                     <Text style={{ color: colors.accent, fontWeight: '700' }}>
-                      {isRegisterMode ? 'Sign In' : 'Sign Up'}
+                      {isRegisterMode ? t('Sign In') : t('Sign Up')}
                     </Text>
                   </Text>
                 </TouchableOpacity>
@@ -356,7 +357,7 @@ const Login: React.FC = () => {
               <View style={styles.dividerContainer}>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
                 <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
-                  or continue with
+                  {t('or continue with')}
                 </Text>
                 <View style={[styles.divider, { backgroundColor: colors.border }]} />
               </View>
@@ -376,17 +377,21 @@ const Login: React.FC = () => {
                     resizeMode="contain"
                   />
                   <Text style={[styles.googleButtonText, { color: colors.text }]}>
-                    Sign In with Google
+                    {t('Sign In with Google')}
                   </Text>
                 </TouchableOpacity>
               </View>
 
               <View style={styles.footer}>
                 <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-                  By continuing, you agree to our{' '}
-                  <Text style={{ color: colors.accent, fontWeight: '600' }}>Terms of Service</Text>{' '}
-                  and{' '}
-                  <Text style={{ color: colors.accent, fontWeight: '600' }}>Privacy Policy</Text>
+                  {t('By continuing, you agree to our')}{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                    {t('Terms of Service')}
+                  </Text>{' '}
+                  {t('and')}{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                    {t('Privacy Policy')}
+                  </Text>
                 </Text>
               </View>
             </Animated.View>
@@ -407,22 +412,26 @@ const Login: React.FC = () => {
               <Ionicons name="mail-outline" size={60} color={colors.accent} />
             </View>
 
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Verify Your Email</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {t('Verify Your Email')}
+            </Text>
 
             <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
-              We've sent a verification link to:
+              {t("We've sent a verification link to:")}
             </Text>
 
             <Text style={[styles.modalEmail, { color: colors.accent }]}>{verificationEmail}</Text>
 
             <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
-              Please check your inbox and click the verification link to activate your account.
+              {t(
+                'Please check your inbox and click the verification link to activate your account.',
+              )}
             </Text>
 
             <View style={[styles.modalInfoBox, { backgroundColor: `${colors.accent}10` }]}>
               <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
               <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
-                You won't be able to sign in until you verify your email address.
+                {t("You won't be able to sign in until you verify your email address.")}
               </Text>
             </View>
 
@@ -431,7 +440,7 @@ const Login: React.FC = () => {
               onPress={handleVerificationModalClose}
               activeOpacity={0.8}
             >
-              <Text style={styles.modalButtonText}>Got it!</Text>
+              <Text style={styles.modalButtonText}>{t('Got it!')}</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -439,7 +448,7 @@ const Login: React.FC = () => {
               onPress={handleVerificationModalClose}
             >
               <Text style={[styles.modalSecondaryButtonText, { color: colors.accent }]}>
-                Didn't receive the email? Check spam folder
+                {t("Didn't receive the email? Check spam folder")}
               </Text>
             </TouchableOpacity>
           </View>
