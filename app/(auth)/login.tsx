@@ -44,6 +44,10 @@ const Login: React.FC = () => {
   const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [username, setUsername] = useState('');
 
+  // Estado para el modal de verificación
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
     iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
@@ -51,13 +55,6 @@ const Login: React.FC = () => {
   });
 
   const router = useRouter();
-
-  /*useEffect(() => {
-    console.log('GOOGLE REQUEST >>>', request);
-    if (request?.redirectUri) {
-      console.log('🚀 REDIRECT URI UTILITZAT:', request.redirectUri);
-    }
-  }, [request]);*/
 
   // ANIMACIÓ ENTRADA
   useEffect(() => {
@@ -178,11 +175,15 @@ const Login: React.FC = () => {
         }),
       });
       const data = await res.json();
-      if (res.ok && data.access) {
+
+      // Si el registro es exitoso y devuelve el mensaje de verificación
+      if (res.status === 201 && data.detail === 'Verification email sent') {
+        setVerificationEmail(email.toLowerCase().trim());
+        setShowVerificationModal(true);
+      } else if (res.ok && data.access) {
+        // Si el backend devuelve tokens directamente (sin verificación)
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
-
-        // Redirigir a tabs
         router.replace('/(tabs)');
       } else {
         const errorMsg =
@@ -200,6 +201,14 @@ const Login: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleVerificationModalClose = () => {
+    setShowVerificationModal(false);
+    setIsRegisterMode(false);
+    setUsername('');
+    setEmail('');
+    setPassword('');
   };
 
   const dynamicStyles = createDynamicStyles(colors);
@@ -384,6 +393,58 @@ const Login: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal de Verificación de Email */}
+      <Modal
+        visible={showVerificationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleVerificationModalClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalIconContainer, { backgroundColor: `${colors.accent}20` }]}>
+              <Ionicons name="mail-outline" size={60} color={colors.accent} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>Verify Your Email</Text>
+
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              We've sent a verification link to:
+            </Text>
+
+            <Text style={[styles.modalEmail, { color: colors.accent }]}>{verificationEmail}</Text>
+
+            <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+              Please check your inbox and click the verification link to activate your account.
+            </Text>
+
+            <View style={[styles.modalInfoBox, { backgroundColor: `${colors.accent}10` }]}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
+              <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                You won't be able to sign in until you verify your email address.
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={handleVerificationModalClose}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>Got it!</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSecondaryButton}
+              onPress={handleVerificationModalClose}
+            >
+              <Text style={[styles.modalSecondaryButtonText, { color: colors.accent }]}>
+                Didn't receive the email? Check spam folder
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </LinearGradient>
   );
 };
@@ -482,6 +543,98 @@ const styles = StyleSheet.create({
   googleButtonText: { fontSize: 15, fontWeight: '600' },
   footer: { alignItems: 'center', marginTop: 16 },
   footerText: { fontSize: 12, textAlign: 'center', lineHeight: 18, paddingHorizontal: 20 },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  modalInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    width: '100%',
+  },
+  modalInfoText: {
+    flex: 1,
+    fontSize: 13,
+    marginLeft: 12,
+    lineHeight: 18,
+  },
+  modalButton: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  modalSecondaryButton: {
+    paddingVertical: 8,
+  },
+  modalSecondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
 
 export default Login;
