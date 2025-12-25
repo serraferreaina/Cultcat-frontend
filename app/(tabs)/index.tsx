@@ -289,6 +289,20 @@ export default function Home() {
     }
   };
 
+  const shouldHideEvent = (event: Events): boolean => {
+    if (!event.data_inici) return false;
+
+    // Comprova data_inici ja que Home.tsx usa data_inici
+    const startDate = new Date(event.data_inici);
+    const targetDate = new Date('2924-06-30');
+
+    return (
+      startDate.getFullYear() === targetDate.getFullYear() &&
+      startDate.getMonth() === targetDate.getMonth() &&
+      startDate.getDate() === targetDate.getDate()
+    );
+  };
+
   const fetchEvents = async (reset = false) => {
     try {
       if (loadingMore) return;
@@ -297,14 +311,18 @@ export default function Home() {
 
       const currentOffset = reset ? 0 : offset;
 
+      // Canvia a l'endpoint de recomanacions
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events/?batch_size=${BATCH_SIZE}&offset=${currentOffset}&order_by_date=desc`,
+        `http://nattech.fib.upc.edu:40490/recommended/?limit=${BATCH_SIZE}&offset=${currentOffset}`,
       );
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      const newEvents = data.results || [];
+      const allEvents = data.results || data || [];
+
+      // Filtra esdeveniments amb data_fi = 30/06/2924
+      const newEvents = allEvents.filter((event: Events) => !shouldHideEvent(event));
 
       setEvents((prev: Events[]) => {
         const map = new Map<number, Events>();
