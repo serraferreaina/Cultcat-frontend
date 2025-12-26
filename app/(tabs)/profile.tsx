@@ -17,7 +17,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
-import { getProfile } from '../../api';
+import { getProfile, getUserBadges } from '../../api';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -34,6 +34,20 @@ export default function Profile() {
   const [user, setUser] = useState<any>(global.currentUser);
   const [showSavedNotification, setShowSavedNotification] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
+
+  type Badge = {
+    reward_id: number;
+    name: string;
+    category: string;
+    level: number;
+    level_label: string;
+    condition_type: string;
+    condition_value: number;
+    icon: string;
+    obtained_at: string;
+  };
+
+  const [badges, setBadges] = useState<Badge[]>([]);
 
   const router = useRouter();
 
@@ -132,6 +146,10 @@ export default function Profile() {
         setUser(normalized);
         global.currentUser = normalized;
       });
+
+      getUserBadges()
+        .then((data) => setBadges(data))
+        .catch(() => setBadges([]));
     }
   }, []);
 
@@ -395,14 +413,44 @@ export default function Profile() {
 
         {/* Insignias */}
         <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
-          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-            <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
-            <Text style={[styles.emptyText, { color: Colors.muted }]}>
-              {t('No achievements yet')}
-            </Text>
+          <View
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+
+            {badges.length > 0 && (
+              <TouchableOpacity onPress={() => router.push('/badges')}>
+                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          {badges.length === 0 ? (
+            <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
+              <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
+              <Text style={[styles.emptyText, { color: Colors.muted }]}>
+                {t('No achievements yet')}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.badgesGrid}>
+              {badges.slice(0, 6).map((badge, index) => (
+                <View key={index} style={styles.badgeItem}>
+                  <Image
+                    source={{ uri: badge.icon }}
+                    style={{ width: 60, height: 60, borderRadius: 8 }}
+                  />
+                  <Text
+                    style={{ fontSize: 12, marginTop: 4, color: Colors.text, textAlign: 'center' }}
+                  >
+                    {badge.name}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
+
         <View style={{ height: 24 }} />
       </ScrollView>
     </SafeAreaView>
@@ -567,5 +615,16 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     flex: 1,
+  },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  badgeItem: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: 12,
   },
 });
