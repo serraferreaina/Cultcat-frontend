@@ -41,6 +41,7 @@ export default function UserConfig() {
   const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -184,6 +185,20 @@ export default function UserConfig() {
     }
   };
 
+  const handleDeletePhotoPress = () => {
+    setShowDeletePhotoModal(true);
+  };
+
+  const confirmDeletePhoto = async () => {
+    setShowDeletePhotoModal(false);
+    setAvatar(DEFAULT_AVATAR);
+
+    const token = await AsyncStorage.getItem('authToken');
+    if (token) {
+      updateProfilePicture(DEFAULT_AVATAR);
+    }
+  };
+
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: colors.background }]}
@@ -214,14 +229,7 @@ export default function UserConfig() {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.removePhotoBtn, { backgroundColor: colors.background }]}
-                onPress={async () => {
-                  setAvatar(DEFAULT_AVATAR);
-
-                  const token = await AsyncStorage.getItem('authToken');
-                  if (token) {
-                    updateProfilePicture(DEFAULT_AVATAR);
-                  }
-                }}
+                onPress={handleDeletePhotoPress}
               >
                 <Text style={[styles.removePhotoText, { color: colors.accent }]}>
                   {t('Eliminar foto')}
@@ -414,6 +422,46 @@ export default function UserConfig() {
               >
                 <Text style={[styles.logoutButtonText, { color: colors.card }]}>
                   {t('Close session')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Delete Photo Modal */}
+      <Modal visible={showDeletePhotoModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: colors.backdrop }]}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalIconContainer, { backgroundColor: `${colors.accent}15` }]}>
+              <Ionicons name="trash-outline" size={48} color={colors.accent} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('Delete photo')}</Text>
+            <Text style={[styles.modalMessage, { color: colors.text }]}>
+              {t('Are you sure you want to delete your photo?')}
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: colors.border }]}
+                onPress={() => setShowDeletePhotoModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: colors.accent }]}>
+                  {t('Cancel')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.logoutButton,
+                  { backgroundColor: colors.accent },
+                ]}
+                onPress={confirmDeletePhoto}
+              >
+                <Text style={[styles.logoutButtonText, { color: colors.card }]}>
+                  {t('Delete')}
                 </Text>
               </TouchableOpacity>
             </View>
