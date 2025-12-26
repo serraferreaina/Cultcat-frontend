@@ -285,22 +285,20 @@ export default function UserConfig() {
 
           <View style={styles.inputGroup}>
             <Text style={[styles.label, { color: colors.text }]}>{t('Email')}</Text>
-            <TextInput
+            <View
               style={[
                 styles.input,
                 {
                   backgroundColor: colors.background,
-                  color: colors.text,
                   borderColor: colors.border,
+                  opacity: 0.7,
                 },
               ]}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="correu@exemple.com"
-              placeholderTextColor={colors.placeholder}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
+            >
+              <Text style={[{ color: colors.text, fontSize: 15 }]}>
+                {email || 'correu@exemple.com'}
+              </Text>
+            </View>
           </View>
         </View>
 
