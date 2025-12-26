@@ -204,5 +204,7 @@
   "Password changed successfully!": "Password changed successfully!",
   "OK": "OK",
   "Failed to change password": "Failed to change password",
-  "An error occurred while changing password": "An error occurred while changing password"
+  "An error occurred while changing password": "An error occurred while changing password",
+  "You will need to log in again to access your account.": "You will need to log in again to access your account.",
+  "You have successfully logged out. See you soon!": "You have successfully logged out. See you soon!"
 }

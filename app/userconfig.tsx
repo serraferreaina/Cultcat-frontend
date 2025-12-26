@@ -10,6 +10,7 @@ import {
   TextInput,
   Alert,
   Switch,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -39,6 +40,8 @@ export default function UserConfig() {
   const [email, setEmail] = useState(global.currentUser?.email ?? '');
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
   const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const handleSave = async () => {
     try {
@@ -151,53 +154,35 @@ export default function UserConfig() {
   };
 
   const handleLogout = () => {
-    Alert.alert(t('Close session'), t('Are you sure you want to log out?'), [
-      {
-        text: t('Cancel'),
-        style: 'cancel',
-      },
-      {
-        text: t('Close session'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await logout();
-            Alert.alert(t('Logged out'));
+    setShowLogoutModal(true);
+  };
 
-            router.replace('(auth)/login');
-          } catch (e) {
-            console.error(e);
-            Alert.alert(t('Error logging out'));
-          }
-        },
-      },
-    ]);
+  const confirmLogout = async () => {
+    setShowLogoutModal(false);
+    try {
+      await logout();
+      await AsyncStorage.setItem('justLoggedOut', 'true');
+      router.replace('(auth)/login');
+    } catch (e) {
+      console.error(e);
+      Alert.alert(t('Error logging out'));
+    }
   };
 
   const handleDeleteAcc = () => {
-    Alert.alert(
-      t('Delete account'),
-      t('Are you sure you want to delete your account?'),
-      [
-        { text: t('Cancel'), style: 'cancel' },
-        {
-          text: t('Delete account'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await deleteAccount();
-              Alert.alert(t('Account deleted'));
+    setShowDeleteModal(true);
+  };
 
-              router.replace('(auth)/login');
-            } catch (e) {
-              console.error(e);
-              Alert.alert(t('Error deleting account'));
-            }
-          },
-        },
-      ],
-      { cancelable: true },
-    );
+  const confirmDeleteAccount = async () => {
+    setShowDeleteModal(false);
+    try {
+      await deleteAccount();
+      await AsyncStorage.setItem('justDeleted', 'true');
+      router.replace('(auth)/login');
+    } catch (e) {
+      console.error(e);
+      Alert.alert(t('Error deleting account'));
+    }
   };
 
   return (
@@ -315,7 +300,10 @@ export default function UserConfig() {
         <View style={styles.card}>
           <Text style={styles.sectionTitle}>{t('Account')}</Text>
 
-          <TouchableOpacity style={styles.preferenceItem}>
+          <TouchableOpacity
+            style={styles.preferenceItem}
+            onPress={() => router.push('/changePassword')}
+          >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="key-outline" size={22} color={TEXT} />
               <Text style={styles.preferenceText}>{t('Change password')}</Text>
@@ -352,6 +340,74 @@ export default function UserConfig() {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      {/* Custom Logout Modal */}
+      <Modal visible={showLogoutModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalIconContainer}>
+              <Ionicons name="log-out-outline" size={48} color={ACCENT} />
+            </View>
+
+            <Text style={styles.modalTitle}>{t('Close session')}</Text>
+            <Text style={styles.modalMessage}>
+              {t('Are you sure you want to log out?')}
+              {'\n\n'}
+              {t('You will need to log in again to access your account.')}
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowLogoutModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.logoutButton]}
+                onPress={confirmLogout}
+              >
+                <Text style={styles.logoutButtonText}>{t('Close session')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Custom Delete Account Modal */}
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={[styles.modalIconContainer, { backgroundColor: '#E74C3C15' }]}>
+              <Ionicons name="trash-outline" size={48} color={RED} />
+            </View>
+
+            <Text style={styles.modalTitle}>{t('Delete account')}</Text>
+            <Text style={styles.modalMessage}>
+              {t('Are you sure you want to delete your account?')}
+              {'\n\n'}
+              <Text style={{ fontWeight: '600', color: RED }}>This action cannot be undone.</Text>
+            </Text>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton]}
+                onPress={() => setShowDeleteModal(false)}
+              >
+                <Text style={styles.cancelButtonText}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.modalButton, styles.deleteButton]}
+                onPress={confirmDeleteAccount}
+              >
+                <Text style={styles.deleteButtonText}>{t('Delete account')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -484,5 +540,96 @@ const styles = StyleSheet.create({
     color: CARD,
     fontWeight: '800',
     fontSize: 16,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalContent: {
+    width: '90%',
+    maxWidth: 400,
+    backgroundColor: CARD,
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOpacity: 0.25,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  modalIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: `${ACCENT}15`,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: TEXT,
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    color: MUTED,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelButton: {
+    backgroundColor: BG,
+    borderWidth: 1.5,
+    borderColor: '#E4D8C8',
+  },
+  cancelButtonText: {
+    color: TEXT,
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  logoutButton: {
+    backgroundColor: RED,
+    shadowColor: RED,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  logoutButtonText: {
+    color: CARD,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  deleteButton: {
+    backgroundColor: RED,
+    shadowColor: RED,
+    shadowOpacity: 0.3,
+    shadowOffset: { width: 0, height: 3 },
+    shadowRadius: 6,
+    elevation: 4,
+  },
+  deleteButtonText: {
+    color: CARD,
+    fontSize: 16,
+    fontWeight: '700',
   },
 });
