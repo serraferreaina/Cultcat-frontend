@@ -84,7 +84,7 @@ export default function UserConfig() {
         profile_description: data.bio ?? description,
       };
 
-      alert(t('Perfil actualitzat correctament'));
+      await AsyncStorage.setItem('justSavedProfile', 'true');
       router.back();
     } catch (err) {
       console.error('Error actualizando perfil:', err);

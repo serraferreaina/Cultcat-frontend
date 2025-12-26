@@ -208,5 +208,9 @@
   "You will need to log in again to access your account.": "Hauràs d'iniciar sessió de nou per accedir al teu compte.",
   "You have successfully logged out. See you soon!": "Has tancat la sessió correctament. Fins aviat!",
   "Your account has been successfully deleted": "El teu compte ha estat eliminat correctament",
-  "This action cannot be undone": "Aquesta acció no es pot desfer."
+  "This action cannot be undone": "Aquesta acció no es pot desfer.",
+  "Delete photo": "Eliminar foto",
+  "Are you sure you want to delete your photo?": "Estàs segur/a que vols eliminar la teva foto?",
+  "Delete": "Eliminar",
+  "Changes saved successfully": "Canvis desats correctament"
 }

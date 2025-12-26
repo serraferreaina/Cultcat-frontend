@@ -1,6 +1,6 @@
 // app/(tabs)/profile.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -23,6 +23,8 @@ export default function Profile() {
   const [language, setLanguage] = useState(i18n.language);
   const [showLanguageSelector, setShowLanguageSelector] = useState(false);
   const [user, setUser] = useState<any>(global.currentUser);
+  const [showSavedNotification, setShowSavedNotification] = useState(false);
+  const fadeAnim = useState(new Animated.Value(0))[0];
 
   const router = useRouter();
 
@@ -102,11 +104,60 @@ export default function Profile() {
     }
   }, []);
 
+  // Check for saved profile notification - runs every time screen is focused
+  useFocusEffect(
+    React.useCallback(() => {
+      const checkSavedStatus = async () => {
+        const justSaved = await AsyncStorage.getItem('justSavedProfile');
+        if (justSaved === 'true') {
+          setShowSavedNotification(true);
+          await AsyncStorage.removeItem('justSavedProfile');
+          
+          // Animate fade in
+          Animated.timing(fadeAnim, {
+            toValue: 1,
+            duration: 300,
+            useNativeDriver: true,
+          }).start();
+          
+          // Auto-hide after 3 seconds
+          setTimeout(() => {
+            Animated.timing(fadeAnim, {
+              toValue: 0,
+              duration: 300,
+              useNativeDriver: true,
+            }).start(() => {
+              setShowSavedNotification(false);
+            });
+          }, 3000);
+        }
+      };
+      checkSavedStatus();
+    }, []),
+  );
+
   return (
     <SafeAreaView
       style={[styles.screen, { backgroundColor: Colors.background }]}
       edges={['top', 'left', 'right']}
     >
+      {/* Profile Saved Notification Toast */}
+      {showSavedNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: Colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('Changes saved successfully')}
+          </Text>
+        </Animated.View>
+      )}
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header: nombre + menu */}
         <View style={styles.headerRow}>
@@ -463,5 +514,21 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     textAlign: 'right',
+  },
+  notification: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    marginTop: 8,
+    marginHorizontal: 16,
+    borderRadius: 10,
+    gap: 10,
+  },
+  notificationText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+    flex: 1,
   },
 });
