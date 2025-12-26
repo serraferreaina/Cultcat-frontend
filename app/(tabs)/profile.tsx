@@ -282,16 +282,6 @@ export default function Profile() {
             </View>
           </View>
 
-          {/* Nivel + barra */}
-          <View style={{ marginTop: 12 }}>
-            <View style={[styles.progressBg, { backgroundColor: Colors.background }]}>
-              <View
-                style={[styles.progressFill, { width: '60%', backgroundColor: Colors.accent }]}
-              />
-            </View>
-            <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
-          </View>
-
           {/* Acciones */}
           <View style={styles.actionsRow}>
             <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.background }]}>
