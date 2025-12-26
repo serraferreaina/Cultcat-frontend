@@ -52,6 +52,9 @@ const Login: React.FC = () => {
   // Estado para notificación de logout
   const [showLogoutNotification, setShowLogoutNotification] = useState(false);
 
+  // Estado para notificación de eliminación de cuenta
+  const [showDeletedNotification, setShowDeletedNotification] = useState(false);
+
   // Check for logout notification
   useEffect(() => {
     const checkLogoutStatus = async () => {
@@ -64,6 +67,20 @@ const Login: React.FC = () => {
       }
     };
     checkLogoutStatus();
+  }, []);
+
+  // Check for account deletion notification
+  useEffect(() => {
+    const checkDeletedStatus = async () => {
+      const deleted = await AsyncStorage.getItem('justDeleted');
+      if (deleted === 'true') {
+        setShowDeletedNotification(true);
+        await AsyncStorage.removeItem('justDeleted');
+        // Auto-hide after 3 seconds
+        setTimeout(() => setShowDeletedNotification(false), 3000);
+      }
+    };
+    checkDeletedStatus();
   }, []);
 
   const [request, response, promptAsync] = Google.useAuthRequest({
@@ -264,6 +281,24 @@ const Login: React.FC = () => {
           <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
           <Text style={styles.notificationText}>
             {t('You have successfully logged out. See you soon!')}
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Delete Account Notification */}
+      {showDeletedNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('Your account has been successfully deleted')}
           </Text>
         </Animated.View>
       )}

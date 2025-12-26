@@ -206,5 +206,7 @@
   "Failed to change password": "No s'ha pogut canviar la contrasenya",
   "An error occurred while changing password": "S'ha produït un error en canviar la contrasenya",
   "You will need to log in again to access your account.": "Hauràs d'iniciar sessió de nou per accedir al teu compte.",
-  "You have successfully logged out. See you soon!": "Has tancat la sessió correctament. Fins aviat!"
+  "You have successfully logged out. See you soon!": "Has tancat la sessió correctament. Fins aviat!",
+  "Your account has been successfully deleted": "El teu compte ha estat eliminat correctament",
+  "This action cannot be undone": "Aquesta acció no es pot desfer."
 }
