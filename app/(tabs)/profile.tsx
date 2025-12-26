@@ -1,6 +1,14 @@
 // app/(tabs)/profile.tsx
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, TouchableOpacity, Animated } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -112,14 +120,14 @@ export default function Profile() {
         if (justSaved === 'true') {
           setShowSavedNotification(true);
           await AsyncStorage.removeItem('justSavedProfile');
-          
+
           // Animate fade in
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
             useNativeDriver: true,
           }).start();
-          
+
           // Auto-hide after 3 seconds
           setTimeout(() => {
             Animated.timing(fadeAnim, {
@@ -153,9 +161,7 @@ export default function Profile() {
           ]}
         >
           <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
-          <Text style={styles.notificationText}>
-            {t('Changes saved successfully')}
-          </Text>
+          <Text style={styles.notificationText}>{t('Changes saved successfully')}</Text>
         </Animated.View>
       )}
       <ScrollView contentContainerStyle={styles.content}>

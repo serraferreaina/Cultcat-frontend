@@ -458,9 +458,7 @@ export default function UserConfig() {
                 ]}
                 onPress={confirmDeletePhoto}
               >
-                <Text style={[styles.logoutButtonText, { color: colors.card }]}>
-                  {t('Delete')}
-                </Text>
+                <Text style={[styles.logoutButtonText, { color: colors.card }]}>{t('Delete')}</Text>
               </TouchableOpacity>
             </View>
           </View>
