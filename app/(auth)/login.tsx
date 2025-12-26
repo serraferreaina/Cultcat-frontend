@@ -98,6 +98,11 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        // Console log dels tokens
+        console.log('🔑 ACCESS TOKEN (Google):', data.access);
+        console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
+
         router.replace('/(tabs)');
       } else {
         Alert.alert(t('Error'), t('Google authentication failed'));
@@ -139,6 +144,10 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        // Console log dels tokens
+        console.log('🔑 ACCESS TOKEN:', data.access);
+        console.log('🔄 REFRESH TOKEN:', data.refresh);
 
         // Redirigir a tabs
         router.replace('/(tabs)');
@@ -185,6 +194,11 @@ const Login: React.FC = () => {
         // Si el backend devuelve tokens directamente (sin verificación)
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
+
+        // Console log dels tokens
+        console.log('🔑 ACCESS TOKEN (Register):', data.access);
+        console.log('🔄 REFRESH TOKEN (Register):', data.refresh);
+
         router.replace('/(tabs)');
       } else {
         const errorMsg =
