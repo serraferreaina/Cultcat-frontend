@@ -108,3 +108,24 @@ export const getUserProfile = (id: number) => api(`/api/users/${id}/`);
 export const getEvents = () => api('/api/events/');
 
 export const getEventById = (id: number) => api(`/api/events/${id}/`);
+
+export const deleteAccount = async () => {
+  const token = await AsyncStorage.getItem('authToken');
+  if (!token) throw new Error('No auth token');
+
+  const response = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete account');
+  }
+
+  // Clear auth token after successful deletion
+  await AsyncStorage.removeItem('authToken');
+  global.currentUser = null;
+};

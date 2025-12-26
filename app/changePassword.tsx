@@ -11,7 +11,6 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Animated,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,8 +18,10 @@ import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 
 const ChangePassword: React.FC = () => {
+  const { t } = useTranslation();
   const { theme } = useTheme();
   const colors = theme === 'light' ? LightColors : DarkColors;
   const router = useRouter();
@@ -35,22 +36,22 @@ const ChangePassword: React.FC = () => {
 
   const validatePasswords = () => {
     if (!oldPassword || !newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+      Alert.alert(t('Error'), t('Please fill in all fields'));
       return false;
     }
 
     if (newPassword.length < 8) {
-      Alert.alert('Error', 'New password must be at least 8 characters long');
+      Alert.alert(t('Error'), t('New password must be at least 8 characters long'));
       return false;
     }
 
     if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'New passwords do not match');
+      Alert.alert(t('Error'), t('New passwords do not match'));
       return false;
     }
 
     if (oldPassword === newPassword) {
-      Alert.alert('Error', 'New password must be different from the old password');
+      Alert.alert(t('Error'), t('New password must be different from the old password'));
       return false;
     }
 
@@ -65,7 +66,7 @@ const ChangePassword: React.FC = () => {
       const token = await AsyncStorage.getItem('authToken');
 
       if (!token) {
-        Alert.alert('Error', 'No authentication token found');
+        Alert.alert(t('Error'), t('No authentication token found'));
         router.replace('/(auth)/login');
         return;
       }
@@ -87,9 +88,9 @@ const ChangePassword: React.FC = () => {
       const data = await res.json();
 
       if (res.ok) {
-        Alert.alert('Success', 'Password changed successfully!', [
+        Alert.alert(t('Success'), t('Password changed successfully!'), [
           {
-            text: 'OK',
+            text: t('OK'),
             onPress: () => {
               setOldPassword('');
               setNewPassword('');
@@ -105,12 +106,12 @@ const ChangePassword: React.FC = () => {
           data.confirm_password?.[0] ||
           data.message ||
           data.detail ||
-          'Failed to change password';
-        Alert.alert('Error', errorMsg);
+          t('Failed to change password');
+        Alert.alert(t('Error'), errorMsg);
       }
     } catch (error) {
       console.error('Change password error:', error);
-      Alert.alert('Error', 'An error occurred while changing password');
+      Alert.alert(t('Error'), t('An error occurred while changing password'));
     } finally {
       setLoading(false);
     }
@@ -142,7 +143,9 @@ const ChangePassword: React.FC = () => {
               >
                 <Ionicons name="arrow-back" size={24} color={colors.text} />
               </TouchableOpacity>
-              <Text style={[styles.headerTitle, { color: colors.text }]}>Change Password</Text>
+              <Text style={[styles.headerTitle, { color: colors.text }]}>
+                {t('Change Password')}
+              </Text>
               <View style={{ width: 40 }} />
             </View>
 
@@ -152,20 +155,24 @@ const ChangePassword: React.FC = () => {
                 <Ionicons name="lock-closed" size={48} color={colors.accent} />
               </View>
 
-              <Text style={[styles.title, { color: colors.text }]}>Update Your Password</Text>
+              <Text style={[styles.title, { color: colors.text }]}>
+                {t('Update Your Password')}
+              </Text>
               <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
-                Enter your current password and choose a new secure password
+                {t('Enter your current password and choose a new secure password')}
               </Text>
 
               <View style={styles.formContainer}>
                 {/* Old Password */}
                 <View style={styles.inputWrapper}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>Current Password</Text>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    {t('Current Password')}
+                  </Text>
                   <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
                     <Ionicons name="lock-closed-outline" size={20} color={colors.placeholder} />
                     <TextInput
                       style={[dynamicStyles.input, { color: colors.text }]}
-                      placeholder="Enter current password"
+                      placeholder={t('Enter current password')}
                       placeholderTextColor={colors.placeholder}
                       value={oldPassword}
                       onChangeText={setOldPassword}
@@ -185,12 +192,14 @@ const ChangePassword: React.FC = () => {
 
                 {/* New Password */}
                 <View style={styles.inputWrapper}>
-                  <Text style={[styles.inputLabel, { color: colors.text }]}>New Password</Text>
+                  <Text style={[styles.inputLabel, { color: colors.text }]}>
+                    {t('New Password')}
+                  </Text>
                   <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
                     <Ionicons name="key-outline" size={20} color={colors.placeholder} />
                     <TextInput
                       style={[dynamicStyles.input, { color: colors.text }]}
-                      placeholder="Enter new password"
+                      placeholder={t('Enter new password')}
                       placeholderTextColor={colors.placeholder}
                       value={newPassword}
                       onChangeText={setNewPassword}
@@ -207,14 +216,14 @@ const ChangePassword: React.FC = () => {
                     </TouchableOpacity>
                   </View>
                   <Text style={[styles.helperText, { color: colors.textSecondary }]}>
-                    Must be at least 8 characters long
+                    {t('Must be at least 8 characters long')}
                   </Text>
                 </View>
 
                 {/* Confirm Password */}
                 <View style={styles.inputWrapper}>
                   <Text style={[styles.inputLabel, { color: colors.text }]}>
-                    Confirm New Password
+                    {t('Confirm New Password')}
                   </Text>
                   <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
                     <Ionicons
@@ -224,7 +233,7 @@ const ChangePassword: React.FC = () => {
                     />
                     <TextInput
                       style={[dynamicStyles.input, { color: colors.text }]}
-                      placeholder="Confirm new password"
+                      placeholder={t('Confirm new password')}
                       placeholderTextColor={colors.placeholder}
                       value={confirmPassword}
                       onChangeText={setConfirmPassword}
@@ -257,7 +266,7 @@ const ChangePassword: React.FC = () => {
                     <ActivityIndicator color="#FFFFFF" />
                   ) : (
                     <>
-                      <Text style={styles.submitButtonText}>Update Password</Text>
+                      <Text style={styles.submitButtonText}>{t('Update Password')}</Text>
                       <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />
                     </>
                   )}
@@ -269,19 +278,19 @@ const ChangePassword: React.FC = () => {
                 <View style={styles.tipRow}>
                   <Ionicons name="shield-checkmark" size={20} color={colors.accent} />
                   <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                    Use a mix of letters, numbers, and symbols
+                    {t('Use a mix of letters, numbers, and symbols')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
                   <Ionicons name="shield-checkmark" size={20} color={colors.accent} />
                   <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                    Avoid using personal information
+                    {t('Avoid using personal information')}
                   </Text>
                 </View>
                 <View style={styles.tipRow}>
                   <Ionicons name="shield-checkmark" size={20} color={colors.accent} />
                   <Text style={[styles.tipText, { color: colors.textSecondary }]}>
-                    Don't reuse passwords from other accounts
+                    {t("Don't reuse passwords from other accounts")}
                   </Text>
                 </View>
               </View>
