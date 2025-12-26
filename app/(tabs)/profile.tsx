@@ -284,7 +284,10 @@ export default function Profile() {
 
           {/* Acciones */}
           <View style={styles.actionsRow}>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: Colors.background }]}>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: Colors.background }]}
+              onPress={() => router.push('/userconfig')}
+            >
               <Text style={[styles.actionText, { color: Colors.text }]}>{t('Edit')}</Text>
             </TouchableOpacity>
             <TouchableOpacity

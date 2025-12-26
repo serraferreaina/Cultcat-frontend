@@ -37,7 +37,6 @@ export default function UserConfig() {
   const [username, setUsername] = useState(global.currentUser?.username ?? '');
   const [description, setDescription] = useState(global.currentUser?.profile_description ?? '');
   const [email, setEmail] = useState(global.currentUser?.email ?? '');
-  const [phone, setPhone] = useState('+34 600 000 000');
   const [avatar, setAvatar] = useState(global.currentUser?.profile_picture ?? DEFAULT_AVATAR);
   const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
 
@@ -275,18 +274,6 @@ export default function UserConfig() {
               placeholderTextColor={MUTED}
               keyboardType="email-address"
               autoCapitalize="none"
-            />
-          </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>{t('Telephone')}</Text>
-            <TextInput
-              style={styles.input}
-              value={phone}
-              onChangeText={setPhone}
-              placeholder="+34 600 000 000"
-              placeholderTextColor={MUTED}
-              keyboardType="phone-pad"
             />
           </View>
         </View>
