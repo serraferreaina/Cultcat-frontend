@@ -204,5 +204,15 @@
   "Password changed successfully!": "Password changed successfully!",
   "OK": "OK",
   "Failed to change password": "Failed to change password",
-  "An error occurred while changing password": "An error occurred while changing password"
+  "An error occurred while changing password": "An error occurred while changing password",
+  "You will need to log in again to access your account.": "You will need to log in again to access your account.",
+  "You have successfully logged out. See you soon!": "You have successfully logged out. See you soon!",
+  "Your account has been successfully deleted": "Your account has been successfully deleted",
+  "This action cannot be undone": "This action cannot be undone.",
+  "Delete photo": "Delete photo",
+  "Are you sure you want to delete your photo?": "Are you sure you want to delete your photo?",
+  "Delete": "Delete",
+  "Changes saved successfully": "Changes saved successfully",
+  "Canviar foto": "Change photo",
+  "Eliminar foto": "Remove photo"
 }

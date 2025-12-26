@@ -49,6 +49,40 @@ const Login: React.FC = () => {
   const [showVerificationModal, setShowVerificationModal] = useState(false);
   const [verificationEmail, setVerificationEmail] = useState('');
 
+  // Estado para notificación de logout
+  const [showLogoutNotification, setShowLogoutNotification] = useState(false);
+
+  // Estado para notificación de eliminación de cuenta
+  const [showDeletedNotification, setShowDeletedNotification] = useState(false);
+
+  // Check for logout notification
+  useEffect(() => {
+    const checkLogoutStatus = async () => {
+      const loggedOut = await AsyncStorage.getItem('justLoggedOut');
+      if (loggedOut === 'true') {
+        setShowLogoutNotification(true);
+        await AsyncStorage.removeItem('justLoggedOut');
+        // Auto-hide after 3 seconds
+        setTimeout(() => setShowLogoutNotification(false), 3000);
+      }
+    };
+    checkLogoutStatus();
+  }, []);
+
+  // Check for account deletion notification
+  useEffect(() => {
+    const checkDeletedStatus = async () => {
+      const deleted = await AsyncStorage.getItem('justDeleted');
+      if (deleted === 'true') {
+        setShowDeletedNotification(true);
+        await AsyncStorage.removeItem('justDeleted');
+        // Auto-hide after 3 seconds
+        setTimeout(() => setShowDeletedNotification(false), 3000);
+      }
+    };
+    checkDeletedStatus();
+  }, []);
+
   const [request, response, promptAsync] = Google.useAuthRequest({
     androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
     iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
@@ -233,6 +267,42 @@ const Login: React.FC = () => {
       colors={theme === 'light' ? ['#FFF8F0', '#FFEBD6'] : ['#1C1C1C', '#2C2C2C']}
       style={styles.gradient}
     >
+      {/* Logout Notification */}
+      {showLogoutNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('You have successfully logged out. See you soon!')}
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Delete Account Notification */}
+      {showDeletedNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('Your account has been successfully deleted')}
+          </Text>
+        </Animated.View>
+      )}
+
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.flex}
@@ -566,6 +636,32 @@ const styles = StyleSheet.create({
   googleButtonText: { fontSize: 15, fontWeight: '600' },
   footer: { alignItems: 'center', marginTop: 16 },
   footerText: { fontSize: 12, textAlign: 'center', lineHeight: 18, paddingHorizontal: 20 },
+
+  // Notification bar
+  notification: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    gap: 10,
+  },
+  notificationText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
 
   // Modal styles
   modalOverlay: {

@@ -204,5 +204,15 @@
   "Password changed successfully!": "¡Contraseña cambiada correctamente!",
   "OK": "Aceptar",
   "Failed to change password": "No se pudo cambiar la contraseña",
-  "An error occurred while changing password": "Ocurrió un error al cambiar la contraseña"
+  "An error occurred while changing password": "Ocurrió un error al cambiar la contraseña",
+  "You will need to log in again to access your account.": "Tendrás que iniciar sesión de nuevo para acceder a tu cuenta.",
+  "You have successfully logged out. See you soon!": "Has cerrado sesión correctamente. ¡Hasta pronto!",
+  "Your account has been successfully deleted": "Tu cuenta ha sido eliminada correctamente",
+  "This action cannot be undone": "Esta acción no se puede deshacer.",
+  "Delete photo": "Eliminar foto",
+  "Are you sure you want to delete your photo?": "¿Estás seguro/a de que quieres eliminar tu foto?",
+  "Delete": "Eliminar",
+  "Changes saved successfully": "Cambios guardados correctamente",
+  "Canviar foto": "Cambiar foto",
+  "Eliminar foto": "Eliminar foto"
 }
