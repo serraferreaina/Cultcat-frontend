@@ -186,7 +186,7 @@ export default function CercaScreen() {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    
+
     if (date) {
       setSelectedDate(date);
     }
@@ -206,19 +206,23 @@ export default function CercaScreen() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
-    const startDate = selectedEventForDate.data_inici ? new Date(selectedEventForDate.data_inici) : new Date();
+
+    const startDate = selectedEventForDate.data_inici
+      ? new Date(selectedEventForDate.data_inici)
+      : new Date();
     startDate.setHours(0, 0, 0, 0);
-    
+
     const minDate = startDate < today ? today : startDate;
-    const maxDate = selectedEventForDate.data_fi ? new Date(selectedEventForDate.data_fi) : new Date();
-    
+    const maxDate = selectedEventForDate.data_fi
+      ? new Date(selectedEventForDate.data_fi)
+      : new Date();
+
     return { minDate, maxDate };
   };
 
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
-    
+
     const attendanceDate = attendanceDates[item.id]
       ? (() => {
           const date = new Date(attendanceDates[item.id]);
@@ -265,16 +269,16 @@ export default function CercaScreen() {
         if (item.data_inici) {
           setSelectedDate(new Date(item.data_inici));
         }
-        
+
         const today = new Date();
         today.setHours(0, 0, 0, 0);
-        
+
         const tomorrow = new Date(today);
         tomorrow.setDate(tomorrow.getDate() + 1);
-        
+
         const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
         startDate.setHours(0, 0, 0, 0);
-        
+
         // Si l'esdeveniment ja ha començat, permetre des d'avui
         let minDate: Date;
         if (startDate <= today) {
@@ -282,12 +286,12 @@ export default function CercaScreen() {
         } else {
           minDate = startDate < tomorrow ? tomorrow : startDate;
         }
-        
+
         const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
         maxDate.setHours(0, 0, 0, 0);
-        
+
         const isSingleDay = minDate.getTime() === maxDate.getTime();
-        
+
         if (isSingleDay) {
           toggleGoing(item.id, minDate);
         } else {
@@ -400,9 +404,7 @@ export default function CercaScreen() {
               style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
               onPress={handleButtonPress}
             >
-              <Text style={[styles.buttonText, { color: Colors.card }]}>
-                {getButtonText()}
-              </Text>
+              <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
             </TouchableOpacity>
           </View>
         </View>

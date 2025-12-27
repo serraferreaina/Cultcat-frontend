@@ -39,8 +39,15 @@ interface EventCardProps {
 }
 
 export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
-  const { goingEvents, savedEvents, assistedEvents, attendanceDates, toggleGoing, toggleSaved, toggleAssisted } =
-    useEventStatus();
+  const {
+    goingEvents,
+    savedEvents,
+    assistedEvents,
+    attendanceDates,
+    toggleGoing,
+    toggleSaved,
+    toggleAssisted,
+  } = useEventStatus();
 
   const { t } = useTranslation();
   const [isUnsaving, setIsUnsaving] = useState(false);
@@ -51,9 +58,9 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const isGoing = !!goingEvents[item.id];
   const isSaved = !!savedEvents[item.id];
   const isAssisted = !!assistedEvents[item.id];
-  
+
   // Obtener fecha de asistencia guardada y SUMAR UN DÍA para compensar UTC
-  const savedAttendanceDate = attendanceDates[item.id] 
+  const savedAttendanceDate = attendanceDates[item.id]
     ? (() => {
         const date = new Date(attendanceDates[item.id]);
         date.setDate(date.getDate() + 1);
@@ -112,24 +119,24 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const getMinMaxDates = () => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
-    
+
     // Si l'esdeveniment ja ha començat (startDate <= today), permetre des d'avui
     // Si encara no ha començat, permetre des de la data d'inici o demà (el que sigui més tard)
     let minDate: Date;
     if (startDate <= today) {
-      minDate = today;  // L'esdeveniment ja està en curs, permetre avui
+      minDate = today; // L'esdeveniment ja està en curs, permetre avui
     } else {
       minDate = startDate < tomorrow ? tomorrow : startDate;
     }
-    
+
     const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
-    
+
     return { minDate, maxDate };
   };
 
@@ -157,17 +164,17 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
       if (item.data_inici) {
         setSelectedDate(new Date(item.data_inici));
       }
-      
+
       // Comprobar si solo hay un día disponible
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
       startDate.setHours(0, 0, 0, 0);
-      
+
       // Calcular minDate igual que a getMinMaxDates
       let minDate: Date;
       if (startDate <= today) {
@@ -175,12 +182,12 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
       } else {
         minDate = startDate < tomorrow ? tomorrow : startDate;
       }
-      
+
       const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
       maxDate.setHours(0, 0, 0, 0);
-      
+
       const isSingleDay = minDate.getTime() === maxDate.getTime();
-      
+
       if (isSingleDay) {
         // Si solo hay un día, seleccionar automáticamente
         toggleGoing(item.id, minDate);
@@ -202,7 +209,7 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    
+
     if (date) {
       setSelectedDate(date);
     }
@@ -306,18 +313,14 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
                 ]}
                 onPress={handleAssisted}
               >
-                <Text style={[styles.buttonText, { color: Colors.card }]}>
-                  {getButtonText()}
-                </Text>
+                <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
               </TouchableOpacity>
             ) : (
               <TouchableOpacity
                 style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
                 onPress={handleWantToGo}
               >
-                <Text style={[styles.buttonText, { color: Colors.card }]}>
-                  {getButtonText()}
-                </Text>
+                <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -394,13 +397,15 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
                 style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
                 onPress={() => setShowDateModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>
-                  {t('Cancel')}
-                </Text>
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton, { backgroundColor: Colors.accent }]}
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
                 onPress={confirmDate}
               >
                 <Text style={[styles.confirmButtonText, { color: Colors.card }]}>

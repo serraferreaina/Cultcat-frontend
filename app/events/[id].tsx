@@ -121,7 +121,7 @@ export default function EventDetail() {
         }
 
         setEvent(data);
-        
+
         if (data.data_inici) {
           setSelectedDate(new Date(data.data_inici));
         }
@@ -158,7 +158,7 @@ export default function EventDetail() {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-    
+
     if (date) {
       setSelectedDate(date);
     }
@@ -192,23 +192,24 @@ export default function EventDetail() {
   const LogicWrapper = () => {
     const eventLogic = useEventLogic(event);
     const { isActive, toggle, textKey, textKeyInactive } = eventLogic;
-    
-    const attendanceDate = 'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date 
-      ? eventLogic.attendanceDate 
-      : undefined;
-    
+
+    const attendanceDate =
+      'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
+        ? eventLogic.attendanceDate
+        : undefined;
+
     const isPast = hasEventPassed(event, attendanceDate);
 
     // Calcular si solo hay un día disponible
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    
+
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
-    
+
     const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
-    
+
     // Si l'esdeveniment ja ha començat, permetre des d'avui
     let minDate: Date;
     if (startDate <= today) {
@@ -216,7 +217,7 @@ export default function EventDetail() {
     } else {
       minDate = startDate < tomorrow ? tomorrow : startDate;
     }
-    
+
     const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
     maxDate.setHours(0, 0, 0, 0);
 
@@ -277,9 +278,7 @@ export default function EventDetail() {
         style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
         onPress={handleWantToGo}
       >
-        <Text style={[styles.buttonText, { color: Colors.card }]}>
-          {buttonText}
-        </Text>
+        <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
       </TouchableOpacity>
     );
   };
@@ -295,13 +294,13 @@ export default function EventDetail() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  
+
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
-  
+
   const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
   startDate.setHours(0, 0, 0, 0);
-  
+
   // Si l'esdeveniment ja ha començat, permetre des d'avui
   let minDate: Date;
   if (startDate <= today) {
@@ -309,7 +308,7 @@ export default function EventDetail() {
   } else {
     minDate = startDate < tomorrow ? tomorrow : startDate;
   }
-  
+
   const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
 
   return (
@@ -527,13 +526,15 @@ export default function EventDetail() {
                 style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
                 onPress={() => setShowDateModal(false)}
               >
-                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>
-                  {t('Cancel')}
-                </Text>
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton, { backgroundColor: Colors.accent }]}
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
                 onPress={confirmDate}
               >
                 <Text style={[styles.confirmButtonText, { color: Colors.card }]}>

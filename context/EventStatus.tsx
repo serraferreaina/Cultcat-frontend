@@ -264,7 +264,7 @@ export const useEventLogic = (event: any) => {
   const id = event.id;
 
   // Crear la data i sumar-li un dia per compensar la zona horària
-  const attendanceDate = attendanceDates[id] 
+  const attendanceDate = attendanceDates[id]
     ? (() => {
         const date = new Date(attendanceDates[id]);
         date.setDate(date.getDate() + 1);

@@ -174,21 +174,21 @@ export default function MapScreen() {
 
   const handleWantToGo = () => {
     if (!selectedEvent) return;
-    
+
     if (!goingEvents[selectedEvent.id]) {
       if (selectedEvent.data_inici) {
         setSelectedDate(new Date(selectedEvent.data_inici));
       }
-      
+
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const tomorrow = new Date(today);
       tomorrow.setDate(tomorrow.getDate() + 1);
-      
+
       const startDate = selectedEvent.data_inici ? new Date(selectedEvent.data_inici) : new Date();
       startDate.setHours(0, 0, 0, 0);
-      
+
       // Si l'esdeveniment ja ha començat, permetre des d'avui
       let minDate: Date;
       if (startDate <= today) {
@@ -196,12 +196,12 @@ export default function MapScreen() {
       } else {
         minDate = startDate < tomorrow ? tomorrow : startDate;
       }
-      
+
       const maxDate = selectedEvent.data_fi ? new Date(selectedEvent.data_fi) : new Date();
       maxDate.setHours(0, 0, 0, 0);
-      
+
       const isSingleDay = minDate.getTime() === maxDate.getTime();
-      
+
       if (isSingleDay) {
         toggleGoing(selectedEvent.id, minDate);
       } else {
@@ -257,23 +257,26 @@ export default function MapScreen() {
   };
 
   // Funció amb debounce per onRegionChangeComplete
-  const handleRegionChange = useCallback((region: any) => {
-    if (debounceTimeout.current) {
-      clearTimeout(debounceTimeout.current);
-    }
-
-    debounceTimeout.current = setTimeout(() => {
-      const regionChanged =
-        !currentRegion ||
-        Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.5 ||
-        Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.5;
-
-      if (regionChanged) {
-        setCurrentRegion({ latitude: region.latitude, longitude: region.longitude });
-        fetchEventsByCenter(region.latitude, region.longitude);
+  const handleRegionChange = useCallback(
+    (region: any) => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
       }
-    }, 1000); // Espera 1 segon després de deixar de moure el mapa
-  }, [currentRegion]);
+
+      debounceTimeout.current = setTimeout(() => {
+        const regionChanged =
+          !currentRegion ||
+          Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.5 ||
+          Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.5;
+
+        if (regionChanged) {
+          setCurrentRegion({ latitude: region.latitude, longitude: region.longitude });
+          fetchEventsByCenter(region.latitude, region.longitude);
+        }
+      }, 1000); // Espera 1 segon després de deixar de moure el mapa
+    },
+    [currentRegion],
+  );
 
   if (loading || !location) {
     return (
