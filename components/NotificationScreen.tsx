@@ -230,7 +230,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       </View>
     </Modal>
   );
-
 };
 
 const styles = StyleSheet.create({
