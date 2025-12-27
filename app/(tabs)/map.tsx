@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
   TouchableOpacity,
   ScrollView,
+  Platform,
 } from 'react-native';
 
 import MapView from 'react-native-map-clustering';
@@ -23,6 +24,7 @@ import { useEventStatus } from '../../context/EventStatus';
 import { Share } from 'react-native';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface EventItem {
   id: number;
@@ -35,6 +37,8 @@ interface EventItem {
   horari?: string;
   modalitat?: string;
   direccio?: string;
+  data_inici?: string | null;
+  data_fi?: string | null;
 }
 
 export default function MapScreen() {
@@ -51,40 +55,40 @@ export default function MapScreen() {
 
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
 
   const mapRef = useRef(null);
 
-  const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
+  const { goingEvents, toggleGoing, savedEvents, toggleSaved, attendanceDates } = useEventStatus();
 
-  const BATCH_SIZE = 100;
-  const [offset, setOffset] = useState(0);
+  const BATCH_SIZE = 50; // Reduït de 100 a 50
   const [loadingEvents, setLoadingEvents] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [currentRegion, setCurrentRegion] = useState<{
     latitude: number;
     longitude: number;
   } | null>(null);
+
+  // Debounce per evitar massa crides
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const openEventDetail = (id: number) => {
     setSelectedEvent(null);
     router.push(`/events/${id}`);
   };
 
-  const fetchEventsByCenter = async (latitude: number, longitude: number, reset = false) => {
-    if (loadingEvents && !reset) return;
-    if (!hasMore && !reset) return;
+  const fetchEventsByCenter = async (latitude: number, longitude: number) => {
+    if (loadingEvents) return;
 
     setLoadingEvents(true);
-
-    const currentOffset = reset ? 0 : offset;
 
     try {
       const url =
         `http://nattech.fib.upc.edu:40490/events` +
         `?latitud=${latitude}` +
         `&longitud=${longitude}` +
-        `&batch_size=${BATCH_SIZE}` +
-        `&offset=${currentOffset}`;
+        `&batch_size=${BATCH_SIZE}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error('Error loading events');
@@ -100,9 +104,7 @@ export default function MapScreen() {
         data = [];
       }
 
-      setEvents((prev) => (reset ? data : [...prev, ...data]));
-      setOffset(reset ? data.length : currentOffset + data.length);
-      setHasMore(data.length === BATCH_SIZE);
+      setEvents(data);
     } catch (err: any) {
       console.error('Error fetching events:', err);
       setError(err.message);
@@ -126,9 +128,155 @@ export default function MapScreen() {
 
   useEffect(() => {
     if (location) {
-      fetchEventsByCenter(location.latitude, location.longitude, true);
+      fetchEventsByCenter(location.latitude, location.longitude);
     }
   }, [location]);
+
+  const hasEventPassed = (event: EventItem): boolean => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const savedAttendanceDate = attendanceDates[event.id]
+      ? new Date(attendanceDates[event.id])
+      : undefined;
+
+    if (savedAttendanceDate) {
+      const attendance = new Date(savedAttendanceDate);
+      attendance.setHours(0, 0, 0, 0);
+      if (attendance < now) {
+        return true;
+      }
+    }
+
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate < now) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const getMinMaxDates = (event: EventItem) => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    const minDate = startDate < today ? today : startDate;
+    const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
+
+    return { minDate, maxDate };
+  };
+
+  const handleWantToGo = () => {
+    if (!selectedEvent) return;
+
+    if (!goingEvents[selectedEvent.id]) {
+      if (selectedEvent.data_inici) {
+        setSelectedDate(new Date(selectedEvent.data_inici));
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const startDate = selectedEvent.data_inici ? new Date(selectedEvent.data_inici) : new Date();
+      startDate.setHours(0, 0, 0, 0);
+
+      // Si l'esdeveniment ja ha començat, permetre des d'avui
+      let minDate: Date;
+      if (startDate <= today) {
+        minDate = today;
+      } else {
+        minDate = startDate < tomorrow ? tomorrow : startDate;
+      }
+
+      const maxDate = selectedEvent.data_fi ? new Date(selectedEvent.data_fi) : new Date();
+      maxDate.setHours(0, 0, 0, 0);
+
+      const isSingleDay = minDate.getTime() === maxDate.getTime();
+
+      if (isSingleDay) {
+        toggleGoing(selectedEvent.id, minDate);
+      } else {
+        setShowDateModal(true);
+      }
+    } else {
+      toggleGoing(selectedEvent.id);
+    }
+  };
+
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const confirmDate = async () => {
+    if (selectedEvent) {
+      await toggleGoing(selectedEvent.id, selectedDate);
+    }
+    setShowDatePicker(false);
+    setShowDateModal(false);
+  };
+
+  const getButtonText = (event: EventItem) => {
+    const isPast = hasEventPassed(event);
+    const isGoing = goingEvents[event.id];
+
+    const savedAttendanceDate = attendanceDates[event.id]
+      ? (() => {
+          const date = new Date(attendanceDates[event.id]);
+          date.setDate(date.getDate() + 1);
+          return date;
+        })()
+      : undefined;
+
+    if (isPast) {
+      return isGoing ? t('He anat') : t('Vull anar');
+    } else {
+      if (isGoing && savedAttendanceDate) {
+        const formattedDate = savedAttendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        return `${t('Assistiré')} - ${formattedDate}`;
+      }
+      return isGoing ? t('Assistiré') : t('Vull assistir');
+    }
+  };
+
+  // Funció amb debounce per onRegionChangeComplete
+  const handleRegionChange = useCallback(
+    (region: any) => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+
+      debounceTimeout.current = setTimeout(() => {
+        const regionChanged =
+          !currentRegion ||
+          Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.5 ||
+          Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.5;
+
+        if (regionChanged) {
+          setCurrentRegion({ latitude: region.latitude, longitude: region.longitude });
+          fetchEventsByCenter(region.latitude, region.longitude);
+        }
+      }, 1000); // Espera 1 segon després de deixar de moure el mapa
+    },
+    [currentRegion],
+  );
 
   if (loading || !location) {
     return (
@@ -148,6 +296,10 @@ export default function MapScreen() {
       </View>
     );
   }
+
+  const { minDate, maxDate } = selectedEvent
+    ? getMinMaxDates(selectedEvent)
+    : { minDate: new Date(), maxDate: new Date() };
 
   return (
     <View style={styles.container}>
@@ -179,23 +331,7 @@ export default function MapScreen() {
           latitudeDelta: 0.1,
           longitudeDelta: 0.1,
         }}
-        onRegionChangeComplete={(region) => {
-          const latKm = region.latitudeDelta * 111;
-          const lonKm = region.longitudeDelta * 111 * Math.cos((region.latitude * Math.PI) / 180);
-          const areaKm2 = latKm * lonKm;
-
-          const regionChanged =
-            !currentRegion ||
-            Math.abs(region.latitude - currentRegion.latitude) > region.latitudeDelta * 0.3 ||
-            Math.abs(region.longitude - currentRegion.longitude) > region.longitudeDelta * 0.3;
-
-          if (regionChanged) {
-            setCurrentRegion({ latitude: region.latitude, longitude: region.longitude });
-            setOffset(0);
-            setHasMore(true);
-            fetchEventsByCenter(region.latitude, region.longitude, true);
-          }
-        }}
+        onRegionChangeComplete={handleRegionChange}
       >
         {Array.isArray(events) &&
           events.map((event) => {
@@ -299,10 +435,10 @@ export default function MapScreen() {
                             marginRight: 10,
                           },
                         ]}
-                        onPress={() => toggleGoing(selectedEvent.id)}
+                        onPress={handleWantToGo}
                       >
                         <Text style={[styles.buttonText, { color: Colors.card }]}>
-                          {goingEvents[selectedEvent.id] ? t('I will attend') : t('Want to go')}
+                          {getButtonText(selectedEvent)}
                         </Text>
                       </TouchableOpacity>
 
@@ -317,7 +453,6 @@ export default function MapScreen() {
                         />
                       </TouchableOpacity>
 
-                      {/* OPEN COMMENTS */}
                       <TouchableOpacity
                         style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
                         onPress={() => setShowComments(true)}
@@ -325,7 +460,6 @@ export default function MapScreen() {
                         <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
                       </TouchableOpacity>
 
-                      {/* OPEN REVIEWS */}
                       <TouchableOpacity
                         style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
                         onPress={() => setShowReviews(true)}
@@ -360,6 +494,96 @@ export default function MapScreen() {
           </TouchableOpacity>
         </Modal>
       )}
+
+      {/* MODAL DE SELECCIÓN DE FECHA */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.dateModalOverlay}>
+          <View style={[styles.dateModalContainer, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select attendance date')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: Colors.textSecondary }]}>
+              {t('Choose the day you want to attend this event')}
+            </Text>
+
+            <View style={styles.datePickerContainer}>
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  minimumDate={minDate}
+                  maximumDate={maxDate}
+                  locale="ca-ES"
+                  textColor={Colors.text}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: Colors.background }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.dateButtonText, { color: Colors.text }]}>
+                      {selectedDate.toLocaleDateString('ca-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                      minimumDate={minDate}
+                      maximumDate={maxDate}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
+                onPress={confirmDate}
+              >
+                <Text style={[styles.confirmButtonText, { color: Colors.card }]}>
+                  {t('Confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* COMMENTS */}
       {selectedEvent && (
@@ -482,5 +706,81 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 20,
     alignSelf: 'flex-start',
+  },
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  confirmButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
   },
 });

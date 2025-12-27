@@ -9,6 +9,8 @@ import {
   Linking,
   ActivityIndicator,
   Share,
+  Modal,
+  Platform,
 } from 'react-native';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -19,6 +21,7 @@ import { useEventStatus, useEventLogic } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import WeatherIcon from '../../components/WeatherIcon';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface EventData {
   id: number;
@@ -60,6 +63,11 @@ export default function EventDetail() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
 
+  // Estados para el selector de fecha
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDateModal, setShowDateModal] = useState(false);
+
   const shouldHideEvent = (event: EventData): boolean => {
     if (!event.data_fi) return false;
 
@@ -73,6 +81,30 @@ export default function EventDetail() {
     );
   };
 
+  // Función para verificar si el evento ya ha pasado
+  const hasEventPassed = (event: EventData, attendanceDate?: Date): boolean => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    if (attendanceDate) {
+      const attendance = new Date(attendanceDate);
+      attendance.setHours(0, 0, 0, 0);
+      if (attendance < now) {
+        return true;
+      }
+    }
+
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate < now) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     if (!eventId) return;
 
@@ -82,7 +114,6 @@ export default function EventDetail() {
         if (!res.ok) throw new Error('Event not found');
         const data = await res.json();
 
-        // Si l'esdeveniment ha de ser ocult, mostra error
         if (shouldHideEvent(data)) {
           setError('Event not available');
           setLoading(false);
@@ -90,6 +121,10 @@ export default function EventDetail() {
         }
 
         setEvent(data);
+
+        if (data.data_inici) {
+          setSelectedDate(new Date(data.data_inici));
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
@@ -100,7 +135,6 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
-  // Función para formatear la fecha
   const formatEventDate = (startDate: string | null, endDate: string | null): string => {
     if (!startDate) return t('Date not available');
 
@@ -118,6 +152,22 @@ export default function EventDetail() {
     }
 
     return start.toLocaleDateString('ca-ES', options);
+  };
+
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const confirmDate = () => {
+    if ((window as any).confirmAttendance) {
+      (window as any).confirmAttendance();
+    }
   };
 
   if (load) {
@@ -140,16 +190,95 @@ export default function EventDetail() {
   }
 
   const LogicWrapper = () => {
-    const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(event);
+    const eventLogic = useEventLogic(event);
+    const { isActive, toggle, textKey, textKeyInactive } = eventLogic;
+
+    const attendanceDate =
+      'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
+        ? eventLogic.attendanceDate
+        : undefined;
+
+    const isPast = hasEventPassed(event, attendanceDate);
+
+    // Calcular si solo hay un día disponible
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    // Si l'esdeveniment ja ha començat, permetre des d'avui
+    let minDate: Date;
+    if (startDate <= today) {
+      minDate = today;
+    } else {
+      minDate = startDate < tomorrow ? tomorrow : startDate;
+    }
+
+    const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
+    maxDate.setHours(0, 0, 0, 0);
+
+    // Comprobar si minDate y maxDate son el mismo día
+    const isSingleDay = minDate.getTime() === maxDate.getTime();
+
+    const handleWantToGo = () => {
+      if (!isActive) {
+        if (isSingleDay) {
+          // Si solo hay un día disponible, usar automáticamente ese día
+          toggle(minDate);
+        } else {
+          // Si hay múltiples días, mostrar selector
+          setShowDateModal(true);
+        }
+      } else {
+        toggle();
+      }
+    };
+
+    const handleConfirmDate = () => {
+      toggle(selectedDate);
+      setShowDatePicker(false);
+      setShowDateModal(false);
+    };
+
+    React.useEffect(() => {
+      (window as any).confirmAttendance = handleConfirmDate;
+    }, [selectedDate]);
+
+    let buttonText = '';
+    if (isPast) {
+      if (isActive && attendanceDate) {
+        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        buttonText = `${t('He anat')} - ${formattedDate}`;
+      } else {
+        buttonText = isActive ? t('He anat') : t('Vull anar');
+      }
+    } else {
+      if (isActive && attendanceDate) {
+        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        buttonText = `${t('Assistiré')} - ${formattedDate}`;
+      } else if (isActive) {
+        buttonText = t('Assistiré');
+      } else {
+        buttonText = t('Vull assistir');
+      }
+    }
 
     return (
       <TouchableOpacity
         style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
-        onPress={toggle}
+        onPress={handleWantToGo}
       >
-        <Text style={[styles.buttonText, { color: Colors.card }]}>
-          {isActive ? t(textKey) : t(textKeyInactive)}
-        </Text>
+        <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
       </TouchableOpacity>
     );
   };
@@ -163,9 +292,27 @@ export default function EventDetail() {
       ? `https://agenda.cultura.gencat.cat${event.imatges.split(',')[0]}`
       : null;
 
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const tomorrow = new Date(today);
+  tomorrow.setDate(tomorrow.getDate() + 1);
+
+  const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
+  startDate.setHours(0, 0, 0, 0);
+
+  // Si l'esdeveniment ja ha començat, permetre des d'avui
+  let minDate: Date;
+  if (startDate <= today) {
+    minDate = today;
+  } else {
+    minDate = startDate < tomorrow ? tomorrow : startDate;
+  }
+
+  const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: Colors.background, paddingTop: 50 }]}>
-      {/* BACK BUTTON + TITLE */}
       <View style={styles.headerRow}>
         <TouchableOpacity onPress={() => router.back()}>
           <Text style={[styles.title, { color: Colors.text }]}>←</Text>
@@ -180,9 +327,7 @@ export default function EventDetail() {
 
       {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
-      {/* WEATHER INFO */}
       {(() => {
-        // Primero intentar con latitud/longitud separados
         if (
           event.latitud !== null &&
           event.longitud !== null &&
@@ -192,7 +337,6 @@ export default function EventDetail() {
           return <WeatherIcon latitude={event.latitud} longitude={event.longitud} />;
         }
 
-        // Si no, intentar con georeferencia
         if (event.georeferencia) {
           const coords = event.georeferencia.split(',');
 
@@ -209,7 +353,6 @@ export default function EventDetail() {
         return null;
       })()}
 
-      {/* BUTTONS */}
       <View style={styles.topButtons}>
         <LogicWrapper />
 
@@ -241,7 +384,6 @@ export default function EventDetail() {
         </View>
       </View>
 
-      {/* EVENT DATE */}
       <View style={styles.dateContainer}>
         <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
         <Text style={[styles.eventDate, { color: Colors.text }]}>
@@ -253,7 +395,6 @@ export default function EventDetail() {
         {event.descripcio?.trim() || t('No description available')}
       </Text>
 
-      {/* DETALLS */}
       {event.espai && (
         <Text style={[styles.detail, { color: Colors.text }]}>
           🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
@@ -295,14 +436,12 @@ export default function EventDetail() {
         </Text>
       )}
 
-      {/* LINK EXTRA */}
       {typeof Link === 'string' && Link.trim() !== '' && (
         <TouchableOpacity onPress={() => Linking.openURL(Link)}>
           <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
         </TouchableOpacity>
       )}
 
-      {/* BOTO RESSENYA */}
       <View style={{ alignItems: 'flex-end' }}>
         <TouchableOpacity
           style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
@@ -318,9 +457,96 @@ export default function EventDetail() {
         </TouchableOpacity>
       </View>
 
-      {/* COMMENT MODAL */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.dateModalContainer, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select attendance date')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: Colors.textSecondary }]}>
+              {t('Choose the day you want to attend this event')}
+            </Text>
+
+            <View style={styles.datePickerContainer}>
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  minimumDate={minDate}
+                  maximumDate={maxDate}
+                  locale="ca-ES"
+                  textColor={Colors.text}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: Colors.background }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.dateButtonText, { color: Colors.text }]}>
+                      {selectedDate.toLocaleDateString('ca-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                      minimumDate={minDate}
+                      maximumDate={maxDate}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
+                onPress={confirmDate}
+              >
+                <Text style={[styles.confirmButtonText, { color: Colors.card }]}>
+                  {t('Confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       <CommentSection eventId={event.id} visible={modalOpen} onClose={() => setModalOpen(false)} />
-      {/* REVIEW MODAL */}
       <ReviewSection
         eventId={event.id}
         visible={reviewVisible}
@@ -419,5 +645,81 @@ const styles = StyleSheet.create({
   reviewButtonText: {
     fontSize: 12,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  confirmButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
