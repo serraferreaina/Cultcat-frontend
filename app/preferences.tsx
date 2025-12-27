@@ -213,15 +213,31 @@ export default function PreferencesScreen() {
   const savePreferences = async () => {
     try {
       await AsyncStorage.setItem('favoriteCategories', JSON.stringify(selectedCategories));
-      Alert.alert(t('Saved'), t('Your preferences has been saved'), [
-        {
-          text: 'OK',
-          onPress: () => {
-            router.back();
-            setTimeout(() => router.back(), 50);
+
+      // 👇 NUEVO: Marca que ya completó la configuración inicial
+      const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
+
+      if (!hasCompletedSetup) {
+        // Primera vez - marcar como completado e ir a tabs
+        await AsyncStorage.setItem('hasCompletedSetup', 'true');
+        Alert.alert(t('Saved'), t('Your preferences has been saved'), [
+          {
+            text: 'OK',
+            onPress: () => router.replace('/(tabs)'),
           },
-        },
-      ]);
+        ]);
+      } else {
+        // Edición posterior - volver atrás
+        Alert.alert(t('Saved'), t('Your preferences has been saved'), [
+          {
+            text: 'OK',
+            onPress: () => {
+              router.back();
+              setTimeout(() => router.back(), 50);
+            },
+          },
+        ]);
+      }
     } catch (e) {
       Alert.alert('Error', t('Your preferences has not been saved'));
     }
