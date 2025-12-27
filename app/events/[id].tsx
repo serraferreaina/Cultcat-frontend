@@ -81,6 +81,13 @@ export default function EventDetail() {
     );
   };
 
+  const normalizeDate = (date: Date): Date => {
+    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    return normalized;
+  };
+
   // Función para verificar si el evento ya ha pasado
   const hasEventPassed = (event: EventData, attendanceDate?: Date): boolean => {
     const now = new Date();
@@ -227,8 +234,9 @@ export default function EventDetail() {
     const handleWantToGo = () => {
       if (!isActive) {
         if (isSingleDay) {
-          // Si solo hay un día disponible, usar automáticamente ese día
-          toggle(minDate);
+          // Si solo hay un día disponible, usar automáticamente ese día (normalitzat)
+          const normalizedMinDate = normalizeDate(minDate);
+          toggle(normalizedMinDate);
         } else {
           // Si hay múltiples días, mostrar selector
           setShowDateModal(true);
@@ -239,7 +247,12 @@ export default function EventDetail() {
     };
 
     const handleConfirmDate = () => {
-      toggle(selectedDate);
+      // Normalitzar la data abans d'enviar-la
+      const normalizedDate = normalizeDate(selectedDate);
+      console.log('📅 Selected date:', selectedDate);
+      console.log('📅 Normalized date:', normalizedDate);
+      console.log('📅 Will send to API:', normalizedDate.toISOString().split('T')[0]);
+      toggle(normalizedDate);
       setShowDatePicker(false);
       setShowDateModal(false);
     };

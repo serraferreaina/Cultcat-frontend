@@ -56,6 +56,13 @@ export default function CercaScreen() {
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
 
+  const normalizeDate = (date: Date): Date => {
+    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    return normalized;
+  };
+
   // Estats per al modal de data
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -194,7 +201,12 @@ export default function CercaScreen() {
 
   const confirmDate = async () => {
     if (selectedEventForDate) {
-      await toggleGoing(selectedEventForDate.id, selectedDate);
+      // Normalitzar la data abans d'enviar-la
+      const normalizedDate = normalizeDate(selectedDate);
+      console.log('📅 Cerca - Selected date:', selectedDate);
+      console.log('📅 Cerca - Normalized date:', normalizedDate);
+      console.log('📅 Cerca - Will send to API:', normalizedDate.toISOString().split('T')[0]);
+      await toggleGoing(selectedEventForDate.id, normalizedDate);
     }
     setShowDatePicker(false);
     setShowDateModal(false);
@@ -225,9 +237,9 @@ export default function CercaScreen() {
 
     const attendanceDate = attendanceDates[item.id]
       ? (() => {
-          const date = new Date(attendanceDates[item.id]);
-          date.setDate(date.getDate() + 1);
-          return date;
+          // Parsejar manualment per evitar problemes de zona horària
+          const [year, month, day] = attendanceDates[item.id].split('-').map(Number);
+          return new Date(year, month - 1, day, 12, 0, 0);
         })()
       : undefined;
 
@@ -293,7 +305,13 @@ export default function CercaScreen() {
         const isSingleDay = minDate.getTime() === maxDate.getTime();
 
         if (isSingleDay) {
-          toggleGoing(item.id, minDate);
+          // Normalitzar la data abans d'enviar
+          const normalizedMinDate = normalizeDate(minDate);
+          console.log(
+            '📅 Cerca EventCard - Single day, sending:',
+            normalizedMinDate.toISOString().split('T')[0],
+          );
+          toggleGoing(item.id, normalizedMinDate);
         } else {
           setShowDateModal(true);
         }

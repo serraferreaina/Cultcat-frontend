@@ -27,6 +27,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   }, []);
 
   const loadInitialData = async () => {
+    // Carregar dades locals primer (més ràpid)
     try {
       const json = await AsyncStorage.getItem('savedEvents');
       if (json) setSavedEvents(JSON.parse(json));
@@ -37,10 +38,13 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       console.error('Error loading local saved events:', e);
     }
 
+    // Després sincronitzar amb el backend
     try {
+      const datesMap: Record<number, string> = {};
+
+      // Carregar esdeveniments "going"
       const goingData = await api('/saved-events/?state=wantToGo');
       const goingMap: Record<number, boolean> = {};
-      const datesMap: Record<number, string> = {};
       goingData.forEach((item: any) => {
         const eventId = parseInt(item.event_id, 10);
         goingMap[eventId] = true;
@@ -49,8 +53,8 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
       });
       setGoingEvents(goingMap);
-      setAttendanceDates((prev) => ({ ...prev, ...datesMap }));
 
+      // Carregar esdeveniments "attended"
       const assistedData = await api('/saved-events/?state=attended');
       const assistedMap: Record<number, boolean> = {};
       assistedData.forEach((item: any) => {
@@ -61,17 +65,19 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         }
       });
       setAssistedEvents(assistedMap);
-      setAttendanceDates((prev) => ({ ...prev, ...datesMap }));
 
+      // Actualitzar totes les dates
+      setAttendanceDates(datesMap);
+      await AsyncStorage.setItem('attendanceDates', JSON.stringify(datesMap));
+
+      // Carregar esdeveniments "wishlist"
       const savedData = await api('/saved-events/?state=wishlist');
       const savedMap: Record<number, boolean> = {};
       savedData.forEach((item: any) => {
         savedMap[parseInt(item.event_id, 10)] = true;
       });
       setSavedEvents(savedMap);
-
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
-      await AsyncStorage.setItem('attendanceDates', JSON.stringify(datesMap));
     } catch (err) {
       console.error('Error loading API data:', err);
     }
@@ -121,15 +127,29 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
           method: 'DELETE',
         });
       } else {
-        console.log(`Adding event ${eventId} to ${state}`);
+        console.log(
+          `Adding event ${eventId} to ${state}`,
+          date ? `with date: ${date.toISOString().split('T')[0]}` : '',
+        );
         const body: any = { state };
         if (date) {
+          // IMPORTANT: Formatar la data en format YYYY-MM-DD
           body.attendance_date = date.toISOString().split('T')[0];
         }
-        await api(`/save/${eventId}/`, {
+
+        const response = await api(`/save/${eventId}/`, {
           method: 'POST',
           body: JSON.stringify(body),
         });
+
+        console.log('API Response:', response);
+
+        // Verificar si el backend ha retornat la data correctament
+        if (response && response.attendance_date) {
+          console.log('✅ Backend confirmed attendance_date:', response.attendance_date);
+        } else {
+          console.warn('⚠️ Backend did not return attendance_date');
+        }
       }
     } catch (err) {
       console.error(`Error toggling ${state}:`, err);
@@ -140,73 +160,75 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const toggleGoing = async (eventId: number, date?: Date) => {
     const isCurrentlyGoing = goingEvents[eventId] || false;
 
-    // Update date if provided
-    if (date && !isCurrentlyGoing) {
+    if (!isCurrentlyGoing && date) {
+      // Afegint: guardar la data
       const dateString = date.toISOString().split('T')[0];
       const updatedDates = { ...attendanceDates, [eventId]: dateString };
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
+
+      console.log(`Setting attendance date for event ${eventId}: ${dateString}`);
     } else if (isCurrentlyGoing) {
+      // Eliminant: esborrar la data
       const updatedDates = { ...attendanceDates };
       delete updatedDates[eventId];
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
     }
 
-    // Optimistic Update
+    // Actualització optimista
     const updated = { ...goingEvents, [eventId]: !isCurrentlyGoing };
     setGoingEvents(updated);
 
-    // Try to sync with backend
-    try {
-      await handleApiToggle(
-        eventId,
-        isCurrentlyGoing,
-        'wantToGo',
-        () => {
-          console.warn(`⚠️ Could not sync event ${eventId} with backend`);
-        },
-        date,
-      );
-    } catch (err) {
-      console.warn(`⚠️ Error syncing with backend for event ${eventId}:`, err);
-    }
+    // Sincronitzar amb backend
+    await handleApiToggle(
+      eventId,
+      isCurrentlyGoing,
+      'wantToGo',
+      () => {
+        // En cas d'error, revertir
+        console.warn(`⚠️ Could not sync event ${eventId} with backend, reverting...`);
+        setGoingEvents({ ...goingEvents, [eventId]: isCurrentlyGoing });
+      },
+      date,
+    );
   };
 
   const toggleAssisted = async (eventId: number, date?: Date) => {
     const isCurrentlyAssisted = assistedEvents[eventId] || false;
 
-    // Update date if provided
-    if (date && !isCurrentlyAssisted) {
+    if (!isCurrentlyAssisted && date) {
+      // Afegint: guardar la data
       const dateString = date.toISOString().split('T')[0];
       const updatedDates = { ...attendanceDates, [eventId]: dateString };
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
+
+      console.log(`Setting attendance date for event ${eventId}: ${dateString}`);
     } else if (isCurrentlyAssisted) {
+      // Eliminant: esborrar la data
       const updatedDates = { ...attendanceDates };
       delete updatedDates[eventId];
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
     }
 
-    // Optimistic Update
+    // Actualització optimista
     const updated = { ...assistedEvents, [eventId]: !isCurrentlyAssisted };
     setAssistedEvents(updated);
 
-    // Try to sync with backend
-    try {
-      await handleApiToggle(
-        eventId,
-        isCurrentlyAssisted,
-        'attended',
-        () => {
-          console.warn(`⚠️ Could not sync event ${eventId} with backend`);
-        },
-        date,
-      );
-    } catch (err) {
-      console.warn(`⚠️ Error syncing with backend for event ${eventId}:`, err);
-    }
+    // Sincronitzar amb backend
+    await handleApiToggle(
+      eventId,
+      isCurrentlyAssisted,
+      'attended',
+      () => {
+        // En cas d'error, revertir
+        console.warn(`⚠️ Could not sync event ${eventId} with backend, reverting...`);
+        setAssistedEvents({ ...assistedEvents, [eventId]: isCurrentlyAssisted });
+      },
+      date,
+    );
   };
 
   const toggleSaved = async (eventId: number) => {
@@ -253,21 +275,24 @@ export const useEventLogic = (event: any) => {
   const { t } = useTranslation();
 
   const isPast = () => {
-    if (!event.data_inici) return false;
-    const eventDate = new Date(event.data_inici);
+    if (!event.data_fi) return false;
+    const endDate = new Date(event.data_fi);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return eventDate < today;
+    endDate.setHours(0, 0, 0, 0);
+    return endDate < today;
   };
 
   const past = isPast();
   const id = event.id;
 
-  // Crear la data i sumar-li un dia per compensar la zona horària
+  // Obtenir la data d'assistència
   const attendanceDate = attendanceDates[id]
     ? (() => {
-        const date = new Date(attendanceDates[id]);
-        date.setDate(date.getDate() + 1);
+        // Parsejar manualment per evitar problemes de zona horària
+        const [year, month, day] = attendanceDates[id].split('-').map(Number);
+        // Crear la data directament amb els components (month - 1 perquè els mesos van de 0-11)
+        const date = new Date(year, month - 1, day, 12, 0, 0);
         return date;
       })()
     : undefined;

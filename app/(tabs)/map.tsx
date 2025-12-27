@@ -59,6 +59,13 @@ export default function MapScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
+  const normalizeDate = (date: Date): Date => {
+    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    return normalized;
+  };
+
   const mapRef = useRef(null);
 
   const { goingEvents, toggleGoing, savedEvents, toggleSaved, attendanceDates } = useEventStatus();
@@ -203,7 +210,13 @@ export default function MapScreen() {
       const isSingleDay = minDate.getTime() === maxDate.getTime();
 
       if (isSingleDay) {
-        toggleGoing(selectedEvent.id, minDate);
+        // Normalitzar la data abans d'enviar
+        const normalizedMinDate = normalizeDate(minDate);
+        console.log(
+          '📅 MapScreen - Single day, sending:',
+          normalizedMinDate.toISOString().split('T')[0],
+        );
+        toggleGoing(selectedEvent.id, normalizedMinDate);
       } else {
         setShowDateModal(true);
       }
@@ -224,7 +237,12 @@ export default function MapScreen() {
 
   const confirmDate = async () => {
     if (selectedEvent) {
-      await toggleGoing(selectedEvent.id, selectedDate);
+      // Normalitzar la data abans d'enviar-la
+      const normalizedDate = normalizeDate(selectedDate);
+      console.log('📅 MapScreen - Selected date:', selectedDate);
+      console.log('📅 MapScreen - Normalized date:', normalizedDate);
+      console.log('📅 MapScreen - Will send to API:', normalizedDate.toISOString().split('T')[0]);
+      await toggleGoing(selectedEvent.id, normalizedDate);
     }
     setShowDatePicker(false);
     setShowDateModal(false);
@@ -236,9 +254,9 @@ export default function MapScreen() {
 
     const savedAttendanceDate = attendanceDates[event.id]
       ? (() => {
-          const date = new Date(attendanceDates[event.id]);
-          date.setDate(date.getDate() + 1);
-          return date;
+          // Parsejar manualment per evitar problemes de zona horària
+          const [year, month, day] = attendanceDates[event.id].split('-').map(Number);
+          return new Date(year, month - 1, day, 12, 0, 0);
         })()
       : undefined;
 

@@ -40,6 +40,13 @@ interface PointsImages {
   images: string[];
 }
 
+const normalizeDate = (date: Date): Date => {
+  // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
+  const normalized = new Date(date);
+  normalized.setHours(12, 0, 0, 0);
+  return normalized;
+};
+
 // --- HELPER COMPONENT: IMAGES CAROUSEL ---
 const Images: React.FC<PointsImages> = ({ images }) => {
   const { theme } = useTheme();
@@ -213,7 +220,8 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const handleButtonPress = () => {
     if (!isActive) {
       if (item.data_inici) {
-        setSelectedDate(new Date(item.data_inici));
+        const initialDate = new Date(item.data_inici);
+        setSelectedDate(initialDate);
       }
 
       const today = new Date();
@@ -238,7 +246,10 @@ const FeedCard: React.FC<FeedCardProps> = ({
       const isSingleDay = minDate.getTime() === maxDate.getTime();
 
       if (isSingleDay) {
-        toggle(minDate);
+        // Normalitzar la data abans d'enviar
+        const normalizedMinDate = normalizeDate(minDate);
+        console.log('📅 Single day - sending:', normalizedMinDate.toISOString().split('T')[0]);
+        toggle(normalizedMinDate);
       } else {
         setShowDateModal(true);
       }
@@ -248,7 +259,12 @@ const FeedCard: React.FC<FeedCardProps> = ({
   };
 
   const handleConfirmDate = () => {
-    toggle(selectedDate);
+    // Normalitzar la data abans d'enviar-la
+    const normalizedDate = normalizeDate(selectedDate);
+    console.log('📅 FeedCard - Selected date:', selectedDate);
+    console.log('📅 FeedCard - Normalized date:', normalizedDate);
+    console.log('📅 FeedCard - Will send to API:', normalizedDate.toISOString().split('T')[0]);
+    toggle(normalizedDate);
     setShowDatePicker(false);
     setShowDateModal(false);
   };

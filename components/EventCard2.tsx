@@ -59,15 +59,21 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const isSaved = !!savedEvents[item.id];
   const isAssisted = !!assistedEvents[item.id];
 
+  const normalizeDate = (date: Date): Date => {
+    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    return normalized;
+  };
+
   // Obtener fecha de asistencia guardada y SUMAR UN DÍA para compensar UTC
   const savedAttendanceDate = attendanceDates[item.id]
     ? (() => {
-        const date = new Date(attendanceDates[item.id]);
-        date.setDate(date.getDate() + 1);
-        return date;
+        // Parsejar manualment per evitar problemes de zona horària
+        const [year, month, day] = attendanceDates[item.id].split('-').map(Number);
+        return new Date(year, month - 1, day, 12, 0, 0);
       })()
     : undefined;
-
   const images: string[] =
     item.imatges && item.imatges.trim() !== ''
       ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
@@ -189,8 +195,13 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
       const isSingleDay = minDate.getTime() === maxDate.getTime();
 
       if (isSingleDay) {
-        // Si solo hay un día, seleccionar automáticamente
-        toggleGoing(item.id, minDate);
+        // Normalitzar la data abans d'enviar
+        const normalizedMinDate = normalizeDate(minDate);
+        console.log(
+          '📅 EventCard - Single day, sending:',
+          normalizedMinDate.toISOString().split('T')[0],
+        );
+        toggleGoing(item.id, normalizedMinDate);
       } else {
         // Si hay múltiples días, mostrar modal
         setShowDateModal(true);
@@ -216,7 +227,12 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   };
 
   const confirmDate = async () => {
-    await toggleGoing(item.id, selectedDate);
+    // Normalitzar la data abans d'enviar-la
+    const normalizedDate = normalizeDate(selectedDate);
+    console.log('📅 EventCard - Selected date:', selectedDate);
+    console.log('📅 EventCard - Normalized date:', normalizedDate);
+    console.log('📅 EventCard - Will send to API:', normalizedDate.toISOString().split('T')[0]);
+    await toggleGoing(item.id, normalizedDate);
     setShowDatePicker(false);
     setShowDateModal(false);
   };
