@@ -24,7 +24,8 @@ export default function SetupScreen() {
 
   useEffect(() => {
     (async () => {
-      const storedLang = await AsyncStorage.getItem('appLanguage');
+      // Cargar desde preferredLanguage (preferencias guardadas)
+      const storedLang = await AsyncStorage.getItem('preferredLanguage');
       if (storedLang && ['en', 'es', 'ca'].includes(storedLang)) {
         setLanguageState(storedLang as 'en' | 'es' | 'ca');
       }
@@ -32,7 +33,9 @@ export default function SetupScreen() {
   }, []);
 
   const saveAndNext = async () => {
-    await AsyncStorage.setItem('appLanguage', language);
+    // Guardar en ambas claves: preferredLanguage y appLanguage
+    await AsyncStorage.setItem('preferredLanguage', language);
+    await AsyncStorage.setItem('appLanguage', language); // También actualizar appLanguage
     await i18n.changeLanguage(language);
     Alert.alert(t('Saved'), t('Initial preferences saved'));
     router.push('/preferences');
@@ -40,6 +43,8 @@ export default function SetupScreen() {
 
   const handleLanguageChange = async (lang: 'en' | 'es' | 'ca') => {
     setLanguageState(lang);
+    // Guardar en ambas claves
+    await AsyncStorage.setItem('preferredLanguage', lang);
     await AsyncStorage.setItem('appLanguage', lang);
     await i18n.changeLanguage(lang);
   };

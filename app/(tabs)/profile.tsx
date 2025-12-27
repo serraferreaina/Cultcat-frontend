@@ -8,6 +8,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Animated,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -59,12 +60,13 @@ export default function Profile() {
     }
   };
 
+  // Cargar perfil de usuario
   useFocusEffect(
     React.useCallback(() => {
       const loadUser = async () => {
         try {
           const token = await AsyncStorage.getItem('authToken');
-          if (!token) return; // No hay sesión
+          if (!token) return;
 
           const res = await fetch('http://nattech.fib.upc.edu:40490/profile/', {
             headers: { Authorization: `Bearer ${token}` },
@@ -84,10 +86,7 @@ export default function Profile() {
               'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png',
           };
 
-          // Actualizamos global.currentUser si lo estás usando en otras partes
           global.currentUser = normalized;
-
-          // Actualizamos estado local del componente
           setUser(normalized);
         } catch (err) {
           console.error('Error cargando perfil:', err);
@@ -97,6 +96,30 @@ export default function Profile() {
       loadUser();
     }, []),
   );
+
+  // ❌ ELIMINAR ESTE useFocusEffect - No recargar idioma al enfocar
+  /*
+  useFocusEffect(
+    React.useCallback(() => {
+      const loadLanguage = async () => {
+        const preferredLang = await AsyncStorage.getItem('preferredLanguage');
+        if (preferredLang && ['en', 'es', 'ca'].includes(preferredLang)) {
+          setLanguage(preferredLang);
+          if (i18n.language !== preferredLang) {
+            await i18n.changeLanguage(preferredLang);
+            await AsyncStorage.setItem('appLanguage', preferredLang);
+          }
+        }
+      };
+      loadLanguage();
+    }, []),
+  );
+  */
+
+  // Solo actualizar el estado local cuando i18n cambia
+  useEffect(() => {
+    setLanguage(i18n.language);
+  }, [i18n.language]);
 
   useEffect(() => {
     if (!global.currentUser) {
@@ -112,7 +135,7 @@ export default function Profile() {
     }
   }, []);
 
-  // Check for saved profile notification - runs every time screen is focused
+  // Check for saved profile notification
   useFocusEffect(
     React.useCallback(() => {
       const checkSavedStatus = async () => {
@@ -121,14 +144,12 @@ export default function Profile() {
           setShowSavedNotification(true);
           await AsyncStorage.removeItem('justSavedProfile');
 
-          // Animate fade in
           Animated.timing(fadeAnim, {
             toValue: 1,
             duration: 300,
             useNativeDriver: true,
           }).start();
 
-          // Auto-hide after 3 seconds
           setTimeout(() => {
             Animated.timing(fadeAnim, {
               toValue: 0,
@@ -164,19 +185,21 @@ export default function Profile() {
           <Text style={styles.notificationText}>{t('Changes saved successfully')}</Text>
         </Animated.View>
       )}
-      <ScrollView contentContainerStyle={styles.content}>
-        {/* Header: nombre + menu */}
-        <View style={styles.headerRow}>
-          <Text style={[styles.username, { color: Colors.text }]}>{user?.username}</Text>
-          <View style={styles.headerIcons}>
-            <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
-              <Ionicons name="menu-outline" size={24} color={Colors.text} />
-            </TouchableOpacity>
-          </View>
-        </View>
 
-        {/* Menú */}
-        {showMenu && (
+      {/* Overlay y Menú fuera del ScrollView */}
+      {showMenu && (
+        <>
+          {/* Overlay transparente que cubre toda la pantalla */}
+          <TouchableWithoutFeedback
+            onPress={() => {
+              setShowMenu(false);
+              setShowLanguageSelector(false);
+            }}
+          >
+            <View style={styles.overlay} />
+          </TouchableWithoutFeedback>
+
+          {/* Menú */}
           <View style={[styles.menuContainer, { backgroundColor: Colors.card }]}>
             {!showLanguageSelector ? (
               <>
@@ -277,9 +300,10 @@ export default function Profile() {
 
                 <LanguageSelector
                   currentLanguage={language}
-                  onLanguageChange={(lang) => {
+                  onLanguageChange={async (lang) => {
                     setLanguage(lang);
-                    i18n.changeLanguage(lang);
+                    await i18n.changeLanguage(lang);
+                    await AsyncStorage.setItem('appLanguage', lang); // Solo appLanguage
                     setShowLanguageSelector(false);
                     setShowMenu(false);
                   }}
@@ -293,7 +317,19 @@ export default function Profile() {
               </>
             )}
           </View>
-        )}
+        </>
+      )}
+
+      <ScrollView contentContainerStyle={styles.content}>
+        {/* Header: nombre + menu */}
+        <View style={styles.headerRow}>
+          <Text style={[styles.username, { color: Colors.text }]}>{user?.username}</Text>
+          <View style={styles.headerIcons}>
+            <TouchableOpacity onPress={() => setShowMenu((p) => !p)}>
+              <Ionicons name="menu-outline" size={24} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+        </View>
 
         {/* Perfil */}
         <View style={[styles.card, { backgroundColor: Colors.card }]}>
@@ -326,7 +362,6 @@ export default function Profile() {
               </Text>
 
               <Text style={[styles.points, { color: Colors.text }]}></Text>
-              {/* Botón Eventos pasados */}
               <TouchableOpacity
                 style={[styles.pastBtn, { backgroundColor: Colors.background }]}
                 activeOpacity={0.8}
@@ -392,6 +427,15 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+    zIndex: 999,
   },
   menuContainer: {
     position: 'absolute',
@@ -507,20 +551,6 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 6,
   },
-  progressBg: {
-    height: 6,
-    borderRadius: 999,
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 999,
-    width: '0%',
-  },
-  progressHint: {
-    fontSize: 12,
-    marginTop: 6,
-    textAlign: 'right',
-  },
   notification: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -530,6 +560,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     borderRadius: 10,
     gap: 10,
+    zIndex: 1001,
   },
   notificationText: {
     color: '#FFFFFF',

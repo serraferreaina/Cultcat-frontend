@@ -133,11 +133,16 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('refreshToken', data.refresh);
         await AsyncStorage.setItem('isLoggedIn', 'true');
 
-        // Console log dels tokens
         console.log('🔑 ACCESS TOKEN (Google):', data.access);
         console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
 
-        router.replace('/(tabs)');
+        const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
+
+        if (!hasCompletedSetup) {
+          router.replace('/SetupScreen');
+        } else {
+          router.replace('/(tabs)');
+        }
       } else {
         Alert.alert(t('Error'), t('Google authentication failed'));
       }
@@ -179,12 +184,19 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('refreshToken', data.refresh);
         await AsyncStorage.setItem('isLoggedIn', 'true');
 
-        // Console log dels tokens
         console.log('🔑 ACCESS TOKEN:', data.access);
         console.log('🔄 REFRESH TOKEN:', data.refresh);
 
-        // Redirigir a tabs
-        router.replace('/(tabs)');
+        // 👇 NUEVO: Verifica si es la primera vez que inicia sesión
+        const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
+
+        if (!hasCompletedSetup) {
+          // Primera vez - va a configuración
+          router.replace('/SetupScreen');
+        } else {
+          // Ya configuró anteriormente - va directo a tabs
+          router.replace('/(tabs)');
+        }
       } else {
         Alert.alert(t('Error'), data.message || data.detail || t('Invalid credentials'));
       }
@@ -220,20 +232,20 @@ const Login: React.FC = () => {
       });
       const data = await res.json();
 
-      // Si el registro es exitoso y devuelve el mensaje de verificación
       if (res.status === 201 && data.detail === 'Verification email sent') {
         setVerificationEmail(email.toLowerCase().trim());
         setShowVerificationModal(true);
       } else if (res.ok && data.access) {
-        // Si el backend devuelve tokens directamente (sin verificación)
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+        // NO guardamos hasCompletedSetup aquí - es la primera vez
 
-        // Console log dels tokens
         console.log('🔑 ACCESS TOKEN (Register):', data.access);
         console.log('🔄 REFRESH TOKEN (Register):', data.refresh);
 
-        router.replace('/(tabs)');
+        // Registro siempre va a configuración inicial
+        router.replace('/SetupScreen');
       } else {
         const errorMsg =
           data.username?.[0] ||

@@ -18,14 +18,10 @@ export default function Welcome() {
 
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
-  // Cargar idioma guardado al iniciar
   useEffect(() => {
     (async () => {
       try {
-        const storedLang = await AsyncStorage.getItem('appLanguage');
-        if (storedLang && ['en', 'es', 'ca'].includes(storedLang)) {
-          await i18n.changeLanguage(storedLang);
-        }
+        await i18n.changeLanguage('ca');
       } catch (e) {
         console.error('Error cargando idioma:', e);
       }
@@ -41,7 +37,6 @@ export default function Welcome() {
 
   const changeLanguage = async (lang: 'en' | 'es' | 'ca') => {
     await i18n.changeLanguage(lang);
-    await AsyncStorage.setItem('appLanguage', lang);
   };
 
   return (
