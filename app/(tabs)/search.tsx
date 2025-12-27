@@ -14,6 +14,7 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Platform,
 } from 'react-native';
 import SearchBar from '../../components/SearchBar';
 import { useTranslation } from 'react-i18next';
@@ -29,6 +30,7 @@ import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -47,12 +49,18 @@ export default function CercaScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+  const { goingEvents, savedEvents, toggleGoing, toggleSaved, attendanceDates } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+
+  // Estats per al modal de data
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedEventForDate, setSelectedEventForDate] = useState<any | null>(null);
 
   const [isMunicipiModalVisible, setIsMunicipiModalVisible] = useState(false);
   const [municipiSearch, setMunicipiSearch] = useState('');
@@ -82,7 +90,6 @@ export default function CercaScreen() {
     const endDate = new Date(event.data_fi);
     const targetDate = new Date('2924-06-30');
 
-    // Compara només any, mes i dia (ignora hora)
     return (
       endDate.getFullYear() === targetDate.getFullYear() &&
       endDate.getMonth() === targetDate.getMonth() &&
@@ -156,7 +163,6 @@ export default function CercaScreen() {
         data = [];
       }
 
-      // Filtra esdeveniments amb data_fi = 30/06/2924
       const filteredData = data.filter((event: any) => !shouldHideEvent(event));
 
       setEvents(filteredData);
@@ -176,8 +182,50 @@ export default function CercaScreen() {
     }
   };
 
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+    
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const confirmDate = async () => {
+    if (selectedEventForDate) {
+      await toggleGoing(selectedEventForDate.id, selectedDate);
+    }
+    setShowDatePicker(false);
+    setShowDateModal(false);
+    setSelectedEventForDate(null);
+  };
+
+  const getMinMaxDates = () => {
+    if (!selectedEventForDate) return { minDate: new Date(), maxDate: new Date() };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const startDate = selectedEventForDate.data_inici ? new Date(selectedEventForDate.data_inici) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+    
+    const minDate = startDate < today ? today : startDate;
+    const maxDate = selectedEventForDate.data_fi ? new Date(selectedEventForDate.data_fi) : new Date();
+    
+    return { minDate, maxDate };
+  };
+
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
+    
+    const attendanceDate = attendanceDates[item.id]
+      ? (() => {
+          const date = new Date(attendanceDates[item.id]);
+          date.setDate(date.getDate() + 1);
+          return date;
+        })()
+      : undefined;
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
@@ -199,6 +247,56 @@ export default function CercaScreen() {
     const direccio = item.direccio || null;
 
     const isSaved = !!savedEvents[item.id];
+
+    const getButtonText = () => {
+      if (isGoing && attendanceDate) {
+        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        return `${t('I will attend')} - ${formattedDate}`;
+      }
+      return isGoing ? t('I will attend') : t('Want to go');
+    };
+
+    const handleButtonPress = () => {
+      if (!isGoing) {
+        setSelectedEventForDate(item);
+        if (item.data_inici) {
+          setSelectedDate(new Date(item.data_inici));
+        }
+        
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        
+        const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
+        startDate.setHours(0, 0, 0, 0);
+        
+        // Si l'esdeveniment ja ha començat, permetre des d'avui
+        let minDate: Date;
+        if (startDate <= today) {
+          minDate = today;
+        } else {
+          minDate = startDate < tomorrow ? tomorrow : startDate;
+        }
+        
+        const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
+        maxDate.setHours(0, 0, 0, 0);
+        
+        const isSingleDay = minDate.getTime() === maxDate.getTime();
+        
+        if (isSingleDay) {
+          toggleGoing(item.id, minDate);
+        } else {
+          setShowDateModal(true);
+        }
+      } else {
+        toggleGoing(item.id);
+      }
+    };
 
     return (
       <TouchableOpacity
@@ -300,10 +398,10 @@ export default function CercaScreen() {
 
             <TouchableOpacity
               style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-              onPress={() => toggleGoing(item.id)}
+              onPress={handleButtonPress}
             >
               <Text style={[styles.buttonText, { color: Colors.card }]}>
-                {isGoing ? t('I will attend') : t('Want to go')}
+                {getButtonText()}
               </Text>
             </TouchableOpacity>
           </View>
@@ -386,7 +484,6 @@ export default function CercaScreen() {
       const textData = await res.text();
       const data = textData ? JSON.parse(textData) : [];
 
-      // Filtra esdeveniments amb data_fi = 30/06/2924
       const filteredData = data.filter((event: any) => !shouldHideEvent(event));
 
       if (filteredData.length === 0) {
@@ -412,17 +509,14 @@ export default function CercaScreen() {
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      {/* Barra de cerca */}
       <SearchBar value={searchQuery} onChangeText={setSearchQuery} onSearch={handleSearch} />
 
-      {/* Scroll horizontal */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
         style={styles.filtersScroll}
         contentContainerStyle={styles.filtersRow}
       >
-        {/* Botó ubicació */}
         <TouchableOpacity
           style={[styles.filterButton, { backgroundColor: Colors.card }]}
           onPress={() => setIsMunicipiModalVisible(true)}
@@ -433,7 +527,6 @@ export default function CercaScreen() {
           </Text>
         </TouchableOpacity>
 
-        {/* Botó data */}
         <DateFilterComponent
           mode="one"
           onModeChange={(m) => console.log('Modo de fecha:', m)}
@@ -466,7 +559,6 @@ export default function CercaScreen() {
           }}
         />
 
-        {/* Botó altres */}
         <TouchableOpacity
           style={[styles.filterButton, { backgroundColor: Colors.card }]}
           onPress={() => setIsTopicsModalVisible(true)}
@@ -484,7 +576,6 @@ export default function CercaScreen() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Modal d'altres*/}
       <Modal
         visible={isOptionsModalVisible}
         transparent
@@ -525,7 +616,6 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      {/* Modal de categories*/}
       <Modal
         visible={isTopicsModalVisible}
         transparent
@@ -534,7 +624,6 @@ export default function CercaScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-            {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: Colors.text }]}>
                 {t('Filter by category')}
@@ -545,7 +634,6 @@ export default function CercaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Lista de categorias */}
             <View style={styles.topicsContainer}>
               {[
                 'concerts',
@@ -606,7 +694,6 @@ export default function CercaScreen() {
               })}
             </View>
 
-            {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
               onPress={handleSearchByTopics}
@@ -619,7 +706,6 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      {/* Modal de municipi */}
       <Modal
         visible={isMunicipiModalVisible}
         transparent
@@ -672,7 +758,6 @@ export default function CercaScreen() {
               </Text>
             </TouchableOpacity>
 
-            {/* Scroll amb municipis filtrats */}
             <ScrollView style={{ maxHeight: 200 }}>
               {filteredMunicipis.map((m, index) => (
                 <TouchableOpacity
@@ -684,6 +769,96 @@ export default function CercaScreen() {
                 </TouchableOpacity>
               ))}
             </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE SELECCIÓN DE FECHA */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.dateModalOverlay}>
+          <View style={[styles.dateModalContainer, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select attendance date')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: Colors.textSecondary }]}>
+              {t('Choose the day you want to attend this event')}
+            </Text>
+
+            <View style={styles.datePickerContainer}>
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  minimumDate={getMinMaxDates().minDate}
+                  maximumDate={getMinMaxDates().maxDate}
+                  locale="ca-ES"
+                  textColor={Colors.text}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: Colors.background }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.dateButtonText, { color: Colors.text }]}>
+                      {selectedDate.toLocaleDateString('ca-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                      minimumDate={getMinMaxDates().minDate}
+                      maximumDate={getMinMaxDates().maxDate}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
+                onPress={confirmDate}
+              >
+                <Text style={[styles.confirmButtonText, { color: Colors.card }]}>
+                  {t('Confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -915,5 +1090,71 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4D8C8',
     marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  confirmButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
   },
 });

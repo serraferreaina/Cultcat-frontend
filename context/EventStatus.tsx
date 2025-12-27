@@ -7,9 +7,10 @@ interface EventStatusContextProps {
   goingEvents: Record<number, boolean>;
   savedEvents: Record<number, boolean>;
   assistedEvents: Record<number, boolean>;
-  toggleGoing: (eventId: number) => Promise<void>;
+  attendanceDates: Record<number, string>;
+  toggleGoing: (eventId: number, date?: Date) => Promise<void>;
   toggleSaved: (eventId: number) => Promise<void>;
-  toggleAssisted: (eventId: number) => Promise<void>;
+  toggleAssisted: (eventId: number, date?: Date) => Promise<void>;
   refreshSavedEvents: () => Promise<void>;
 }
 
@@ -19,40 +20,49 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [goingEvents, setGoingEvents] = useState<Record<number, boolean>>({});
   const [savedEvents, setSavedEvents] = useState<Record<number, boolean>>({});
   const [assistedEvents, setAssistedEvents] = useState<Record<number, boolean>>({});
+  const [attendanceDates, setAttendanceDates] = useState<Record<number, string>>({});
 
-  // --- Load all data on startup ---
   useEffect(() => {
     loadInitialData();
   }, []);
 
   const loadInitialData = async () => {
-    // 1. Load locally saved events first (for instant UI)
     try {
       const json = await AsyncStorage.getItem('savedEvents');
       if (json) setSavedEvents(JSON.parse(json));
+
+      const datesJson = await AsyncStorage.getItem('attendanceDates');
+      if (datesJson) setAttendanceDates(JSON.parse(datesJson));
     } catch (e) {
       console.error('Error loading local saved events:', e);
     }
 
-    // 2. Load API data and sync
     try {
-      // A. Load "Want To Go"
       const goingData = await api('/saved-events/?state=wantToGo');
       const goingMap: Record<number, boolean> = {};
+      const datesMap: Record<number, string> = {};
       goingData.forEach((item: any) => {
-        goingMap[parseInt(item.event_id, 10)] = true;
+        const eventId = parseInt(item.event_id, 10);
+        goingMap[eventId] = true;
+        if (item.attendance_date) {
+          datesMap[eventId] = item.attendance_date;
+        }
       });
       setGoingEvents(goingMap);
+      setAttendanceDates((prev) => ({ ...prev, ...datesMap }));
 
-      // B. Load "Attended"
       const assistedData = await api('/saved-events/?state=attended');
       const assistedMap: Record<number, boolean> = {};
       assistedData.forEach((item: any) => {
-        assistedMap[parseInt(item.event_id, 10)] = true;
+        const eventId = parseInt(item.event_id, 10);
+        assistedMap[eventId] = true;
+        if (item.attendance_date) {
+          datesMap[eventId] = item.attendance_date;
+        }
       });
       setAssistedEvents(assistedMap);
+      setAttendanceDates((prev) => ({ ...prev, ...datesMap }));
 
-      // C. Load "Wishlist" (Saved/Bookmarked)
       const savedData = await api('/saved-events/?state=wishlist');
       const savedMap: Record<number, boolean> = {};
       savedData.forEach((item: any) => {
@@ -60,14 +70,13 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       setSavedEvents(savedMap);
 
-      // Persist to AsyncStorage
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
+      await AsyncStorage.setItem('attendanceDates', JSON.stringify(datesMap));
     } catch (err) {
       console.error('Error loading API data:', err);
     }
   };
 
-  // Function to refresh saved events from API
   const refreshSavedEvents = async () => {
     try {
       const savedData = await api('/saved-events/?state=wishlist');
@@ -82,7 +91,6 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  // --- Persist locally saved events ---
   const persistSaved = async (updated: Record<number, boolean>) => {
     try {
       await AsyncStorage.setItem('savedEvents', JSON.stringify(updated));
@@ -91,26 +99,36 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  // --- Generic Helper for API Toggles ---
+  const persistDates = async (updated: Record<number, string>) => {
+    try {
+      await AsyncStorage.setItem('attendanceDates', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Error persisting attendance dates:', e);
+    }
+  };
+
   const handleApiToggle = async (
     eventId: number,
     isActive: boolean,
     state: 'wantToGo' | 'attended' | 'wishlist',
     onFail: () => void,
+    date?: Date,
   ) => {
     try {
       if (isActive) {
-        // DELETE logic
         console.log(`Removing event ${eventId} from ${state}`);
         await api(`/save/${eventId}/`, {
           method: 'DELETE',
         });
       } else {
-        // POST logic (Add)
         console.log(`Adding event ${eventId} to ${state}`);
+        const body: any = { state };
+        if (date) {
+          body.attendance_date = date.toISOString().split('T')[0];
+        }
         await api(`/save/${eventId}/`, {
           method: 'POST',
-          body: JSON.stringify({ state }),
+          body: JSON.stringify(body),
         });
       }
     } catch (err) {
@@ -119,46 +137,86 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }
   };
 
-  // --- Toggle "Want to Go" ---
-  const toggleGoing = async (eventId: number) => {
+  const toggleGoing = async (eventId: number, date?: Date) => {
     const isCurrentlyGoing = goingEvents[eventId] || false;
+
+    // Update date if provided
+    if (date && !isCurrentlyGoing) {
+      const dateString = date.toISOString().split('T')[0];
+      const updatedDates = { ...attendanceDates, [eventId]: dateString };
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    } else if (isCurrentlyGoing) {
+      const updatedDates = { ...attendanceDates };
+      delete updatedDates[eventId];
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    }
 
     // Optimistic Update
     const updated = { ...goingEvents, [eventId]: !isCurrentlyGoing };
     setGoingEvents(updated);
 
-    await handleApiToggle(eventId, isCurrentlyGoing, 'wantToGo', () => {
-      // Revert
-      setGoingEvents({ ...goingEvents, [eventId]: isCurrentlyGoing });
-    });
+    // Try to sync with backend
+    try {
+      await handleApiToggle(
+        eventId,
+        isCurrentlyGoing,
+        'wantToGo',
+        () => {
+          console.warn(`⚠️ Could not sync event ${eventId} with backend`);
+        },
+        date,
+      );
+    } catch (err) {
+      console.warn(`⚠️ Error syncing with backend for event ${eventId}:`, err);
+    }
   };
 
-  // --- Toggle "Assisted" ---
-  const toggleAssisted = async (eventId: number) => {
+  const toggleAssisted = async (eventId: number, date?: Date) => {
     const isCurrentlyAssisted = assistedEvents[eventId] || false;
+
+    // Update date if provided
+    if (date && !isCurrentlyAssisted) {
+      const dateString = date.toISOString().split('T')[0];
+      const updatedDates = { ...attendanceDates, [eventId]: dateString };
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    } else if (isCurrentlyAssisted) {
+      const updatedDates = { ...attendanceDates };
+      delete updatedDates[eventId];
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    }
 
     // Optimistic Update
     const updated = { ...assistedEvents, [eventId]: !isCurrentlyAssisted };
     setAssistedEvents(updated);
 
-    await handleApiToggle(eventId, isCurrentlyAssisted, 'attended', () => {
-      // Revert
-      setAssistedEvents({ ...assistedEvents, [eventId]: isCurrentlyAssisted });
-    });
+    // Try to sync with backend
+    try {
+      await handleApiToggle(
+        eventId,
+        isCurrentlyAssisted,
+        'attended',
+        () => {
+          console.warn(`⚠️ Could not sync event ${eventId} with backend`);
+        },
+        date,
+      );
+    } catch (err) {
+      console.warn(`⚠️ Error syncing with backend for event ${eventId}:`, err);
+    }
   };
 
-  // --- Toggle "Saved" (Bookmark) ---
   const toggleSaved = async (eventId: number) => {
     const isCurrentlySaved = savedEvents[eventId] || false;
 
-    // Update local state optimistically
     const updated = { ...savedEvents, [eventId]: !isCurrentlySaved };
     setSavedEvents(updated);
     await persistSaved(updated);
 
-    // Use the same API endpoint as everywhere else: /save/{eventId}/
     await handleApiToggle(eventId, isCurrentlySaved, 'wishlist', async () => {
-      // Rollback local state
       const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
       setSavedEvents(reverted);
       await persistSaved(reverted);
@@ -171,6 +229,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         goingEvents,
         savedEvents,
         assistedEvents,
+        attendanceDates,
         toggleGoing,
         toggleSaved,
         toggleAssisted,
@@ -189,7 +248,8 @@ export const useEventStatus = () => {
 };
 
 export const useEventLogic = (event: any) => {
-  const { goingEvents, toggleGoing, assistedEvents, toggleAssisted } = useEventStatus();
+  const { goingEvents, toggleGoing, assistedEvents, toggleAssisted, attendanceDates } =
+    useEventStatus();
   const { t } = useTranslation();
 
   const isPast = () => {
@@ -203,23 +263,34 @@ export const useEventLogic = (event: any) => {
   const past = isPast();
   const id = event.id;
 
+  // Crear la data i sumar-li un dia per compensar la zona horària
+  const attendanceDate = attendanceDates[id] 
+    ? (() => {
+        const date = new Date(attendanceDates[id]);
+        date.setDate(date.getDate() + 1);
+        return date;
+      })()
+    : undefined;
+
   if (past) {
     return {
       isActive: !!assistedEvents[id],
-      toggle: () => toggleAssisted(id),
+      toggle: (date?: Date) => toggleAssisted(id, date),
       textKey: t('assisted'),
       textKeyInactive: t('iHaveAssisted'),
       isPast: true,
       colorActive: '#4CAF50',
+      attendanceDate,
     };
   } else {
     return {
       isActive: !!goingEvents[id],
-      toggle: () => toggleGoing(id),
+      toggle: (date?: Date) => toggleGoing(id, date),
       textKey: t('iWillAttend'),
       textKeyInactive: t('wantToGo'),
       isPast: false,
       colorActive: '#4CAF50',
+      attendanceDate,
     };
   }
 };

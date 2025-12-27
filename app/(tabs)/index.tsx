@@ -10,18 +10,21 @@ import {
   NativeScrollEvent,
   NativeSyntheticEvent,
   Share,
+  Modal,
+  Platform,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useEventLogic } from '../../context/EventStatus';
+import { useEventLogic, useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../api';
 import NotificationsScreen from '../../components/NotificationScreen';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Events {
   id: number;
@@ -30,6 +33,7 @@ interface Events {
   img_app: string | null;
   imatges: string | null;
   data_inici?: string | null;
+  data_fi?: string | null;
 }
 
 interface PointsImages {
@@ -102,7 +106,13 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  const { isActive, toggle, textKey, textKeyInactive } = useEventLogic(item);
+  const { isActive, toggle, attendanceDate } = useEventLogic(item);
+  const { attendanceDates } = useEventStatus();
+
+  // Estados para el selector de fecha (DENTRO de FeedCard)
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showDateModal, setShowDateModal] = useState(false);
 
   const isSaved = savedEvents[item.id] || false;
 
@@ -126,83 +136,298 @@ const FeedCard: React.FC<FeedCardProps> = ({
     return ['https://via.placeholder.com/375x250?text=Sin+Imagen'];
   }, [item.imatges, item.img_app, item.id]);
 
+  const hasEventPassed = (): boolean => {
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+
+    const savedAttendanceDate = attendanceDates[item.id]
+      ? new Date(attendanceDates[item.id])
+      : undefined;
+
+    if (savedAttendanceDate) {
+      const attendance = new Date(savedAttendanceDate);
+      attendance.setHours(0, 0, 0, 0);
+      if (attendance < now) {
+        return true;
+      }
+    }
+
+    if (item.data_fi) {
+      const endDate = new Date(item.data_fi);
+      endDate.setHours(0, 0, 0, 0);
+      if (endDate < now) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const isPast = hasEventPassed();
+
+  const getButtonText = () => {
+    if (isPast) {
+      if (isActive && attendanceDate) {
+        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        return `${t('He anat')} - ${formattedDate}`;
+      }
+      return isActive ? t('He anat') : t('Vull anar');
+    } else {
+      if (isActive && attendanceDate) {
+        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        return `${t('Assistiré')} - ${formattedDate}`;
+      }
+      return isActive ? t('Assistiré') : t('Vull assistir');
+    }
+  };
+
+  const getMinMaxDates = () => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    // Si l'esdeveniment ja ha començat, permetre des d'avui
+    let minDate: Date;
+    if (startDate <= today) {
+      minDate = today;
+    } else {
+      minDate = startDate < tomorrow ? tomorrow : startDate;
+    }
+
+    const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
+
+    return { minDate, maxDate };
+  };
+
+  const handleButtonPress = () => {
+    if (!isActive) {
+      if (item.data_inici) {
+        setSelectedDate(new Date(item.data_inici));
+      }
+
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const tomorrow = new Date(today);
+      tomorrow.setDate(tomorrow.getDate() + 1);
+
+      const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
+      startDate.setHours(0, 0, 0, 0);
+
+      let minDate: Date;
+      if (startDate <= today) {
+        minDate = today;
+      } else {
+        minDate = startDate < tomorrow ? tomorrow : startDate;
+      }
+
+      const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
+      maxDate.setHours(0, 0, 0, 0);
+
+      const isSingleDay = minDate.getTime() === maxDate.getTime();
+
+      if (isSingleDay) {
+        toggle(minDate);
+      } else {
+        setShowDateModal(true);
+      }
+    } else {
+      toggle();
+    }
+  };
+
+  const handleConfirmDate = () => {
+    toggle(selectedDate);
+    setShowDatePicker(false);
+    setShowDateModal(false);
+  };
+
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const { minDate, maxDate } = getMinMaxDates();
+
   const handleShare = () => {
     const url = `https://tu-app.com/event/${item.id}`;
     Share.share({ message: `Mira este evento: ${url}`, url });
   };
 
   return (
-    <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
-      {/* Header */}
-      <View style={styles.cardHeader}>
-        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-          <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
-            {item.titol
-              ? item.titol.length > 20
-                ? item.titol.slice(0, 20) + '…'
-                : item.titol
-              : t('Event without title')}
-          </Text>
-        </TouchableOpacity>
+    <>
+      <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
+        {/* Header */}
+        <View style={styles.cardHeader}>
+          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+            <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
+              {item.titol
+                ? item.titol.length > 20
+                  ? item.titol.slice(0, 20) + '…'
+                  : item.titol
+                : t('Event without title')}
+            </Text>
+          </TouchableOpacity>
 
-        {/* Dynamic Button (Assisted vs Want To Go) */}
-        <TouchableOpacity
-          style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
-          onPress={toggle}
+          {/* Dynamic Button */}
+          <TouchableOpacity
+            style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
+            onPress={handleButtonPress}
+          >
+            <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
+          </TouchableOpacity>
+        </View>
+
+        {/* Images */}
+        <Images images={images} />
+
+        {/* Footer */}
+        <View style={styles.cardFooter}>
+          <View style={styles.leftFooter}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => onToggleSave(item.id)}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={Colors.text}
+              />
+            </TouchableOpacity>
+
+            <TouchableOpacity onPress={() => onOpenComments(item.id)}>
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+              <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={{ alignItems: 'flex-end' }}>
+            <TouchableOpacity style={styles.reviewButton} onPress={() => onOpenReviews(item.id)}>
+              <Ionicons name="create-outline" size={20} color="white" />
+              <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        <Text
+          style={[styles.descriptionText, { color: Colors.text }]}
+          numberOfLines={2}
+          ellipsizeMode="tail"
         >
-          <Text style={[styles.buttonText, { color: Colors.card }]}>
-            {isActive ? t(textKey) : t(textKeyInactive)}
-          </Text>
+          {item.descripcio || t('No description available')}
+        </Text>
+
+        <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
+          <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Images */}
-      <Images images={images} />
-
-      {/* Footer */}
-      <View style={styles.cardFooter}>
-        <View style={styles.leftFooter}>
-          {/* Save */}
-          <TouchableOpacity style={styles.iconButton} onPress={() => onToggleSave(item.id)}>
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={Colors.text}
-            />
-          </TouchableOpacity>
-
-          {/* Comments */}
-          <TouchableOpacity onPress={() => onOpenComments(item.id)}>
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-          </TouchableOpacity>
-
-          {/* Share */}
-          <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-            <Ionicons name="share-social-outline" size={20} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
-
-        {/* Reviews */}
-        <View style={{ alignItems: 'flex-end' }}>
-          <TouchableOpacity style={styles.reviewButton} onPress={() => onOpenReviews(item.id)}>
-            <Ionicons name="create-outline" size={20} color="white" />
-            <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <Text
-        style={[styles.descriptionText, { color: Colors.text }]}
-        numberOfLines={2}
-        ellipsizeMode="tail"
+      {/* MODAL DE SELECCIÓN DE FECHA - AHORA DENTRO DE FEEDCARD */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
       >
-        {item.descripcio || t('No description available')}
-      </Text>
+        <View style={styles.dateModalOverlay}>
+          <View style={[styles.dateModalContainer, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select attendance date')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
 
-      <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-        <Text style={[styles.seeMore, { color: Colors.accent }]}>{t('See more...')}</Text>
-      </TouchableOpacity>
-    </View>
+            <Text style={[styles.modalSubtitle, { color: Colors.textSecondary }]}>
+              {t('Choose the day you want to attend this event')}
+            </Text>
+
+            <View style={styles.datePickerContainer}>
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  minimumDate={minDate}
+                  maximumDate={maxDate}
+                  locale="ca-ES"
+                  textColor={Colors.text}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: Colors.background }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.dateButtonText, { color: Colors.text }]}>
+                      {selectedDate.toLocaleDateString('ca-ES', {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                      minimumDate={minDate}
+                      maximumDate={maxDate}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
+                onPress={handleConfirmDate}
+              >
+                <Text style={[styles.confirmButtonText, { color: Colors.card }]}>
+                  {t('Confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
   );
 };
 
@@ -269,12 +494,10 @@ export default function Home() {
 
     try {
       if (isSaved) {
-        // Eliminar de guardados
         await api(`/save/${eventId}/`, {
           method: 'DELETE',
         });
       } else {
-        // Añadir a guardados con el state requerido
         await api(`/save/${eventId}/`, {
           method: 'POST',
           body: JSON.stringify({ state: 'wishlist' }),
@@ -292,7 +515,6 @@ export default function Home() {
   const shouldHideEvent = (event: Events): boolean => {
     if (!event.data_inici) return false;
 
-    // Comprova data_inici ja que Home.tsx usa data_inici
     const startDate = new Date(event.data_inici);
     const targetDate = new Date('2924-06-30');
 
@@ -311,7 +533,6 @@ export default function Home() {
 
       const currentOffset = reset ? 0 : offset;
 
-      // Canvia a l'endpoint de recomanacions
       const res = await fetch(
         `http://nattech.fib.upc.edu:40490/recommended/?limit=${BATCH_SIZE}&offset=${currentOffset}`,
       );
@@ -321,7 +542,6 @@ export default function Home() {
       const data = await res.json();
       const allEvents = data.results || data || [];
 
-      // Filtra esdeveniments amb data_fi = 30/06/2924
       const newEvents = allEvents.filter((event: Events) => !shouldHideEvent(event));
 
       setEvents((prev: Events[]) => {
@@ -572,5 +792,80 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 12,
     paddingVertical: 10,
+  },
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  confirmButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
   },
 });
