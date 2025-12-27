@@ -122,10 +122,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return t('Just now');
-    if (diffMins < 60) return `${diffMins} ${t('min ago')}`;
-    if (diffHours < 24) return `${diffHours} ${t('hours ago')}`;
-    if (diffDays < 7) return `${diffDays} ${t('days ago')}`;
+    if (diffMins < 1) return String(t('Just now') || 'Just now');
+    if (diffMins < 60) return `${diffMins} min ago`;
+    if (diffHours < 24) return `${diffHours} h ago`;
+    if (diffDays < 7) return `${diffDays} d ago`;
 
     return date.toLocaleDateString();
   };
@@ -162,7 +162,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
               { color: Colors.text, fontWeight: item.read ? '400' : '600' },
             ]}
           >
-            {item.payload}
+            {String(item.payload || '')}
           </Text>
           <Text style={[styles.timeText, { color: Colors.textSecondary }]}>
             {formatDate(item.created_at)}
@@ -183,12 +183,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
 
-          <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Notifications')}</Text>
+          <Text style={[styles.headerTitle, { color: Colors.text }]}>
+            {String(t('Notifications') || 'Notifications')}
+          </Text>
 
           {notifications.some((n) => !n.read) && (
             <TouchableOpacity onPress={markAllAsRead} style={styles.markAllButton}>
               <Text style={[styles.markAllText, { color: Colors.accent }]}>
-                {t('Mark all as read')}
+                {String(t('Mark all as read') || 'Mark all as read')}
               </Text>
             </TouchableOpacity>
           )}
@@ -202,19 +204,19 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         ) : error ? (
           <View style={styles.centerContainer}>
             <Ionicons name="alert-circle-outline" size={48} color={Colors.textSecondary} />
-            <Text style={[styles.errorText, { color: Colors.text }]}>{error}</Text>
+            <Text style={[styles.errorText, { color: Colors.text }]}>{String(error || '')}</Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: Colors.accent }]}
               onPress={fetchNotifications}
             >
-              <Text style={styles.retryButtonText}>{t('Retry')}</Text>
+              <Text style={styles.retryButtonText}>{String(t('Retry') || 'Retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : notifications.length === 0 ? (
           <View style={styles.centerContainer}>
             <Ionicons name="notifications-off-outline" size={64} color={Colors.textSecondary} />
             <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
-              {t('No notifications yet')}
+              {String(t('No notifications yet') || 'No notifications yet')}
             </Text>
           </View>
         ) : (
@@ -228,6 +230,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       </View>
     </Modal>
   );
+
 };
 
 const styles = StyleSheet.create({
