@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Animated,
   TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -48,6 +49,18 @@ export default function Profile() {
   };
 
   const [badges, setBadges] = useState<Badge[]>([]);
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const openBadgeModal = (badge: Badge) => {
+    setSelectedBadge(badge);
+    setModalVisible(true);
+  };
+
+  const closeBadgeModal = () => {
+    setSelectedBadge(null);
+    setModalVisible(false);
+  };
 
   const router = useRouter();
 
@@ -435,7 +448,11 @@ export default function Profile() {
           ) : (
             <View style={styles.badgesGrid}>
               {badges.slice(0, 6).map((badge, index) => (
-                <View key={index} style={styles.badgeItem}>
+                <TouchableOpacity
+                  key={index}
+                  style={styles.badgeItem}
+                  onPress={() => openBadgeModal(badge)}
+                >
                   <Image
                     source={{ uri: badge.icon }}
                     style={{ width: 60, height: 60, borderRadius: 8 }}
@@ -445,7 +462,7 @@ export default function Profile() {
                   >
                     {badge.name}
                   </Text>
-                </View>
+                </TouchableOpacity>
               ))}
             </View>
           )}
@@ -453,6 +470,61 @@ export default function Profile() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeBadgeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
+            {selectedBadge && (
+              <>
+                <Image
+                  source={{ uri: selectedBadge.icon }}
+                  style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 16 }}
+                />
+
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: Colors.text,
+                    textAlign: 'center',
+                  }}
+                >
+                  {selectedBadge.name}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  🏅 {selectedBadge.level_label} · {t('Nivell')} {selectedBadge.level}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  ⭐ {t('Category')}: {selectedBadge.category}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  📅 {t('Obtained at')}: {new Date(selectedBadge.obtained_at).toLocaleDateString()}
+                </Text>
+
+                <TouchableOpacity onPress={closeBadgeModal} style={styles.modalButton}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+                    {t('Close')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -619,12 +691,30 @@ const styles = StyleSheet.create({
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-start',
     marginTop: 10,
+    gap: 15,
   },
   badgeItem: {
     width: '30%',
     alignItems: 'center',
     marginBottom: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalButton: {
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#6C5CE7',
   },
 });
