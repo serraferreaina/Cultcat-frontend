@@ -22,6 +22,7 @@ import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import WeatherIcon from '../../components/WeatherIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from '../../components/ShareEventModal';
 
 interface EventData {
   id: number;
@@ -67,6 +68,8 @@ export default function EventDetail() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const shouldHideEvent = (event: EventData): boolean => {
     if (!event.data_fi) return false;
@@ -249,9 +252,6 @@ export default function EventDetail() {
     const handleConfirmDate = () => {
       // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
-      console.log('📅 Selected date:', selectedDate);
-      console.log('📅 Normalized date:', normalizedDate);
-      console.log('📅 Will send to API:', normalizedDate.toISOString().split('T')[0]);
       toggle(normalizedDate);
       setShowDatePicker(false);
       setShowDateModal(false);
@@ -382,16 +382,7 @@ export default function EventDetail() {
             <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.iconButton}
-            onPress={() => {
-              const url = `https://tu-app.com/event/${event.id}`;
-              Share.share({
-                message: `Mira este evento: ${url}`,
-                url,
-              });
-            }}
-          >
+          <TouchableOpacity style={styles.iconButton} onPress={() => setShareModalVisible(true)}>
             <Ionicons name="share-social-outline" size={20} color={Colors.text} />
           </TouchableOpacity>
         </View>
@@ -564,6 +555,12 @@ export default function EventDetail() {
         eventId={event.id}
         visible={reviewVisible}
         onClose={() => setReviewVisible(false)}
+      />
+      <ShareEventModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        event={event}
+        Colors={Colors}
       />
     </ScrollView>
   );

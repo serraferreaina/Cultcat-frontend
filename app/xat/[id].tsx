@@ -23,6 +23,7 @@ import { getConnections } from '../../api/connections';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../api';
 import { getUsers } from '../../api/users';
+import EventShareBubble from '../../components/EventShareBubble';
 
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
@@ -105,6 +106,8 @@ export default function ChatScreen() {
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 50);
+
+        
       } catch (e) {
         console.error('❌ Error loading messages', e);
       }
