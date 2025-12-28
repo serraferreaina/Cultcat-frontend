@@ -129,3 +129,5 @@ export const deleteAccount = async () => {
   await AsyncStorage.removeItem('authToken');
   global.currentUser = null;
 };
+
+export const getUserBadges = () => api('/rewards/');
