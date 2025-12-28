@@ -34,11 +34,7 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
   if (eventData) {
     return (
       <View style={[styles.container, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
-        <EventShareBubble 
-          eventData={eventData} 
-          isMine={isMe}
-          senderName={message.senderName}
-        />
+        <EventShareBubble eventData={eventData} isMine={isMe} senderName={message.senderName} />
       </View>
     );
   }

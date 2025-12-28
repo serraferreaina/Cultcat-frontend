@@ -59,20 +59,20 @@ export default function RootLayout() {
     try {
       // Parsejar l'URL
       const { hostname, path, queryParams } = Linking.parse(url);
-      
+
       console.log('🔗 URL parsejat:', { hostname, path, queryParams });
 
       // Exemples d'enllaços que pot rebre:
       // cultcat://events/123
       // https://cultcat.app/events/123
-      
+
       if (path?.includes('events/')) {
         // Extreure l'ID de l'esdeveniment
         const eventId = path.split('events/')[1]?.split('/')[0];
-        
+
         if (eventId) {
           console.log('✅ Navegant a esdeveniment:', eventId);
-          
+
           // Navegar a la pantalla de detall de l'esdeveniment
           // Petit delay per assegurar que l'app està completament carregada
           setTimeout(() => {
