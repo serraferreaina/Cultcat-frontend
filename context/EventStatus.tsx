@@ -12,6 +12,7 @@ interface EventStatusContextProps {
   toggleSaved: (eventId: number) => Promise<void>;
   toggleAssisted: (eventId: number, date?: Date) => Promise<void>;
   refreshSavedEvents: () => Promise<void>;
+  loadInitialData: () => Promise<void>;
 }
 
 const EventStatusContext = createContext<EventStatusContextProps | undefined>(undefined);
@@ -78,8 +79,9 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       });
       setSavedEvents(savedMap);
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
-    } catch (err) {
-      console.error('Error loading API data:', err);
+    } catch (error: any) {
+      if (error?.silent) return;
+      console.error('❌ Error loading API data:', error);
     }
   };
 
@@ -256,6 +258,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         toggleSaved,
         toggleAssisted,
         refreshSavedEvents,
+        loadInitialData,
       }}
     >
       {children}
