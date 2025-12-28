@@ -24,7 +24,7 @@ async function refreshAccessToken(): Promise<string | null> {
   }
 
   try {
-    const res = await fetch(`${API_URL}/api/auth/token/refresh/`, {
+    const res = await fetch(`${API_URL}/auth/token/refresh/`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -103,11 +103,13 @@ export async function api(path: string, options: RequestInit = {}): Promise<any>
 
 export const getProfile = () => api('/profile/');
 
-export const getUserProfile = (id: number) => api(`/api/users/${id}/`);
+export const getSavedEvents = () => api('/saved-events/');
 
-export const getEvents = () => api('/api/events/');
+export const getUserProfile = (id: number) => api(`/users/${id}/`);
 
-export const getEventById = (id: number) => api(`/api/events/${id}/`);
+export const getEvents = () => api('/events/');
+
+export const getEventById = (id: number) => api(`/events/${id}/`);
 
 export const deleteAccount = async () => {
   const token = await AsyncStorage.getItem('authToken');
