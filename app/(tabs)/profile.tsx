@@ -396,7 +396,7 @@ export default function Profile() {
               <TouchableOpacity
                 style={[styles.pastBtn, { backgroundColor: Colors.background }]}
                 activeOpacity={0.8}
-                onPress={() => router.push('/calendar')}
+                onPress={() => router.push('/previous_events')}
               >
                 <Text style={[styles.pastBtnText, { color: Colors.accent }]}>
                   {t('Previus events')}
