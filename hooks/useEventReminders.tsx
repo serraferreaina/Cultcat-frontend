@@ -97,7 +97,6 @@ export const useEventReminders = (
       const stored = await AsyncStorage.getItem('createdReminderIds');
       if (stored) {
         const ids = JSON.parse(stored);
-        console.log('Loaded created reminder IDs:', ids);
         setCreatedReminderIds(new Set(ids));
       }
     } catch (error) {
@@ -108,7 +107,6 @@ export const useEventReminders = (
   const saveCreatedReminderIds = async (ids: Set<string>) => {
     try {
       const idsArray = Array.from(ids);
-      console.log('Saving created reminder IDs:', idsArray);
       await AsyncStorage.setItem('createdReminderIds', JSON.stringify(idsArray));
       setCreatedReminderIds(ids);
     } catch (error) {
@@ -130,14 +128,12 @@ export const useEventReminders = (
       // Comprovar si les notificacions estan activades
       const notifEnabled = await AsyncStorage.getItem('notificationsEnabled');
       if (notifEnabled !== 'true') {
-        console.log('Push notifications disabled by user');
         return;
       }
 
       // Comprovar permisos
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Push notification permission not granted');
         return;
       }
 
@@ -159,8 +155,6 @@ export const useEventReminders = (
         },
         trigger: null, // Enviar immediatament
       });
-
-      console.log('Push notification sent for:', notification.eventTitle);
     } catch (error) {
       console.error('Error sending push notification:', error);
     }
@@ -177,10 +171,6 @@ export const useEventReminders = (
     });
 
     if (toRemove.length > 0) {
-      console.log(
-        `Removing ${toRemove.length} notifications from events user is no longer attending`,
-      );
-
       // Filtrar les notificacions que es queden
       const remaining = localNotifications.filter((n) => goingEvents[n.eventId] === true);
 
@@ -205,8 +195,6 @@ export const useEventReminders = (
     const newNotifications: LocalNotification[] = [];
     const newCreatedIds = new Set(createdReminderIds);
 
-    console.log('Checking upcoming events. Current created IDs count:', createdReminderIds.size);
-
     for (const eventId in goingEvents) {
       if (!goingEvents[eventId]) continue;
 
@@ -222,8 +210,6 @@ export const useEventReminders = (
       const diffTime = eventDate.getTime() - today.getTime();
       const daysUntil = Math.round(diffTime / (1000 * 60 * 60 * 24));
 
-      console.log(`Event ${eventId} (${attendanceDate}): ${daysUntil} days until`);
-
       // Crear recordatoris per 3 dies, 1 dia i el mateix dia
       const reminderDays = [3, 1, 0];
 
@@ -234,14 +220,12 @@ export const useEventReminders = (
 
           // Comprovar si aquest recordatori ja s'ha creat alguna vegada
           if (createdReminderIds.has(notificationId)) {
-            console.log(`Reminder ${notificationId} was already created before, skipping`);
             continue;
           }
 
           // Comprovar si ja existeix a la llista actual
           const exists = localNotifications.some((n) => n.id === notificationId);
           if (exists) {
-            console.log(`Reminder already exists in list: ${notificationId}`);
             continue;
           }
 
@@ -265,14 +249,6 @@ export const useEventReminders = (
                 : daysUntil === 1
                   ? `⏰ Demà és l'esdeveniment: "${eventTitle}"`
                   : `📅 En ${daysUntil} dies: "${eventTitle}"`;
-
-            console.log('Creating NEW notification:', {
-              eventId,
-              eventTitle,
-              message,
-              daysUntil,
-              notificationId,
-            });
 
             const newNotification: LocalNotification = {
               id: notificationId,
@@ -302,7 +278,6 @@ export const useEventReminders = (
 
     // Si hi ha noves notificacions, afegir-les
     if (newNotifications.length > 0) {
-      console.log(`Adding ${newNotifications.length} new notifications`);
       const updated = [...localNotifications, ...newNotifications];
       await saveLocalNotifications(updated);
 

@@ -23,6 +23,7 @@ import { getConnections } from '../../api/connections';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../api';
 import { getUsers } from '../../api/users';
+import EventShareBubble from '../../components/EventShareBubble';
 
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();

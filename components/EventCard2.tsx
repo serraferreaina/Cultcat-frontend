@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useEventStatus } from '../context/EventStatus';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from './ShareEventModal';
 
 interface Event {
   id: number;
@@ -65,6 +66,8 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     normalized.setHours(12, 0, 0, 0);
     return normalized;
   };
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   // Obtener fecha de asistencia guardada y SUMAR UN DÍA para compensar UTC
   const savedAttendanceDate = attendanceDates[item.id]
@@ -197,10 +200,6 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
       if (isSingleDay) {
         // Normalitzar la data abans d'enviar
         const normalizedMinDate = normalizeDate(minDate);
-        console.log(
-          '📅 EventCard - Single day, sending:',
-          normalizedMinDate.toISOString().split('T')[0],
-        );
         toggleGoing(item.id, normalizedMinDate);
       } else {
         // Si hay múltiples días, mostrar modal
@@ -229,9 +228,6 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const confirmDate = async () => {
     // Normalitzar la data abans d'enviar-la
     const normalizedDate = normalizeDate(selectedDate);
-    console.log('📅 EventCard - Selected date:', selectedDate);
-    console.log('📅 EventCard - Normalized date:', normalizedDate);
-    console.log('📅 EventCard - Will send to API:', normalizedDate.toISOString().split('T')[0]);
     await toggleGoing(item.id, normalizedDate);
     setShowDatePicker(false);
     setShowDateModal(false);
@@ -311,10 +307,7 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
               {/* Share */}
               <TouchableOpacity
                 style={styles.iconButton}
-                onPress={() => {
-                  const url = `https://tu-app.com/event/${item.id}`;
-                  Share.share({ message: `Check this event: ${url}`, url });
-                }}
+                onPress={() => setShareModalVisible(true)}
               >
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
@@ -432,6 +425,34 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
           </View>
         </View>
       </Modal>
+
+      <ShareEventModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        event={{
+          id: item.id,
+          titol: item.titol || '',
+          descripcio: '',
+          imgApp: item.imgApp,
+          imatges: item.imatges,
+          data_inici: item.data_inici,
+          data_fi: item.data_fi,
+          localitat: item.localitat || null,
+          enllacos: {},
+          infoEntrades: item.infoEntrades || null,
+          infoHorari: item.infoHorari || null,
+          gratuita: false,
+          modalitat: item.modalitat || null,
+          direccio: item.direccio || null,
+          espai: item.espai || null,
+          georeferencia: null,
+          latitud: null,
+          longitud: null,
+          telefon: null,
+          email: null,
+        }}
+        Colors={Colors}
+      />
     </>
   );
 };
