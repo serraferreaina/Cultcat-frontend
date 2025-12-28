@@ -2,17 +2,14 @@
   "expo": {
     "name": "cultcat-frontend",
     "slug": "cultcat-frontend",
-
+    "owner": "a1s3f3",
     "scheme": "com.anonymous.cultcatfrontend",
-
     "router": {
       "origin": false
     },
-
     "experiments": {
       "typedRoutes": false
     },
-
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,7 +22,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cultcatfrontend"
+      "bundleIdentifier": "com.anonymous.cultcatfrontend",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -35,9 +35,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-
       "package": "com.anonymous.cultcatfrontend",
-
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
@@ -60,7 +58,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2244d658-5f13-4aef-ad90-49905e4184c0"
+        "projectId": "a66e7047-40b5-4bc3-9912-17da233c2093"
       }
     }
   }
