@@ -3,13 +3,14 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
+import EventShareBubble from './EventShareBubble';
 
 interface ChatMessage {
-  id: string; // ✅ al teu codi els ids són string
+  id: string;
   text: string;
   sender: 'me' | 'other';
-  senderId?: number; // ✅ nou
-  senderName?: string; // ✅ opcional (per grups)
+  senderId?: number;
+  senderName?: string;
 }
 
 export default function ChatBubble({ message }: { message: ChatMessage }) {
@@ -18,6 +19,27 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
 
   const isMe = message.sender === 'me';
 
+  // Try to parse as event share
+  let eventData = null;
+  try {
+    const parsed = JSON.parse(message.text);
+    if (parsed.type === 'event_share') {
+      eventData = parsed;
+    }
+  } catch (e) {
+    // Not JSON, regular message
+  }
+
+  // If it's an event share, use EventShareBubble
+  if (eventData) {
+    return (
+      <View style={[styles.container, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
+        <EventShareBubble eventData={eventData} isMine={isMe} senderName={message.senderName} />
+      </View>
+    );
+  }
+
+  // Regular text message
   return (
     <View style={[styles.container, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
       <View

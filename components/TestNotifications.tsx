@@ -28,7 +28,6 @@ export default function NotificationDebugScreen() {
 
     // Listener per notificacions rebudes
     const subscription = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('📬 Notificació rebuda!', notification);
       setLastNotification(JSON.stringify(notification.request.content, null, 2));
       Alert.alert('📬 Notificació rebuda!', notification.request.content.body || 'Sense text');
     });
@@ -36,7 +35,6 @@ export default function NotificationDebugScreen() {
     // Listener per quan l'usuari toca la notificació
     const responseSubscription = Notifications.addNotificationResponseReceivedListener(
       (response) => {
-        console.log('👆 Notificació tocada!', response);
         Alert.alert('👆 Has tocat la notificació');
       },
     );
@@ -93,8 +91,6 @@ export default function NotificationDebugScreen() {
 
   const testImmediateNotification = async () => {
     try {
-      console.log('🧪 Enviant notificació immediata...');
-
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '🧪 Test Immediat',
@@ -106,7 +102,6 @@ export default function NotificationDebugScreen() {
         trigger: null,
       });
 
-      console.log('✅ Notificació enviada amb ID:', id);
       Alert.alert(
         '✅ Enviada!',
         `ID: ${id}\n\n⚠️ Amb Expo Go només es veu amb l'app oberta.\n\nRevisa els logs de la consola.`,
@@ -121,8 +116,6 @@ export default function NotificationDebugScreen() {
 
   const testScheduledNotification = async () => {
     try {
-      console.log('🧪 Programant notificació per a 5 segons...');
-
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏰ Test Programat',
@@ -137,7 +130,6 @@ export default function NotificationDebugScreen() {
         },
       });
 
-      console.log('✅ Notificació programada amb ID:', id);
       Alert.alert(
         '✅ Programada!',
         `Rebràs una notificació en 5 segons.\n\nID: ${id}\n\n⚠️ IMPORTANT: Mantén l'app oberta!`,
@@ -153,11 +145,9 @@ export default function NotificationDebugScreen() {
   const requestPermissions = async () => {
     try {
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
-      console.log('📋 Estat actual:', existingStatus);
 
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
-        console.log('📋 Nou estat:', status);
 
         if (status === 'granted') {
           Alert.alert('✅ Permisos concedits!');
