@@ -155,7 +155,6 @@ export const useEventReminders = (
         },
         trigger: null, // Enviar immediatament
       });
-
     } catch (error) {
       console.error('Error sending push notification:', error);
     }
@@ -172,7 +171,6 @@ export const useEventReminders = (
     });
 
     if (toRemove.length > 0) {
-
       // Filtrar les notificacions que es queden
       const remaining = localNotifications.filter((n) => goingEvents[n.eventId] === true);
 
