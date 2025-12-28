@@ -106,8 +106,6 @@ export default function ChatScreen() {
         setTimeout(() => {
           flatListRef.current?.scrollToEnd({ animated: false });
         }, 50);
-
-        
       } catch (e) {
         console.error('❌ Error loading messages', e);
       }

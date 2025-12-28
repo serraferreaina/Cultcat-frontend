@@ -134,13 +134,7 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
 
   const copyLinkToClipboard = async () => {
     try {
-      // TODO: Quan tinguis el domini de la teva app, canvia això per:
-      // const eventUrl = `https://tuapp.com/events/${event.id}`;
-      // o un deep link com: `tuapp://events/${event.id}`
-
-      // De moment, usem l'enllaç de l'API
       const eventUrl = `https://nattech.fib.upc.edu:40490/events/${event.id}`;
-
       await Clipboard.setStringAsync(eventUrl);
       setLinkCopied(true);
 

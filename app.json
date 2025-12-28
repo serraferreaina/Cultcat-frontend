@@ -3,7 +3,7 @@
     "name": "cultcat-frontend",
     "slug": "cultcat-frontend",
     "owner": "a1s3f3",
-    "scheme": "cultcat",
+    "scheme": "com.anonymous.cultcatfrontend",
     "router": {
       "origin": false
     },
@@ -23,7 +23,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.anonymous.cultcatfrontend",
-      "associatedDomains": ["applinks:cultcat.app", "applinks:www.cultcat.app"],
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
       }
@@ -45,29 +44,7 @@
         "googleMaps": {
           "apiKey": "AIzaSyCIcm5OKhUPpnKFVTrgkTvZSYEwqU8GmxA"
         }
-      },
-      "intentFilters": [
-        {
-          "action": "VIEW",
-          "autoVerify": true,
-          "data": [
-            {
-              "scheme": "https",
-              "host": "cultcat.app",
-              "pathPrefix": "/events"
-            },
-            {
-              "scheme": "https",
-              "host": "www.cultcat.app",
-              "pathPrefix": "/events"
-            },
-            {
-              "scheme": "cultcat"
-            }
-          ],
-          "category": ["BROWSABLE", "DEFAULT"]
-        }
-      ]
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -75,7 +52,6 @@
     "plugins": [
       "expo-router",
       "expo-web-browser",
-      "expo-notifications",
       [
         "expo-location",
         {
