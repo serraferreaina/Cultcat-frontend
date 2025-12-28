@@ -81,6 +81,7 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
     } catch (error: any) {
       if (error?.silent) return;
+      if (error?.message === 'Unauthorized') return;
       console.error('❌ Error loading API data:', error);
     }
   };
