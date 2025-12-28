@@ -91,7 +91,6 @@ export default function NotificationDebugScreen() {
 
   const testImmediateNotification = async () => {
     try {
-
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '🧪 Test Immediat',
@@ -117,7 +116,6 @@ export default function NotificationDebugScreen() {
 
   const testScheduledNotification = async () => {
     try {
-
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏰ Test Programat',
