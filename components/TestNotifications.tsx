@@ -27,17 +27,19 @@ export default function NotificationDebugScreen() {
     loadDebugInfo();
 
     // Listener per notificacions rebudes
-    const subscription = Notifications.addNotificationReceivedListener(notification => {
+    const subscription = Notifications.addNotificationReceivedListener((notification) => {
       console.log('📬 Notificació rebuda!', notification);
       setLastNotification(JSON.stringify(notification.request.content, null, 2));
       Alert.alert('📬 Notificació rebuda!', notification.request.content.body || 'Sense text');
     });
 
     // Listener per quan l'usuari toca la notificació
-    const responseSubscription = Notifications.addNotificationResponseReceivedListener(response => {
-      console.log('👆 Notificació tocada!', response);
-      Alert.alert('👆 Has tocat la notificació');
-    });
+    const responseSubscription = Notifications.addNotificationResponseReceivedListener(
+      (response) => {
+        console.log('👆 Notificació tocada!', response);
+        Alert.alert('👆 Has tocat la notificació');
+      },
+    );
 
     return () => {
       subscription.remove();
@@ -92,11 +94,11 @@ export default function NotificationDebugScreen() {
   const testImmediateNotification = async () => {
     try {
       console.log('🧪 Enviant notificació immediata...');
-      
+
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '🧪 Test Immediat',
-          body: 'Aquesta notificació s\'ha enviat ara mateix!',
+          body: "Aquesta notificació s'ha enviat ara mateix!",
           sound: true,
           priority: Notifications.AndroidNotificationPriority.MAX,
           data: { test: true, timestamp: Date.now() },
@@ -107,9 +109,9 @@ export default function NotificationDebugScreen() {
       console.log('✅ Notificació enviada amb ID:', id);
       Alert.alert(
         '✅ Enviada!',
-        `ID: ${id}\n\n⚠️ Amb Expo Go només es veu amb l'app oberta.\n\nRevisa els logs de la consola.`
+        `ID: ${id}\n\n⚠️ Amb Expo Go només es veu amb l'app oberta.\n\nRevisa els logs de la consola.`,
       );
-      
+
       setTimeout(() => loadDebugInfo(), 1000);
     } catch (error) {
       console.error('❌ Error:', error);
@@ -120,7 +122,7 @@ export default function NotificationDebugScreen() {
   const testScheduledNotification = async () => {
     try {
       console.log('🧪 Programant notificació per a 5 segons...');
-      
+
       const id = await Notifications.scheduleNotificationAsync({
         content: {
           title: '⏰ Test Programat',
@@ -138,9 +140,9 @@ export default function NotificationDebugScreen() {
       console.log('✅ Notificació programada amb ID:', id);
       Alert.alert(
         '✅ Programada!',
-        `Rebràs una notificació en 5 segons.\n\nID: ${id}\n\n⚠️ IMPORTANT: Mantén l'app oberta!`
+        `Rebràs una notificació en 5 segons.\n\nID: ${id}\n\n⚠️ IMPORTANT: Mantén l'app oberta!`,
       );
-      
+
       setTimeout(() => loadDebugInfo(), 1000);
     } catch (error) {
       console.error('❌ Error:', error);
@@ -156,7 +158,7 @@ export default function NotificationDebugScreen() {
       if (existingStatus !== 'granted') {
         const { status } = await Notifications.requestPermissionsAsync();
         console.log('📋 Nou estat:', status);
-        
+
         if (status === 'granted') {
           Alert.alert('✅ Permisos concedits!');
           await AsyncStorage.setItem('notificationsEnabled', 'true');
@@ -166,7 +168,7 @@ export default function NotificationDebugScreen() {
       } else {
         Alert.alert('ℹ️ Permisos ja concedits');
       }
-      
+
       loadDebugInfo();
     } catch (error) {
       console.error('Error:', error);
@@ -188,10 +190,7 @@ export default function NotificationDebugScreen() {
     const current = debugInfo.notificationsEnabled === 'true';
     const newValue = !current;
     await AsyncStorage.setItem('notificationsEnabled', String(newValue));
-    Alert.alert(
-      newValue ? '✅ Activat' : '🔕 Desactivat',
-      `notificationsEnabled = ${newValue}`
-    );
+    Alert.alert(newValue ? '✅ Activat' : '🔕 Desactivat', `notificationsEnabled = ${newValue}`);
     loadDebugInfo();
   };
 
@@ -209,9 +208,7 @@ export default function NotificationDebugScreen() {
 
       <ScrollView
         style={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={loadDebugInfo} />
-        }
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={loadDebugInfo} />}
       >
         {/* Estat General */}
         <View style={styles.section}>
@@ -236,25 +233,21 @@ export default function NotificationDebugScreen() {
         {/* Botons d'acció */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>🎮 Accions</Text>
-          
+
           <ActionButton
             icon="notifications"
             label="Notificació Immediata"
             onPress={testImmediateNotification}
           />
-          
-          <ActionButton
-            icon="time"
-            label="Notificació en 5s"
-            onPress={testScheduledNotification}
-          />
-          
+
+          <ActionButton icon="time" label="Notificació en 5s" onPress={testScheduledNotification} />
+
           <ActionButton
             icon="shield-checkmark"
             label="Demanar Permisos"
             onPress={requestPermissions}
           />
-          
+
           <ActionButton
             icon={debugInfo.notificationsEnabled === 'true' ? 'notifications-off' : 'notifications'}
             label={
@@ -264,7 +257,7 @@ export default function NotificationDebugScreen() {
             }
             onPress={toggleNotificationsEnabled}
           />
-          
+
           <ActionButton
             icon="trash"
             label="Cancel·lar totes"
@@ -291,10 +284,9 @@ export default function NotificationDebugScreen() {
         <View style={[styles.section, styles.warningSection]}>
           <Text style={styles.warningTitle}>⚠️ Important amb Expo Go:</Text>
           <Text style={styles.warningText}>
-            • Les notificacions NOMÉS es veuen amb l'app oberta{'\n'}
-            • NO apareixen al centre de notificacions{'\n'}
-            • NO funcionen amb l'app tancada{'\n'}
-            • Per notificacions reals necessites un BUILD{'\n'}
+            • Les notificacions NOMÉS es veuen amb l'app oberta{'\n'}• NO apareixen al centre de
+            notificacions{'\n'}• NO funcionen amb l'app tancada{'\n'}• Per notificacions reals
+            necessites un BUILD{'\n'}
             {'\n'}
             📱 Per testejar: Prem "Notificació Immediata" i hauràs de veure un alert
           </Text>

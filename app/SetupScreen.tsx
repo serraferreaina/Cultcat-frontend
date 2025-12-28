@@ -49,9 +49,9 @@ export default function SetupScreen() {
         if (finalStatus !== 'granted') {
           Alert.alert(
             t('Permission Required') || 'Permís necessari',
-            t('Please enable notifications in your device settings') || 
-            'Si us plau, activa les notificacions a la configuració del teu dispositiu',
-            [{ text: 'OK' }]
+            t('Please enable notifications in your device settings') ||
+              'Si us plau, activa les notificacions a la configuració del teu dispositiu',
+            [{ text: 'OK' }],
           );
           return;
         }
@@ -60,13 +60,13 @@ export default function SetupScreen() {
         setNotificationsEnabled(true);
         Alert.alert(
           '✅ ' + (t('Enabled') || 'Activat'),
-          t('Notifications enabled successfully') || 'Notificacions activades correctament'
+          t('Notifications enabled successfully') || 'Notificacions activades correctament',
         );
       } catch (error) {
         console.error('Error requesting notification permissions:', error);
         Alert.alert(
           t('Error') || 'Error',
-          t('Could not enable notifications') || 'No s\'han pogut activar les notificacions'
+          t('Could not enable notifications') || "No s'han pogut activar les notificacions",
         );
       }
     } else {
@@ -74,7 +74,7 @@ export default function SetupScreen() {
       setNotificationsEnabled(false);
       Alert.alert(
         '🔕 ' + (t('Disabled') || 'Desactivat'),
-        t('Notifications disabled') || 'Notificacions desactivades'
+        t('Notifications disabled') || 'Notificacions desactivades',
       );
     }
   };
@@ -138,11 +138,9 @@ export default function SetupScreen() {
 
         <View style={styles.row}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.label, { color: Colors.text }]}>
-              {t('Notifications')}
-            </Text>
+            <Text style={[styles.label, { color: Colors.text }]}>{t('Notifications')}</Text>
             <Text style={[styles.subtitle, { color: Colors.textSecondary }]}>
-              {t('Receive event reminders') || 'Rebre recordatoris d\'esdeveniments'}
+              {t('Receive event reminders') || "Rebre recordatoris d'esdeveniments"}
             </Text>
           </View>
           <Switch
@@ -175,8 +173,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   label: { fontSize: 16, fontWeight: '600' },
-  subtitle: { 
-    fontSize: 13, 
+  subtitle: {
+    fontSize: 13,
     marginTop: 4,
   },
   nextButton: {
