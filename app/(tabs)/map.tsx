@@ -12,8 +12,7 @@ import {
   Platform,
 } from 'react-native';
 
-import MapView from 'react-native-map-clustering';
-import { Marker } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
@@ -341,8 +340,6 @@ export default function MapScreen() {
         ref={mapRef}
         style={styles.map}
         showsUserLocation
-        clusteringEnabled
-        clusterColor={Colors.accent}
         initialRegion={{
           latitude: location.latitude,
           longitude: location.longitude,
@@ -366,7 +363,6 @@ export default function MapScreen() {
                   latitude: Number(event.latitud),
                   longitude: Number(event.longitud),
                 }}
-                tracksViewChanges={false}
                 onPress={(e) => {
                   e.stopPropagation();
                   setSelectedEvent(event);
