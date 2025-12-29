@@ -15,7 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams } from 'expo-router';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import { sendConnectionRequest } from '../../api';
+import { useTranslation } from 'react-i18next';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
@@ -24,6 +24,7 @@ export default function PublicProfile() {
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const { t, i18n } = useTranslation();
 
   const DEFAULT_AVATAR =
     'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
@@ -61,18 +62,6 @@ export default function PublicProfile() {
     return (
       <Text style={{ marginTop: 50, textAlign: 'center', color: Colors.text }}>User not found</Text>
     );
-
-  const handleConection = async () => {
-    try {
-      setConnecting(true);
-      await sendConnectionRequest(id as string);
-      setConnectionStatus('pending'); // feedback inmediato
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setConnecting(false);
-    }
-  };
 
   return (
     <SafeAreaView
@@ -115,15 +104,17 @@ export default function PublicProfile() {
                 </View>
                 <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
               </View>
-            </View>
 
-            <TouchableOpacity
-              disabled={disabled || connecting}
-              onPress={handleConection}
-              style={[styles.connectButton, { backgroundColor, opacity: disabled ? 0.7 : 1 }]}
-            >
-              <Text style={styles.connectButtonText}>{text}</Text>
-            </TouchableOpacity>
+              {/* Botón Solicitud de Amistad */}
+              <View style={{ marginTop: 20 }}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, { backgroundColor: Colors.accent }]}
+                  // onPress={() => {}}
+                >
+                  <Text style={[styles.actionText, { color: Colors.card }]}>{t('Connect')}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
           </View>
         </View>
 
@@ -214,14 +205,14 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 6,
   },
-  connectButton: {
-    marginTop: 12,
-    paddingVertical: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  connectButtonText: {
-    color: '#FFF',
+  actionText: {
     fontWeight: '700',
+  },
+  actionBtn: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

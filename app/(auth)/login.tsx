@@ -182,11 +182,7 @@ const Login: React.FC = () => {
       if (res.ok && data.access) {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
-<<<<<<< HEAD
         await AsyncStorage.setItem('isLoggedIn', 'true');
-=======
-        console.log('MANUAL TOKEEEEN9', data.access);
->>>>>>> b620b64 (boto solicitar conexio)
 
         console.log('🔑 ACCESS TOKEN:', data.access);
         console.log('🔄 REFRESH TOKEN:', data.refresh);
