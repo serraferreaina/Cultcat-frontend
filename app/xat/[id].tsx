@@ -24,6 +24,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../api';
 import { getUsers } from '../../api/users';
 import EventShareBubble from '../../components/EventShareBubble';
+import ProfileShareBubble from '../../components/ProfileShareBubble';
 
 export default function ChatScreen() {
   const { id, username, profilePicture } = useLocalSearchParams();
@@ -78,26 +79,38 @@ export default function ChatScreen() {
   useEffect(() => {
     async function loadMessages() {
       try {
-        // 1️⃣ Usuari loguejat real
         const me = await getProfile();
         const myUserId = me.id;
 
-        console.log('🧑‍💻 MY USER ID >>>', myUserId);
-
-        // 2️⃣ Missatges del xat
         const data = await getChatMessages(Number(id));
-
-        console.log('📩 RAW MESSAGES >>>', data);
 
         const formatted = data.map((m: any) => {
           const isMine = m.sender === myUserId;
 
-          console.log('MSG ID:', m.id, 'SENDER:', m.sender, 'MY ID:', myUserId, 'IS MINE?', isMine);
+          let messageType = 'text';
+          let profileData = null;
+
+          try {
+            const parsed = JSON.parse(m.content);
+
+            if (parsed.type === 'profile_share') {
+              messageType = 'profile_share';
+              profileData = {
+                userId: parsed.userId,
+                username: parsed.username,
+                profilePicture: parsed.profilePicture,
+                description: parsed.description,
+                userMessage: parsed.userMessage,
+              };
+            }
+          } catch (e) {}
 
           return {
             id: m.id.toString(),
             text: m.content,
             sender: isMine ? 'me' : 'other',
+            type: messageType,
+            profileData,
           };
         });
 
@@ -149,7 +162,7 @@ export default function ChatScreen() {
       shadowColor: '#000',
       shadowOpacity: 0.1,
       shadowRadius: 6,
-      elevation: 3, // Android shadow
+      elevation: 3,
     },
     avatar: {
       width: 36,
@@ -191,7 +204,13 @@ export default function ChatScreen() {
         <FlatList
           ref={flatListRef}
           data={messages}
-          renderItem={({ item }) => <ChatBubble message={item} />}
+          renderItem={({ item }) => {
+            if (item.type === 'profile_share' && item.profileData) {
+              return <ProfileShareBubble data={item.profileData} sender={item.sender} />;
+            }
+
+            return <ChatBubble message={item} />;
+          }}
           keyExtractor={(item) => item.id.toString()}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingVertical: 20 }}
