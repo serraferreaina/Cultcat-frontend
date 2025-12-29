@@ -104,9 +104,9 @@ const styles = StyleSheet.create({
   },
   tagline: { fontSize: 30, textAlign: 'right', fontWeight: '600' },
   logo: {
-    width: '70%',
-    height: '70%',
-    marginBottom: 90,
+    width: '90%',
+    height: '90%',
+    marginBottom: 0,
   },
   nextButtonWrapper: {
     position: 'absolute',
