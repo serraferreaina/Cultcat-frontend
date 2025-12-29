@@ -1,20 +1,33 @@
-// app/user/[id].tsx
+// app/user/[id].tsx amb botó de compartir
 
 import React, { useEffect, useState } from 'react';
-import { View, Text, Image, StyleSheet, ScrollView, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  ScrollView,
+  ActivityIndicator,
+  TouchableOpacity,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { ShareProfileModal } from '../../components/ShareProfileModal';
+import { useTranslation } from 'react-i18next';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
+  const { t } = useTranslation();
 
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const DEFAULT_AVATAR =
     'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
@@ -59,9 +72,13 @@ export default function PublicProfile() {
       edges={['top', 'left', 'right']}
     >
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Header sin menú */}
+        {/* Header amb botó de tornar */}
         <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color={Colors.text} />
+          </TouchableOpacity>
           <Text style={[styles.username, { color: Colors.text }]}>{user.username}</Text>
+          <View style={{ width: 24 }} />
         </View>
 
         {/* Card Perfil */}
@@ -96,6 +113,17 @@ export default function PublicProfile() {
               </View>
             </View>
           </View>
+
+          {/* Botó de compartir */}
+          <TouchableOpacity
+            style={[styles.shareButton, { backgroundColor: Colors.background }]}
+            onPress={() => setShareModalVisible(true)}
+          >
+            <Ionicons name="share-social-outline" size={18} color={Colors.accent} />
+            <Text style={[styles.shareButtonText, { color: Colors.accent }]}>
+              {t('Share profile')}
+            </Text>
+          </TouchableOpacity>
         </View>
 
         {/* Achievements */}
@@ -109,6 +137,19 @@ export default function PublicProfile() {
 
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      {/* Modal de compartir */}
+      <ShareProfileModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        profile={{
+          id: user.id,
+          username: user.username,
+          profile_picture: user.profile_picture,
+          profile_description: user.profile_description,
+        }}
+        Colors={Colors}
+      />
     </SafeAreaView>
   );
 }
@@ -123,6 +164,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     marginBottom: 8,
+  },
+  backButton: {
+    padding: 4,
   },
   username: {
     fontSize: 22,
@@ -160,6 +204,19 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 6,
     textAlign: 'right',
+  },
+  shareButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 16,
+    paddingVertical: 10,
+    borderRadius: 12,
+  },
+  shareButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
   },
   section: {
     borderRadius: 16,

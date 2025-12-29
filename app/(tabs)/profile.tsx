@@ -23,6 +23,7 @@ import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ShareProfileModal } from '../../components/ShareProfileModal';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
@@ -35,6 +36,8 @@ export default function Profile() {
   const [user, setUser] = useState<any>(global.currentUser);
   const [showSavedNotification, setShowSavedNotification] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   type Badge = {
     reward_id: number;
@@ -87,7 +90,6 @@ export default function Profile() {
     }
   };
 
-  // Cargar perfil de usuario
   useFocusEffect(
     React.useCallback(() => {
       const loadUser = async () => {
@@ -124,26 +126,6 @@ export default function Profile() {
     }, []),
   );
 
-  // ❌ ELIMINAR ESTE useFocusEffect - No recargar idioma al enfocar
-  /*
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadLanguage = async () => {
-        const preferredLang = await AsyncStorage.getItem('preferredLanguage');
-        if (preferredLang && ['en', 'es', 'ca'].includes(preferredLang)) {
-          setLanguage(preferredLang);
-          if (i18n.language !== preferredLang) {
-            await i18n.changeLanguage(preferredLang);
-            await AsyncStorage.setItem('appLanguage', preferredLang);
-          }
-        }
-      };
-      loadLanguage();
-    }, []),
-  );
-  */
-
-  // Solo actualizar el estado local cuando i18n cambia
   useEffect(() => {
     setLanguage(i18n.language);
   }, [i18n.language]);
@@ -166,7 +148,6 @@ export default function Profile() {
     }
   }, []);
 
-  // Check for saved profile notification
   useFocusEffect(
     React.useCallback(() => {
       const checkSavedStatus = async () => {
@@ -334,7 +315,7 @@ export default function Profile() {
                   onLanguageChange={async (lang) => {
                     setLanguage(lang);
                     await i18n.changeLanguage(lang);
-                    await AsyncStorage.setItem('appLanguage', lang); // Solo appLanguage
+                    await AsyncStorage.setItem('appLanguage', lang);
                     setShowLanguageSelector(false);
                     setShowMenu(false);
                   }}
@@ -418,6 +399,9 @@ export default function Profile() {
                 styles.actionBtn,
                 { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
               ]}
+              onPress={() => {
+                setShareModalVisible(true);
+              }}
             >
               <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
             </TouchableOpacity>
@@ -525,6 +509,19 @@ export default function Profile() {
           </View>
         </View>
       </Modal>
+      {user && (
+        <ShareProfileModal
+          visible={shareModalVisible}
+          onClose={() => setShareModalVisible(false)}
+          profile={{
+            id: user.id,
+            username: user.username,
+            profile_picture: user.profile_picture || DEFAULT_AVATAR,
+            profile_description: user.profile_description,
+          }}
+          Colors={Colors}
+        />
+      )}
     </SafeAreaView>
   );
 }
