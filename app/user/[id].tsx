@@ -17,6 +17,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
 import { useTranslation } from 'react-i18next';
+import { sendConnectionRequest } from '../../api';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
@@ -25,9 +26,14 @@ export default function PublicProfile() {
   const router = useRouter();
 
   const [user, setUser] = useState<any>(null);
+  const [connectionStatus, setConnectionStatus] = useState<string | null>(null);
+
   const [loading, setLoading] = useState(true);
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const { t, i18n } = useTranslation();
+
+  const [requestSent, setRequestSent] = useState(false);
+  const [isSending, setIsSending] = useState(false);
 
   const DEFAULT_AVATAR =
     'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
@@ -43,9 +49,11 @@ export default function PublicProfile() {
         email: data.email,
         profile_picture: data.profilePic || DEFAULT_AVATAR,
         profile_description: data.bio || '',
+        connection_status: data.connection_status || null,
       };
 
       setUser(normalized);
+      setConnectionStatus(normalized.connection_status);
     } catch (err) {
       console.error('Error cargando usuario:', err);
       setUser(null);
@@ -65,6 +73,22 @@ export default function PublicProfile() {
     return (
       <Text style={{ marginTop: 50, textAlign: 'center', color: Colors.text }}>User not found</Text>
     );
+
+  const handleSendRequest = async () => {
+    if (!id) return;
+    try {
+      await sendConnectionRequest(String(id));
+      setConnectionStatus('Pending');
+    } catch (e) {
+      console.log(' Error:', e);
+    }
+  };
+
+  const getButtonText = () => {
+    if (connectionStatus === 'Pending') return t('Requested');
+    if (connectionStatus === 'Following') return t('Following');
+    return t('Connect');
+  };
 
   return (
     <SafeAreaView
@@ -115,10 +139,21 @@ export default function PublicProfile() {
               {/* Botón Solicitud de Amistad */}
               <View style={{ marginTop: 20 }}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, { backgroundColor: Colors.accent }]}
-                  // onPress={() => {}}
+                  disabled={connectionStatus === 'Pending' || connectionStatus === 'Following'}
+                  onPress={handleSendRequest}
+                  style={[
+                    styles.actionBtn,
+                    {
+                      backgroundColor:
+                        connectionStatus === 'Following'
+                          ? Colors.going
+                          : connectionStatus === 'Pending'
+                            ? Colors.muted
+                            : Colors.accent,
+                    },
+                  ]}
                 >
-                  <Text style={[styles.actionText, { color: Colors.card }]}>{t('Connect')}</Text>
+                  <Text style={[styles.actionText, { color: Colors.card }]}>{getButtonText()}</Text>
                 </TouchableOpacity>
               </View>
             </View>
