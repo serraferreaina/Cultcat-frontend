@@ -108,14 +108,12 @@ export default function ChatScreen() {
 
         const formatted: UiMessage[] = data.map((m: any) => {
           const isMine = m.sender === myId;
-          const user = map[m.sender];
 
           let messageType: 'text' | 'profile_share' = 'text';
           let profileData = undefined;
 
           try {
             const parsed = JSON.parse(m.content);
-
             if (parsed.type === 'profile_share') {
               messageType = 'profile_share';
               profileData = {
@@ -126,15 +124,15 @@ export default function ChatScreen() {
                 userMessage: parsed.userMessage,
               };
             }
-          } catch (e) {}
+          } catch {}
 
           return {
             id: m.id.toString(),
             text: m.content,
             sender: isMine ? 'me' : 'other',
             senderId: m.sender,
-            senderName: !isMine ? user?.username : undefined,
-            senderAvatar: !isMine ? user?.profilePic : undefined,
+            senderName: !isMine ? m.sender_username : undefined,
+            senderAvatar: !isMine ? m.sender_profilePic : undefined,
             type: messageType,
             profileData,
           };
@@ -219,7 +217,7 @@ export default function ChatScreen() {
             <Ionicons name="arrow-back" size={26} color={Colors.text} />
           </TouchableOpacity>
 
-          <Image source={require('../../../assets/foto_perfil1.jpg')} style={styles.avatar} />
+          <Image source={require('../../../assets/cultcat-logo.png')} style={styles.avatar} />
 
           <Text style={styles.title}>{groupName}</Text>
 
