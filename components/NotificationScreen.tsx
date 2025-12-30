@@ -1,4 +1,5 @@
 // components/NotificationScreen.tsx
+// Versió simplificada - només backend notifications
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -16,38 +17,26 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { api } from '../api';
-import { useEventStatus } from '../context/EventStatus';
-import {
-  useEventReminders,
-  LocalNotification as LocalNotificationType,
-} from '../hooks/useEventReminders';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 
-interface BackendNotification {
+interface Notification {
   id: number;
   type: string;
   reference_id: number;
-  payload: string;
+  payload: {
+    icon?: string;
+    level?: string;
+    reward_name?: string;
+    category_name?: string;
+    from_user_id?: number;
+    from_username?: string;
+    [key: string]: any;
+  };
   created_at: string;
   read: boolean;
-  source: 'backend';
 }
-
-interface RewardDetails {
-  reward_id: number;
-  name: string;
-  category: string;
-  level: number;
-  level_label: string;
-  condition_type: string;
-  condition_value: number;
-  icon: string;
-  obtained_at: string;
-}
-
-type CombinedNotification = BackendNotification | LocalNotificationType;
 
 interface NotificationsScreenProps {
   visible: boolean;
@@ -65,51 +54,19 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  const { goingEvents, attendanceDates } = useEventStatus();
-  const {
-    localNotifications,
-    markAsRead: markLocalAsRead,
-    markAllAsRead: markAllLocalAsRead,
-    deleteNotification,
-    getUnreadCount,
-    refreshReminders,
-  } = useEventReminders(goingEvents, attendanceDates);
-
-  const [backendNotifications, setBackendNotifications] = useState<BackendNotification[]>([]);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [rewardDetailsCache, setRewardDetailsCache] = useState<Record<number, RewardDetails>>({});
-  const [readNotifications, setReadNotifications] = useState<Set<number>>(new Set());
-  const previousNotificationCountRef = useRef<number>(0);
+  const previousNotificationIdsRef = useRef<Set<number>>(new Set());
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
-  const fetchBackendNotifications = async () => {
+  // Obtenir notificacions del backend
+  const fetchNotifications = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await api('/notifications/');
-      const withSource = data.map((n: any) => ({ ...n, source: 'backend' as const }));
-      setBackendNotifications(withSource);
-
-      // Netejar notificacions llegides que ja no existeixen al backend
-      const backendIds = new Set(data.map((n: any) => n.id));
-      const updatedReadIds = new Set(
-        Array.from(readNotifications).filter((id) => backendIds.has(id)),
-      );
-
-      // Si hi ha hagut canvis, actualitzar el cache
-      if (updatedReadIds.size !== readNotifications.size) {
-        await saveReadNotifications(updatedReadIds);
-      }
-
-      // Carregar detalls de rewards
-      const rewardNotifications = withSource.filter(
-        (n: BackendNotification) => n.type === 'reward',
-      );
-      for (const notif of rewardNotifications) {
-        if (!rewardDetailsCache[notif.reference_id]) {
-          fetchRewardDetails(notif.reference_id);
-        }
-      }
+      setNotifications(data);
     } catch (err: any) {
       setError(err.message || 'Error carregant notificacions');
       console.error('Error fetching notifications:', err);
@@ -118,134 +75,85 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
-  const fetchRewardDetails = async (rewardId: number) => {
-    try {
-      const data = await api(`/rewards/${rewardId}/`);
-      setRewardDetailsCache((prev) => ({ ...prev, [rewardId]: data }));
-    } catch (err) {
-      console.error(`Error fetching reward ${rewardId}:`, err);
-    }
-  };
-
-  // Carregar notificacions llegides de AsyncStorage
+  // Polling per notificacions noves (cada 30 segons quan la modal està oberta)
   useEffect(() => {
-    loadReadNotifications();
-  }, []);
+    if (visible) {
+      fetchNotifications();
 
-  const loadReadNotifications = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('readBackendNotifications');
-      if (stored) {
-        const readIds = JSON.parse(stored);
-        setReadNotifications(new Set(readIds));
-      }
-    } catch (error) {
-      console.error('Error loading read notifications:', error);
-    }
-  };
+      // Polling cada 30 segons
+      pollingIntervalRef.current = setInterval(() => {
+        fetchNotifications();
+      }, 30000);
 
-  const saveReadNotifications = async (readIds: Set<number>) => {
-    try {
-      await AsyncStorage.setItem('readBackendNotifications', JSON.stringify(Array.from(readIds)));
-      setReadNotifications(readIds);
-    } catch (error) {
-      console.error('Error saving read notifications:', error);
-    }
-  };
-
-  const getNotificationText = (notification: CombinedNotification): string => {
-    try {
-      if (notification.source === 'local') {
-        const localNotif = notification as LocalNotificationType;
-        return String(localNotif.message || '');
-      }
-
-      const backendNotif = notification as BackendNotification;
-
-      // Si és una notificació de reward, generar text personalitzat
-      if (backendNotif.type === 'reward') {
-        const rewardDetails = rewardDetailsCache[backendNotif.reference_id];
-        if (rewardDetails) {
-          return `🎉 Has aconseguit la insígnia: ${rewardDetails.name}`;
+      return () => {
+        if (pollingIntervalRef.current) {
+          clearInterval(pollingIntervalRef.current);
         }
-        return '🎉 Has aconseguit una nova insígnia!';
-      }
+      };
+    }
+  }, [visible]);
 
-      const payloadStr = backendNotif.payload;
+  // Detectar notificacions noves i enviar push
+  useEffect(() => {
+    const checkForNewNotifications = async () => {
+      const currentNotificationIds = new Set(notifications.map((n) => n.id));
 
-      // Si payload és un string, intentar parsejar-lo com a JSON
-      if (typeof payloadStr === 'string') {
-        try {
-          const parsed = JSON.parse(payloadStr);
-          if (typeof parsed === 'object' && parsed !== null) {
-            // Extreure el camp 'message', 'text' o 'body'
-            if (typeof parsed.message === 'string') return parsed.message;
-            if (typeof parsed.text === 'string') return parsed.text;
-            if (typeof parsed.body === 'string') return parsed.body;
+      const newNotificationIds = Array.from(currentNotificationIds).filter(
+        (id) => !previousNotificationIdsRef.current.has(id),
+      );
 
-            // Si no té cap camp de text reconegut, retornar string buit
-            console.warn('Notification payload without text message, filtering out:', parsed);
-            return '';
+      // Només enviar push si ja teníem notificacions abans (no és la primera càrrega)
+      if (newNotificationIds.length > 0 && previousNotificationIdsRef.current.size > 0) {
+        for (const id of newNotificationIds) {
+          const notification = notifications.find((n) => n.id === id);
+          if (notification) {
+            await sendPushForNotification(notification);
           }
-          return String(parsed);
-        } catch {
-          // Si no es pot parsejar, retornar el string tal qual
-          return String(payloadStr);
         }
       }
 
-      return String(payloadStr || '');
-    } catch (error) {
-      console.error('Error getting notification text:', error, notification);
-      return '';
+      previousNotificationIdsRef.current = currentNotificationIds;
+    };
+
+    if (notifications.length > 0) {
+      checkForNewNotifications();
     }
-  };
+  }, [notifications]);
 
-  const sendPushForNotification = async (notification: CombinedNotification) => {
+  // Enviar push notification
+  const sendPushForNotification = async (notification: Notification) => {
     try {
-      // Comprovar si les notificacions estan activades
       const notifEnabled = await AsyncStorage.getItem('notificationsEnabled');
-      if (notifEnabled !== 'true') {
-        return;
-      }
+      if (notifEnabled !== 'true') return;
 
-      // Comprovar permisos
       const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') {
-        return;
-      }
+      if (status !== 'granted') return;
 
       let title = '';
       let body = '';
 
-      if (notification.source === 'backend') {
-        const backendNotif = notification as BackendNotification;
-
-        if (backendNotif.type === 'reward') {
-          const rewardDetails = rewardDetailsCache[backendNotif.reference_id];
-          title = '🏆 Nova insígnia!';
-          body = rewardDetails
-            ? `Has aconseguit: ${rewardDetails.name}`
-            : 'Has aconseguit una nova insígnia!';
-        } else {
-          title = '📅 Nou esdeveniment';
-          body = getNotificationText(notification);
-        }
+      if (notification.type === 'reward_unlocked') {
+        const emoji = getRewardEmoji(notification.payload.reward_name || '');
+        title = `${emoji} Nova insígnia desblocada!`;
+        body = `Felicitats! Has aconseguit: ${notification.payload.reward_name || 'una nova insígnia'}`;
+      } else if (notification.type === 'connection_request_received') {
+        title = '👥 Nova sol·licitud de connexió';
+        body = `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
       } else {
-        // Local notifications ja envien el seu propi push
-        return;
+        title = '🔔 Nova notificació';
+        body = getNotificationText(notification);
       }
 
-      // Enviar notificació push
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
           body,
           data: {
             notificationId: notification.id,
-            source: notification.source,
+            type: notification.type,
           },
           sound: true,
+          priority: Notifications.AndroidNotificationPriority.HIGH,
         },
         trigger: null,
       });
@@ -254,144 +162,72 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
+  // Actualitzar comptador de no llegides
   useEffect(() => {
-    if (visible) {
-      fetchBackendNotifications();
-      refreshReminders();
-    }
-  }, [visible]);
+    const unreadCount = notifications.filter((n) => !n.read).length;
+    onNotificationCountChange(unreadCount);
+  }, [notifications]);
 
-  // Combinar notificacions locals i del backend (DECLARAR ABANS DEL useEffect)
-  const allNotifications: CombinedNotification[] = [
-    ...localNotifications,
-    ...backendNotifications
-      .filter((n) => {
-        // Mostrar notificacions d'esdeveniments i rewards
-        return n.type === 'event' || n.type === 'event_reminder' || n.type === 'reward';
-      })
-      .map((n) => ({
-        ...n,
-        // Aplicar l'estat de llegit des del cache local
-        read: n.read || readNotifications.has(n.id),
-      })),
-  ]
-    .filter((notification) => {
-      // Filtrar notificacions sense text vàlid
-      const text = getNotificationText(notification);
-      return text && text.trim().length > 0;
-    })
-    .sort((a, b) => {
-      // Ordenar per data (més recents primer)
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-
-  // Detectar noves notificacions i enviar push
-  useEffect(() => {
-    const checkForNewNotifications = async () => {
-      const currentUnread = allNotifications.filter((n) => !n.read).length;
-
-      // Si hi ha noves notificacions no llegides
-      if (
-        currentUnread > previousNotificationCountRef.current &&
-        previousNotificationCountRef.current > 0
-      ) {
-        const newNotifications = allNotifications
-          .filter((n) => !n.read)
-          .slice(0, currentUnread - previousNotificationCountRef.current);
-
-        // Enviar push per cada nova notificació
-        for (const notification of newNotifications) {
-          await sendPushForNotification(notification);
-        }
-      }
-
-      previousNotificationCountRef.current = currentUnread;
-    };
-
-    checkForNewNotifications();
-  }, [allNotifications, rewardDetailsCache]);
-
-  // Actualitzar comptador de notificacions no llegides
-  useEffect(() => {
-    const localUnread = getUnreadCount();
-    const backendUnread = backendNotifications.filter((n) => {
-      const isEventOrReward =
-        n.type === 'event' || n.type === 'event_reminder' || n.type === 'reward';
-      const isUnread = !n.read && !readNotifications.has(n.id);
-      const hasText = getNotificationText(n).trim().length > 0;
-      return isEventOrReward && isUnread && hasText;
-    }).length;
-    onNotificationCountChange(localUnread + backendUnread);
-  }, [localNotifications, backendNotifications, readNotifications]);
-
-  const handleMarkAsRead = async (notification: CombinedNotification) => {
+  // Marcar com a llegida
+  const handleMarkAsRead = async (notification: Notification) => {
     if (notification.read) return;
 
-    if (notification.source === 'backend') {
-      try {
-        await api(`/notifications/${notification.id}/mark-read/`, {
-          method: 'POST',
-        });
+    try {
+      await api(`/notifications/${notification.id}/mark-read/`, {
+        method: 'POST',
+      });
 
-        // Actualitzar el cache local
-        const newReadIds = new Set(readNotifications);
-        newReadIds.add(notification.id);
-        await saveReadNotifications(newReadIds);
-
-        // Actualitzar també l'estat de backendNotifications
-        setBackendNotifications((prev) =>
-          prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
-        );
-      } catch (err) {
-        console.error('Error marking backend notification as read:', err);
-      }
-    } else {
-      await markLocalAsRead(notification.id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
+      );
+    } catch (err) {
+      console.error('Error marking notification as read:', err);
     }
   };
 
+  // Marcar totes com a llegides
   const handleMarkAllAsRead = async () => {
-    // Marcar totes del backend
     try {
       await api('/notifications/mark-read/', {
         method: 'POST',
       });
 
-      // Actualitzar el cache local amb totes les IDs
-      const allBackendIds = backendNotifications.map((n) => n.id);
-      const newReadIds = new Set([...readNotifications, ...allBackendIds]);
-      await saveReadNotifications(newReadIds);
-
-      setBackendNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
     } catch (err) {
-      console.error('Error marking all backend notifications as read:', err);
-    }
-
-    // Marcar totes les locals
-    await markAllLocalAsRead();
-  };
-
-  const handleNotificationPress = async (notification: CombinedNotification) => {
-    await handleMarkAsRead(notification);
-
-    // Si és una notificació d'esdeveniment, navegar al detall
-    if (notification.source === 'local') {
-      onClose();
-      router.push(`/events/${notification.eventId}`);
-    } else if (notification.type === 'event' || notification.type === 'event_reminder') {
-      onClose();
-      router.push(`/events/${notification.reference_id}`);
-    } else if (notification.type === 'reward') {
-      // Per rewards, pots navegar a la pàgina de perfil o rewards
-      onClose();
-      router.push('/profile');
+      console.error('Error marking all notifications as read:', err);
     }
   };
 
-  const getNotificationIcon = (notification: CombinedNotification) => {
-    if (notification.source === 'local') return 'calendar';
+  // Obtenir emoji per rewards
+  const getRewardEmoji = (rewardName: string): string => {
+    if (rewardName.includes('_3')) return '🏆';
+    if (rewardName.includes('_2')) return '🥈';
+    if (rewardName.includes('_1')) return '🥉';
+    return '🎉';
+  };
 
+  // Obtenir text de la notificació
+  const getNotificationText = (notification: Notification): string => {
+    if (notification.type === 'reward_unlocked') {
+      const emoji = getRewardEmoji(notification.payload.reward_name || '');
+      return `${emoji} Has aconseguit: ${notification.payload.reward_name || 'nova insígnia'}`;
+    }
+
+    if (notification.type === 'connection_request_received') {
+      return `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
+    }
+
+    // Altres tipus de notificacions
+    return 'Nova notificació';
+  };
+
+  // Obtenir icona
+  const getNotificationIcon = (notification: Notification) => {
     switch (notification.type) {
+      case 'reward_unlocked':
+        return 'trophy';
+      case 'connection_request_received':
+        return 'person-add';
       case 'comment':
         return 'chatbubble';
       case 'review':
@@ -401,27 +237,39 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       case 'event':
       case 'event_reminder':
         return 'calendar';
-      case 'reward':
-        return 'trophy';
       default:
         return 'notifications';
     }
   };
 
-  const getNotificationColor = (notification: CombinedNotification) => {
+  // Obtenir color
+  const getNotificationColor = (notification: Notification) => {
     if (notification.read) return Colors.border;
 
-    if (notification.source === 'local') {
-      const localNotif = notification as LocalNotificationType;
-      // Colors segons urgència
-      if (localNotif.daysUntil === 0) return '#FF6B6B'; // Vermell (avui)
-      if (localNotif.daysUntil === 1) return '#FFA726'; // Taronja (demà)
-      return '#66BB6A'; // Verd (més de 2 dies)
+    if (notification.type === 'reward_unlocked') {
+      return '#FFD700';
     }
 
     return Colors.accent;
   };
 
+  // Gestionar press
+  const handleNotificationPress = async (notification: Notification) => {
+    await handleMarkAsRead(notification);
+
+    if (notification.type === 'reward_unlocked') {
+      onClose();
+      router.push('/badges');
+    } else if (notification.type === 'connection_request_received') {
+      onClose();
+      router.push('/profile/connections');
+    } else if (notification.type === 'event' || notification.type === 'event_reminder') {
+      onClose();
+      router.push(`/events/${notification.reference_id}`);
+    }
+  };
+
+  // Formatar data
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -438,18 +286,11 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     return date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
   };
 
-  const renderNotification = ({ item }: { item: CombinedNotification }) => {
+  // Render notificació
+  const renderNotification = ({ item }: { item: Notification }) => {
     const notificationText = getNotificationText(item);
-
-    // No renderitzar si no hi ha text vàlid
-    if (!notificationText || notificationText.trim().length === 0) {
-      return null;
-    }
-
-    const isReward = item.source === 'backend' && item.type === 'reward';
-    const rewardDetails = isReward
-      ? rewardDetailsCache[(item as BackendNotification).reference_id]
-      : null;
+    const isReward = item.type === 'reward_unlocked';
+    const rewardIcon = isReward ? item.payload.icon : null;
 
     return (
       <TouchableOpacity
@@ -461,19 +302,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           },
         ]}
         onPress={() => handleNotificationPress(item)}
-        onLongPress={() => {
-          if (item.source === 'local') {
-            deleteNotification(item.id);
-          }
-        }}
       >
         <View style={styles.notificationContent}>
-          {isReward && rewardDetails?.icon ? (
-            <Image
-              source={{ uri: rewardDetails.icon }}
-              style={styles.rewardIcon}
-              resizeMode="contain"
-            />
+          {isReward && rewardIcon ? (
+            <Image source={{ uri: rewardIcon }} style={styles.rewardIcon} resizeMode="contain" />
           ) : (
             <View style={[styles.iconContainer, { backgroundColor: getNotificationColor(item) }]}>
               <Ionicons name={getNotificationIcon(item)} size={20} color="white" />
@@ -489,9 +321,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             >
               {notificationText}
             </Text>
-            {isReward && rewardDetails && (
+            {isReward && item.payload.level && (
               <Text style={[styles.rewardSubtext, { color: Colors.textSecondary }]}>
-                {rewardDetails.level_label} • {rewardDetails.category}
+                {item.payload.level} • {item.payload.category_name}
               </Text>
             )}
             <Text style={[styles.timeText, { color: Colors.textSecondary }]}>
@@ -515,11 +347,13 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
           <Text style={[styles.headerTitle, { color: Colors.text }]}>Notificacions</Text>
 
-          {allNotifications.some((n) => !n.read) && (
-            <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
-              <Text style={[styles.markAllText, { color: Colors.accent }]}>Marcar tot</Text>
-            </TouchableOpacity>
-          )}
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {notifications.some((n) => !n.read) && (
+              <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
+                <Text style={[styles.markAllText, { color: Colors.accent }]}>Marcar tot</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
 
         {loading ? (
@@ -532,12 +366,12 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             <Text style={[styles.errorText, { color: Colors.text }]}>{String(error)}</Text>
             <TouchableOpacity
               style={[styles.retryButton, { backgroundColor: Colors.accent }]}
-              onPress={fetchBackendNotifications}
+              onPress={fetchNotifications}
             >
               <Text style={styles.retryButtonText}>Tornar a intentar</Text>
             </TouchableOpacity>
           </View>
-        ) : allNotifications.length === 0 ? (
+        ) : notifications.length === 0 ? (
           <View style={styles.centerContainer}>
             <Ionicons name="notifications-off-outline" size={64} color={Colors.textSecondary} />
             <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
@@ -546,10 +380,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           </View>
         ) : (
           <FlatList
-            data={allNotifications}
-            keyExtractor={(item) =>
-              item.source === 'backend' ? `backend_${item.id}` : `local_${item.id}`
-            }
+            data={notifications}
+            keyExtractor={(item) => `notification_${item.id}`}
             renderItem={renderNotification}
             contentContainerStyle={styles.listContainer}
           />
