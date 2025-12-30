@@ -12,8 +12,7 @@ import {
   Platform,
 } from 'react-native';
 
-import MapView from 'react-native-map-clustering';
-import { Marker } from 'react-native-maps';
+import MapView, { Marker } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
@@ -25,6 +24,7 @@ import { Share } from 'react-native';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from '../../components/ShareEventModal';
 
 interface EventItem {
   id: number;
@@ -58,6 +58,8 @@ export default function MapScreen() {
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const normalizeDate = (date: Date): Date => {
     // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
@@ -212,10 +214,6 @@ export default function MapScreen() {
       if (isSingleDay) {
         // Normalitzar la data abans d'enviar
         const normalizedMinDate = normalizeDate(minDate);
-        console.log(
-          '📅 MapScreen - Single day, sending:',
-          normalizedMinDate.toISOString().split('T')[0],
-        );
         toggleGoing(selectedEvent.id, normalizedMinDate);
       } else {
         setShowDateModal(true);
@@ -239,9 +237,6 @@ export default function MapScreen() {
     if (selectedEvent) {
       // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
-      console.log('📅 MapScreen - Selected date:', selectedDate);
-      console.log('📅 MapScreen - Normalized date:', normalizedDate);
-      console.log('📅 MapScreen - Will send to API:', normalizedDate.toISOString().split('T')[0]);
       await toggleGoing(selectedEvent.id, normalizedDate);
     }
     setShowDatePicker(false);
@@ -341,8 +336,6 @@ export default function MapScreen() {
         ref={mapRef}
         style={styles.map}
         showsUserLocation
-        clusteringEnabled
-        clusterColor={Colors.accent}
         initialRegion={{
           latitude: location.latitude,
           longitude: location.longitude,
@@ -366,7 +359,6 @@ export default function MapScreen() {
                   latitude: Number(event.latitud),
                   longitude: Number(event.longitud),
                 }}
-                tracksViewChanges={false}
                 onPress={(e) => {
                   e.stopPropagation();
                   setSelectedEvent(event);
@@ -487,13 +479,7 @@ export default function MapScreen() {
 
                       <TouchableOpacity
                         style={styles.iconButton}
-                        onPress={() => {
-                          const url = `https://tu-app.com/event/${selectedEvent.id}`;
-                          Share.share({
-                            message: `Mira este evento: ${url}`,
-                            url,
-                          });
-                        }}
+                        onPress={() => setShareModalVisible(true)}
                       >
                         <Ionicons name="share-social-outline" size={20} color={Colors.text} />
                       </TouchableOpacity>
@@ -618,6 +604,36 @@ export default function MapScreen() {
           eventId={selectedEvent.id}
           visible={showReviews}
           onClose={() => setShowReviews(false)}
+        />
+      )}
+
+      {selectedEvent && (
+        <ShareEventModal
+          visible={shareModalVisible}
+          onClose={() => setShareModalVisible(false)}
+          event={{
+            id: selectedEvent.id,
+            titol: selectedEvent.titol || '',
+            descripcio: '',
+            imgApp: null,
+            imatges: selectedEvent.imatges,
+            data_inici: selectedEvent.data_inici,
+            data_fi: selectedEvent.data_fi,
+            localitat: selectedEvent.localitat || null,
+            enllacos: {},
+            infoEntrades: null,
+            infoHorari: selectedEvent.horari || null,
+            gratuita: false,
+            modalitat: selectedEvent.modalitat || null,
+            direccio: selectedEvent.direccio || null,
+            espai: selectedEvent.espai || null,
+            georeferencia: null,
+            latitud: selectedEvent.latitud,
+            longitud: selectedEvent.longitud,
+            telefon: null,
+            email: null,
+          }}
+          Colors={Colors}
         />
       )}
     </View>

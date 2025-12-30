@@ -17,7 +17,7 @@ export default function ChatListItem({ chat }: { chat: ChatItem }) {
   return (
     <View style={[styles.container, { borderBottomColor: Colors.border }]}>
       <Image
-        source={chat.profile ? { uri: chat.profile } : require('../assets/foto_perfil1.jpg')}
+        source={chat.profile ? { uri: chat.profile } : require('../assets/cultcat-logo.png')}
         style={styles.avatar}
       />
 

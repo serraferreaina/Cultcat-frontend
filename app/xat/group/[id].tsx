@@ -16,9 +16,9 @@ import { useTheme } from '../../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../../theme/colors';
 import ChatBubble from '../../../components/ChatBubble';
 import ChatInput from '../../../components/ChatInput';
+import ProfileShareBubble from '../../../components/ProfileShareBubble';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getChatMessages, sendChatMessage } from '../../../api/chat';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getProfile } from '../../../api';
 import { getConnections } from '../../../api/connections';
 import { getGroupChats } from '../../../api/groupchats';
@@ -27,8 +27,17 @@ type UiMessage = {
   id: string;
   text: string;
   sender: 'me' | 'other';
-  senderId?: number; // ✅ IMPORTANT (per grups / debug)
-  senderName?: string; // (en individuals no cal, però no molesta)
+  senderId?: number;
+  senderName?: string;
+  senderAvatar?: string;
+  type?: 'text' | 'profile_share';
+  profileData?: {
+    userId: number;
+    username: string;
+    profilePicture: string;
+    description?: string | null;
+    userMessage?: string | null;
+  };
 };
 
 export default function ChatScreen() {
@@ -37,10 +46,11 @@ export default function ChatScreen() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const [messages, setMessages] = useState<UiMessage[]>([]);
-  const [myUserId, setMyUserId] = useState<number | null>(null); // ✅ AFEGIT
+  const [myUserId, setMyUserId] = useState<number | null>(null);
   const flatListRef = useRef<FlatList<UiMessage>>(null);
 
   const [chatUsername, setChatUsername] = useState<string>('Usuari');
+
   const [userMap, setUserMap] = useState<
     Record<
       number,
@@ -50,12 +60,13 @@ export default function ChatScreen() {
       }
     >
   >({});
+
   const [groupName, setGroupName] = useState<string>('Grup');
 
   useEffect(() => {
     async function loadGroup() {
       try {
-        const groups = await getGroupChats(); // endpoint que ja tens
+        const groups = await getGroupChats();
         const group = groups.find((g: any) => g.chat_id === Number(id));
 
         if (group) {
@@ -72,9 +83,9 @@ export default function ChatScreen() {
   useEffect(() => {
     async function loadMessages() {
       try {
-        // 1️⃣ Usuari loguejat real
         const me = await getProfile();
         const myId = me.id;
+        setMyUserId(myId);
 
         const map: Record<number, { username: string; profilePic: string | null }> = {
           [myId]: {
@@ -93,24 +104,37 @@ export default function ChatScreen() {
 
         setUserMap(map);
 
-        console.log('👥 USER MAP >>>', map);
-
-        console.log('🧑‍💻 MY USER ID >>>', myId);
-
-        // 2️⃣ Missatges del xat
         const data = await getChatMessages(Number(id));
-        console.log('📩 RAW MESSAGES >>>', data);
+
         const formatted: UiMessage[] = data.map((m: any) => {
           const isMine = m.sender === myId;
-          const user = map[m.sender];
+
+          let messageType: 'text' | 'profile_share' = 'text';
+          let profileData = undefined;
+
+          try {
+            const parsed = JSON.parse(m.content);
+            if (parsed.type === 'profile_share') {
+              messageType = 'profile_share';
+              profileData = {
+                userId: parsed.userId,
+                username: parsed.username,
+                profilePicture: parsed.profilePicture,
+                description: parsed.description,
+                userMessage: parsed.userMessage,
+              };
+            }
+          } catch {}
 
           return {
             id: m.id.toString(),
             text: m.content,
             sender: isMine ? 'me' : 'other',
             senderId: m.sender,
-            senderName: !isMine ? user?.username : undefined,
-            senderAvatar: !isMine ? user?.profilePic : undefined,
+            senderName: !isMine ? m.sender_username : undefined,
+            senderAvatar: !isMine ? m.sender_profilePic : undefined,
+            type: messageType,
+            profileData,
           };
         });
 
@@ -139,7 +163,8 @@ export default function ChatScreen() {
           id: response.id.toString(),
           text: response.content,
           sender: 'me',
-          senderId: myUserId ?? undefined, // ✅ evita "variable no existeix"
+          senderId: myUserId ?? undefined,
+          type: 'text',
         },
       ]);
 
@@ -187,13 +212,12 @@ export default function ChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -10}
       >
-        {/* HEADER */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="arrow-back" size={26} color={Colors.text} />
           </TouchableOpacity>
 
-          <Image source={require('../../../assets/foto_perfil1.jpg')} style={styles.avatar} />
+          <Image source={require('../../../assets/cultcat-logo.png')} style={styles.avatar} />
 
           <Text style={styles.title}>{groupName}</Text>
 
@@ -210,18 +234,22 @@ export default function ChatScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* MISSATGES */}
         <FlatList
           ref={flatListRef}
           data={messages}
-          renderItem={({ item }) => <ChatBubble message={item as any} />}
+          renderItem={({ item }) => {
+            if (item.type === 'profile_share' && item.profileData) {
+              return <ProfileShareBubble data={item.profileData} sender={item.sender} />;
+            }
+
+            return <ChatBubble message={item} />;
+          }}
           keyExtractor={(item) => item.id.toString()}
           keyboardShouldPersistTaps="handled"
           contentContainerStyle={{ paddingVertical: 20 }}
           style={{ flex: 1, backgroundColor: Colors.background }}
         />
 
-        {/* INPUT */}
         <ChatInput onSend={sendMessage} />
       </KeyboardAvoidingView>
     </SafeAreaView>

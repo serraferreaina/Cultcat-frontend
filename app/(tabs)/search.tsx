@@ -31,6 +31,7 @@ import ReviewSection from '../../components/ReviewSection';
 import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from '../../components/ShareEventModal';
 
 export default function CercaScreen() {
   const { t } = useTranslation();
@@ -55,6 +56,9 @@ export default function CercaScreen() {
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [selectedEventForShare, setSelectedEventForShare] = useState<any | null>(null);
 
   const normalizeDate = (date: Date): Date => {
     // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
@@ -203,9 +207,6 @@ export default function CercaScreen() {
     if (selectedEventForDate) {
       // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
-      console.log('📅 Cerca - Selected date:', selectedDate);
-      console.log('📅 Cerca - Normalized date:', normalizedDate);
-      console.log('📅 Cerca - Will send to API:', normalizedDate.toISOString().split('T')[0]);
       await toggleGoing(selectedEventForDate.id, normalizedDate);
     }
     setShowDatePicker(false);
@@ -232,12 +233,13 @@ export default function CercaScreen() {
     return { minDate, maxDate };
   };
 
+  // Substitueix el component EventCard dins de cerca.tsx amb aquest:
+
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
 
     const attendanceDate = attendanceDates[item.id]
       ? (() => {
-          // Parsejar manualment per evitar problemes de zona horària
           const [year, month, day] = attendanceDates[item.id].split('-').map(Number);
           return new Date(year, month - 1, day, 12, 0, 0);
         })()
@@ -275,6 +277,11 @@ export default function CercaScreen() {
       return isGoing ? t('I will attend') : t('Want to go');
     };
 
+    const handleShare = () => {
+      setSelectedEventForShare(item);
+      setShareModalVisible(true);
+    };
+
     const handleButtonPress = () => {
       if (!isGoing) {
         setSelectedEventForDate(item);
@@ -291,7 +298,6 @@ export default function CercaScreen() {
         const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
         startDate.setHours(0, 0, 0, 0);
 
-        // Si l'esdeveniment ja ha començat, permetre des d'avui
         let minDate: Date;
         if (startDate <= today) {
           minDate = today;
@@ -305,12 +311,7 @@ export default function CercaScreen() {
         const isSingleDay = minDate.getTime() === maxDate.getTime();
 
         if (isSingleDay) {
-          // Normalitzar la data abans d'enviar
           const normalizedMinDate = normalizeDate(minDate);
-          console.log(
-            '📅 Cerca EventCard - Single day, sending:',
-            normalizedMinDate.toISOString().split('T')[0],
-          );
           toggleGoing(item.id, normalizedMinDate);
         } else {
           setShowDateModal(true);
@@ -394,6 +395,7 @@ export default function CercaScreen() {
               >
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
+
               <TouchableOpacity
                 style={{ marginRight: 12 }}
                 onPress={() => {
@@ -404,16 +406,7 @@ export default function CercaScreen() {
                 <Ionicons name="star-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => {
-                  const url = `https://tu-app.com/event/${item.id}`;
-                  Share.share({
-                    message: `Mira este evento: ${url}`,
-                    url,
-                  });
-                }}
-              >
+              <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>
@@ -909,6 +902,39 @@ export default function CercaScreen() {
           eventId={selectedEventId}
           visible={showReviews}
           onClose={() => setShowReviews(false)}
+        />
+      )}
+
+      {selectedEventForShare && (
+        <ShareEventModal
+          visible={shareModalVisible}
+          onClose={() => {
+            setShareModalVisible(false);
+            setSelectedEventForShare(null);
+          }}
+          event={{
+            id: selectedEventForShare.id,
+            titol: selectedEventForShare.titol || '',
+            descripcio: selectedEventForShare.descripcio || '',
+            imgApp: selectedEventForShare.imgApp,
+            imatges: selectedEventForShare.imatges,
+            data_inici: selectedEventForShare.data_inici,
+            data_fi: selectedEventForShare.data_fi,
+            localitat: selectedEventForShare.localitat || null,
+            enllacos: {},
+            infoEntrades: selectedEventForShare.infoEntrades || null,
+            infoHorari: selectedEventForShare.infoHorari || null,
+            gratuita: false,
+            modalitat: selectedEventForShare.modalitat || null,
+            direccio: selectedEventForShare.direccio || null,
+            espai: selectedEventForShare.espai || null,
+            georeferencia: null,
+            latitud: null,
+            longitud: null,
+            telefon: null,
+            email: null,
+          }}
+          Colors={Colors}
         />
       )}
     </SafeAreaView>

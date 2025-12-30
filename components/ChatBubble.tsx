@@ -3,13 +3,16 @@ import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
+import EventShareBubble from './EventShareBubble';
+import { Image } from 'react-native';
 
 interface ChatMessage {
-  id: string; // ✅ al teu codi els ids són string
+  id: string;
   text: string;
   sender: 'me' | 'other';
-  senderId?: number; // ✅ nou
-  senderName?: string; // ✅ opcional (per grups)
+  senderId?: number;
+  senderName?: string;
+  senderAvatar?: string;
 }
 
 export default function ChatBubble({ message }: { message: ChatMessage }) {
@@ -18,6 +21,27 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
 
   const isMe = message.sender === 'me';
 
+  // Try to parse as event share
+  let eventData = null;
+  try {
+    const parsed = JSON.parse(message.text);
+    if (parsed.type === 'event_share') {
+      eventData = parsed;
+    }
+  } catch (e) {
+    // Not JSON, regular message
+  }
+
+  // If it's an event share, use EventShareBubble
+  if (eventData) {
+    return (
+      <View style={[styles.container, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
+        <EventShareBubble eventData={eventData} isMine={isMe} senderName={message.senderName} />
+      </View>
+    );
+  }
+
+  // Regular text message
   return (
     <View style={[styles.container, { justifyContent: isMe ? 'flex-end' : 'flex-start' }]}>
       <View
@@ -30,17 +54,13 @@ export default function ChatBubble({ message }: { message: ChatMessage }) {
         ]}
       >
         {/* Nom de l'usuari en xats grupals (només si NO soc jo) */}
-        {!isMe && message.senderName && (
-          <Text
-            style={{
-              fontSize: 12,
-              marginBottom: 2,
-              color: Colors.textSecondary,
-              fontWeight: '600',
-            }}
-          >
-            {message.senderName}
-          </Text>
+        {!isMe && (
+          <View style={styles.senderInfo}>
+            {message.senderAvatar && (
+              <Image source={{ uri: message.senderAvatar }} style={styles.avatar} />
+            )}
+            <Text style={styles.senderName}>{message.senderName}</Text>
+          </View>
         )}
 
         <Text style={{ color: isMe ? '#fff' : Colors.text }}>{message.text}</Text>
@@ -59,5 +79,21 @@ const styles = StyleSheet.create({
     maxWidth: '75%',
     padding: 10,
     borderRadius: 16,
+  },
+  senderInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+    gap: 6,
+  },
+  avatar: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+  },
+  senderName: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
   },
 });

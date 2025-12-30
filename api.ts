@@ -131,3 +131,12 @@ export const deleteAccount = async () => {
   await AsyncStorage.removeItem('authToken');
   global.currentUser = null;
 };
+
+export const getUserBadges = () => api('/rewards/');
+
+export function sendConnectionRequest(userId: string) {
+  return api('/connection/send/', {
+    method: 'POST',
+    body: JSON.stringify({ to_user_id: userId }),
+  });
+}

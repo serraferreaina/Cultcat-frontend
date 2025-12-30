@@ -1,4 +1,6 @@
 // app/(tabs)/profile.tsx
+// Perfil amb integració de notificacions de rewards
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -9,6 +11,7 @@ import {
   TouchableOpacity,
   Animated,
   TouchableWithoutFeedback,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,16 +20,21 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
-import { getProfile } from '../../api';
+import { getProfile, getUserBadges } from '../../api';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { ShareProfileModal } from '../../components/ShareProfileModal';
+import { useRewardNotifications } from '../../hooks/useRewardNotifications';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+
+  // Hook per comprovar noves insígnies
+  useRewardNotifications();
 
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
@@ -34,6 +42,34 @@ export default function Profile() {
   const [user, setUser] = useState<any>(global.currentUser);
   const [showSavedNotification, setShowSavedNotification] = useState(false);
   const fadeAnim = useState(new Animated.Value(0))[0];
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+
+  type Badge = {
+    reward_id: number;
+    name: string;
+    category: string;
+    level: number;
+    level_label: string;
+    condition_type: string;
+    condition_value: number;
+    icon: string;
+    obtained_at: string;
+  };
+
+  const [badges, setBadges] = useState<Badge[]>([]);
+  const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
+  const [modalVisible, setModalVisible] = useState(false);
+
+  const openBadgeModal = (badge: Badge) => {
+    setSelectedBadge(badge);
+    setModalVisible(true);
+  };
+
+  const closeBadgeModal = () => {
+    setSelectedBadge(null);
+    setModalVisible(false);
+  };
 
   const router = useRouter();
 
@@ -60,7 +96,6 @@ export default function Profile() {
     }
   };
 
-  // Cargar perfil de usuario
   useFocusEffect(
     React.useCallback(() => {
       const loadUser = async () => {
@@ -94,29 +129,14 @@ export default function Profile() {
       };
 
       loadUser();
+
+      // Recarregar insígnies quan tornem a la pantalla
+      getUserBadges()
+        .then((data) => setBadges(data))
+        .catch(() => setBadges([]));
     }, []),
   );
 
-  // ❌ ELIMINAR ESTE useFocusEffect - No recargar idioma al enfocar
-  /*
-  useFocusEffect(
-    React.useCallback(() => {
-      const loadLanguage = async () => {
-        const preferredLang = await AsyncStorage.getItem('preferredLanguage');
-        if (preferredLang && ['en', 'es', 'ca'].includes(preferredLang)) {
-          setLanguage(preferredLang);
-          if (i18n.language !== preferredLang) {
-            await i18n.changeLanguage(preferredLang);
-            await AsyncStorage.setItem('appLanguage', preferredLang);
-          }
-        }
-      };
-      loadLanguage();
-    }, []),
-  );
-  */
-
-  // Solo actualizar el estado local cuando i18n cambia
   useEffect(() => {
     setLanguage(i18n.language);
   }, [i18n.language]);
@@ -132,10 +152,13 @@ export default function Profile() {
         setUser(normalized);
         global.currentUser = normalized;
       });
+
+      getUserBadges()
+        .then((data) => setBadges(data))
+        .catch(() => setBadges([]));
     }
   }, []);
 
-  // Check for saved profile notification
   useFocusEffect(
     React.useCallback(() => {
       const checkSavedStatus = async () => {
@@ -189,7 +212,6 @@ export default function Profile() {
       {/* Overlay y Menú fuera del ScrollView */}
       {showMenu && (
         <>
-          {/* Overlay transparente que cubre toda la pantalla */}
           <TouchableWithoutFeedback
             onPress={() => {
               setShowMenu(false);
@@ -199,7 +221,6 @@ export default function Profile() {
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
 
-          {/* Menú */}
           <View style={[styles.menuContainer, { backgroundColor: Colors.card }]}>
             {!showLanguageSelector ? (
               <>
@@ -303,7 +324,7 @@ export default function Profile() {
                   onLanguageChange={async (lang) => {
                     setLanguage(lang);
                     await i18n.changeLanguage(lang);
-                    await AsyncStorage.setItem('appLanguage', lang); // Solo appLanguage
+                    await AsyncStorage.setItem('appLanguage', lang);
                     setShowLanguageSelector(false);
                     setShowMenu(false);
                   }}
@@ -387,6 +408,9 @@ export default function Profile() {
                 styles.actionBtn,
                 { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
               ]}
+              onPress={() => {
+                setShareModalVisible(true);
+              }}
             >
               <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
             </TouchableOpacity>
@@ -395,16 +419,118 @@ export default function Profile() {
 
         {/* Insignias */}
         <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
-          <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-            <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
-            <Text style={[styles.emptyText, { color: Colors.muted }]}>
-              {t('No achievements yet')}
-            </Text>
+          <View
+            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
+          >
+            <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+
+            {badges.length > 0 && (
+              <TouchableOpacity onPress={() => router.push('/badges')}>
+                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
+
+          {badges.length === 0 ? (
+            <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
+              <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
+              <Text style={[styles.emptyText, { color: Colors.muted }]}>
+                {t('No achievements yet')}
+              </Text>
+            </View>
+          ) : (
+            <View style={styles.badgesGrid}>
+              {badges.slice(0, 6).map((badge, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.badgeItem}
+                  onPress={() => openBadgeModal(badge)}
+                >
+                  <Image
+                    source={{ uri: badge.icon }}
+                    style={{ width: 60, height: 60, borderRadius: 8 }}
+                  />
+                  <Text
+                    style={{ fontSize: 12, marginTop: 4, color: Colors.text, textAlign: 'center' }}
+                  >
+                    {badge.name}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          )}
         </View>
+
         <View style={{ height: 24 }} />
       </ScrollView>
+
+      <Modal
+        visible={modalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={closeBadgeModal}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
+            {selectedBadge && (
+              <>
+                <Image
+                  source={{ uri: selectedBadge.icon }}
+                  style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 16 }}
+                />
+
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: Colors.text,
+                    textAlign: 'center',
+                  }}
+                >
+                  {selectedBadge.name}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  🏅 {selectedBadge.level_label} · {t('Nivell')} {selectedBadge.level}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  ⭐ {t('Category')}: {selectedBadge.category}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  📅 {t('Obtained at')}: {new Date(selectedBadge.obtained_at).toLocaleDateString()}
+                </Text>
+
+                <TouchableOpacity onPress={closeBadgeModal} style={styles.modalButton}>
+                  <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+                    {t('Close')}
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+      {user && (
+        <ShareProfileModal
+          visible={shareModalVisible}
+          onClose={() => setShareModalVisible(false)}
+          profile={{
+            id: user.id,
+            username: user.username,
+            profile_picture: user.profile_picture || DEFAULT_AVATAR,
+            profile_description: user.profile_description,
+          }}
+          Colors={Colors}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -567,5 +693,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     fontSize: 14,
     flex: 1,
+  },
+  badgesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    marginTop: 10,
+    gap: 15,
+  },
+  badgeItem: {
+    width: '30%',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalButton: {
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#6C5CE7',
   },
 });

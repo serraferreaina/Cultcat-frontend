@@ -25,6 +25,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../api';
 import NotificationsScreen from '../../components/NotificationScreen';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from '../../components/ShareEventModal';
 
 interface Events {
   id: number;
@@ -34,6 +35,14 @@ interface Events {
   imatges: string | null;
   data_inici?: string | null;
   data_fi?: string | null;
+  localitat?: string | null;
+  espai?: string | null;
+  modalitat?: string | null;
+  direccio?: string | null;
+  infoEntrades?: string | null;
+  infoHorari?: string | null;
+  telefon?: string | null;
+  email?: string | null;
 }
 
 interface PointsImages {
@@ -122,6 +131,8 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const [showDateModal, setShowDateModal] = useState(false);
 
   const isSaved = savedEvents[item.id] || false;
+
+  const [shareModalVisible, setShareModalVisible] = useState(false);
 
   const images = React.useMemo(() => {
     if (item.imatges && item.imatges.trim() !== '') {
@@ -248,7 +259,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
       if (isSingleDay) {
         // Normalitzar la data abans d'enviar
         const normalizedMinDate = normalizeDate(minDate);
-        console.log('📅 Single day - sending:', normalizedMinDate.toISOString().split('T')[0]);
         toggle(normalizedMinDate);
       } else {
         setShowDateModal(true);
@@ -261,9 +271,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const handleConfirmDate = () => {
     // Normalitzar la data abans d'enviar-la
     const normalizedDate = normalizeDate(selectedDate);
-    console.log('📅 FeedCard - Selected date:', selectedDate);
-    console.log('📅 FeedCard - Normalized date:', normalizedDate);
-    console.log('📅 FeedCard - Will send to API:', normalizedDate.toISOString().split('T')[0]);
     toggle(normalizedDate);
     setShowDatePicker(false);
     setShowDateModal(false);
@@ -328,7 +335,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
               <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setShareModalVisible(true)}>
               <Ionicons name="share-social-outline" size={20} color={Colors.text} />
             </TouchableOpacity>
           </View>
@@ -443,6 +450,34 @@ const FeedCard: React.FC<FeedCardProps> = ({
           </View>
         </View>
       </Modal>
+
+      <ShareEventModal
+        visible={shareModalVisible}
+        onClose={() => setShareModalVisible(false)}
+        event={{
+          id: item.id,
+          titol: item.titol || '',
+          descripcio: item.descripcio || '',
+          imgApp: item.img_app,
+          imatges: item.imatges,
+          data_inici: item.data_inici,
+          data_fi: item.data_fi,
+          localitat: item.localitat || null,
+          enllacos: {},
+          infoEntrades: item.infoEntrades || null,
+          infoHorari: item.infoHorari || null,
+          gratuita: false,
+          modalitat: item.modalitat || null,
+          direccio: item.direccio || null,
+          espai: item.espai || null,
+          georeferencia: null,
+          latitud: null,
+          longitud: null,
+          telefon: item.telefon || null,
+          email: item.email || null,
+        }}
+        Colors={Colors}
+      />
     </>
   );
 };

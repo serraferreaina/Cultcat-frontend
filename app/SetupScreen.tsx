@@ -6,6 +6,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
@@ -31,6 +32,52 @@ export default function SetupScreen() {
       }
     })();
   }, []);
+
+  const handleNotificationToggle = async (value: boolean) => {
+    if (value) {
+      // Intentar activar notificacions - demanar permisos
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+
+        // Si no té permisos, demanar-los
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+
+        if (finalStatus !== 'granted') {
+          Alert.alert(
+            t('Permission Required') || 'Permís necessari',
+            t('Please enable notifications in your device settings') ||
+              'Si us plau, activa les notificacions a la configuració del teu dispositiu',
+            [{ text: 'OK' }],
+          );
+          return;
+        }
+
+        // Permisos concedits
+        setNotificationsEnabled(true);
+        Alert.alert(
+          '✅ ' + (t('Enabled') || 'Activat'),
+          t('Notifications enabled successfully') || 'Notificacions activades correctament',
+        );
+      } catch (error) {
+        console.error('Error requesting notification permissions:', error);
+        Alert.alert(
+          t('Error') || 'Error',
+          t('Could not enable notifications') || "No s'han pogut activar les notificacions",
+        );
+      }
+    } else {
+      // Desactivar notificacions
+      setNotificationsEnabled(false);
+      Alert.alert(
+        '🔕 ' + (t('Disabled') || 'Desactivat'),
+        t('Notifications disabled') || 'Notificacions desactivades',
+      );
+    }
+  };
 
   const saveAndNext = async () => {
     // Guardar en ambas claves: preferredLanguage y appLanguage
@@ -90,10 +137,15 @@ export default function SetupScreen() {
         </View>
 
         <View style={styles.row}>
-          <Text style={[styles.label, { color: Colors.text }]}>{t('Notifications')}</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.label, { color: Colors.text }]}>{t('Notifications')}</Text>
+            <Text style={[styles.subtitle, { color: Colors.textSecondary }]}>
+              {t('Receive event reminders') || "Rebre recordatoris d'esdeveniments"}
+            </Text>
+          </View>
           <Switch
             value={notificationsEnabled}
-            onValueChange={setNotificationsEnabled}
+            onValueChange={handleNotificationToggle}
             trackColor={{ false: '#767577', true: Colors.accent }}
             thumbColor={notificationsEnabled ? '#fff' : '#f4f3f4'}
           />
@@ -121,6 +173,10 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   label: { fontSize: 16, fontWeight: '600' },
+  subtitle: {
+    fontSize: 13,
+    marginTop: 4,
+  },
   nextButton: {
     marginTop: 32,
     paddingVertical: 16,

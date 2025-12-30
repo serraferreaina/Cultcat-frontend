@@ -106,11 +106,7 @@ export default function GroupMembersScreen() {
         renderItem={({ item }) => (
           <View style={styles.item}>
             <Image
-              source={
-                item.profilePicture
-                  ? { uri: item.profilePicture }
-                  : require('../../../../assets/foto_perfil1.jpg')
-              }
+              source={item.profilePicture ? { uri: item.profilePicture } : undefined}
               style={styles.avatar}
             />
 
