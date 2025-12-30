@@ -1,4 +1,6 @@
 // app/(tabs)/profile.tsx
+// Perfil amb integració de notificacions de rewards
+
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -24,11 +26,15 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
+import { useRewardNotifications } from '../../hooks/useRewardNotifications';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+
+  // Hook per comprovar noves insígnies
+  useRewardNotifications();
 
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
@@ -123,6 +129,11 @@ export default function Profile() {
       };
 
       loadUser();
+
+      // Recarregar insígnies quan tornem a la pantalla
+      getUserBadges()
+        .then((data) => setBadges(data))
+        .catch(() => setBadges([]));
     }, []),
   );
 
@@ -201,7 +212,6 @@ export default function Profile() {
       {/* Overlay y Menú fuera del ScrollView */}
       {showMenu && (
         <>
-          {/* Overlay transparente que cubre toda la pantalla */}
           <TouchableWithoutFeedback
             onPress={() => {
               setShowMenu(false);
@@ -211,7 +221,6 @@ export default function Profile() {
             <View style={styles.overlay} />
           </TouchableWithoutFeedback>
 
-          {/* Menú */}
           <View style={[styles.menuContainer, { backgroundColor: Colors.card }]}>
             {!showLanguageSelector ? (
               <>
