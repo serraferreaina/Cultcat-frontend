@@ -36,26 +36,11 @@ export default function PreviousEventsScreen() {
     try {
       setLoading(true);
 
-      // 1️⃣ Obtenir saved-events (IDs)
-      const savedEvents: SavedEvent[] = await getSavedEvents();
+      const savedEvents: SavedEvent[] = await getSavedEvents('attended');
 
-      // 2️⃣ Carregar el detall complet de cada event
       const detailedEvents = await Promise.all(savedEvents.map((e) => getEventById(e.event_id)));
 
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      // 3️⃣ Filtrar events ja passats (AQUÍ ÉS LA CLAU)
-      const pastEvents = detailedEvents.filter((event) => {
-        if (!event.data_fi && !event.data_inici) return false;
-
-        const endDate = event.data_fi ? new Date(event.data_fi) : new Date(event.data_inici);
-
-        endDate.setHours(0, 0, 0, 0);
-        return endDate < today;
-      });
-
-      setEvents(pastEvents);
+      setEvents(detailedEvents); // ✅ AIXÒ FALTAVA
     } catch (error) {
       console.error('❌ Error loading previous events:', error);
     } finally {
@@ -91,13 +76,13 @@ export default function PreviousEventsScreen() {
         <View style={{ width: 24 }} />
       </View>
 
-      {events.length === 0 ? (
+      {(events ?? []).length === 0 ? (
         <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
           {t('No previous events')}
         </Text>
       ) : (
         <FlatList
-          data={events}
+          data={events ?? []}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
           contentContainerStyle={{ paddingBottom: 20 }}
