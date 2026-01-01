@@ -115,7 +115,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       const currentNotificationIds = new Set(notifications.map((n) => n.id));
 
       const newNotificationIds = Array.from(currentNotificationIds).filter(
-        (id) => !previousNotificationIdsRef.current.has(id)
+        (id) => !previousNotificationIdsRef.current.has(id),
       );
 
       if (newNotificationIds.length > 0 && previousNotificationIdsRef.current.size > 0) {
@@ -156,7 +156,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         body = `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
       } else if (notification.type === 'event_soon') {
         title = '📅 Esdeveniment demà';
-        body = notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà`;
+        body =
+          notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà`;
       } else if (notification.type === 'event_review_pending') {
         title = '✍️ Escriu una ressenya';
         body = notification.payload.message || `Què et va semblar '${notification.payload.title}'?`;
@@ -199,7 +200,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       });
 
       setNotifications((prev) =>
-        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n))
+        prev.map((n) => (n.id === notification.id ? { ...n, read: true } : n)),
       );
     } catch (err) {
       console.error('Error marking notification as read:', err);
@@ -239,7 +240,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
 
     if (notification.type === 'event_soon') {
-      return notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà!`;
+      return (
+        notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà!`
+      );
     }
 
     if (notification.type === 'event_review_pending') {
