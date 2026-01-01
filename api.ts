@@ -103,7 +103,10 @@ export async function api(path: string, options: RequestInit = {}): Promise<any>
 
 export const getProfile = () => api('/profile/');
 
-export const getSavedEvents = () => api('/saved-events/');
+export const getSavedEvents = async (state?: 'attended' | 'wishlist' | 'wantToGo') => {
+  const query = state ? `?state=${state}` : '';
+  return api(`/saved-events/${query}`);
+};
 
 export const getUserProfile = (id: number) => api(`/users/${id}/`);
 
