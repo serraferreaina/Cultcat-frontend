@@ -8,9 +8,10 @@ interface ThemeToggleProps {
   theme: string;
   accentColor: string;
   onToggle: () => void;
+  permanent?: boolean; // Nueva prop para indicar si el cambio es permanente
 }
 
-export function ThemeToggle({ theme, accentColor, onToggle }: ThemeToggleProps) {
+export function ThemeToggle({ theme, accentColor, onToggle, permanent = false }: ThemeToggleProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 

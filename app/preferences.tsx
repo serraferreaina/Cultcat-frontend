@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   Dimensions,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -19,6 +20,9 @@ const BG = '#F7F0E2';
 const TEXT = '#311C0C';
 const ACCENT = '#C86A2E';
 const CARD = '#FFF';
+
+// 🔹 Configuración del API
+const API_BASE_URL = 'https://tu-api.com'; // ⚠️ Cambia esto por tu URL real
 
 const ALL_CATEGORIES = [
   {
@@ -192,33 +196,111 @@ const itemMargin = 8;
 const itemWidth = (screenWidth - 16 * 2 - itemMargin * (numColumns * 2 - 2)) / numColumns;
 
 export default function PreferencesScreen() {
-  // ✅ TODOS los hooks DENTRO del componente
   const router = useRouter();
   const { t } = useTranslation();
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
+  // 🔹 Obtener el token de autenticación
+  const getAuthToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('authToken');
+      return token;
+    } catch (e) {
+      console.error('Error getting auth token:', e);
+      return null;
+    }
+  };
+
+  // 🔹 Cargar preferencias desde el backend
   useEffect(() => {
     (async () => {
-      const stored = await AsyncStorage.getItem('favoriteCategories');
-      if (stored) setSelectedCategories(JSON.parse(stored));
+      try {
+        const token = await getAuthToken();
+        if (!token) {
+          // Si no hay token, cargar desde AsyncStorage local
+          const stored = await AsyncStorage.getItem('favoriteCategories');
+          if (stored) {
+            const parsedCategories = JSON.parse(stored);
+            // Convertir keys a IDs si es necesario
+            setSelectedCategories(parsedCategories);
+          }
+          setLoading(false);
+          return;
+        }
+
+        // 🌐 Llamada GET al backend
+        const response = await fetch(`${API_BASE_URL}/preferences/`, {
+          method: 'GET',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setSelectedCategories(data.favorite_categories || []);
+        } else {
+          // Si falla, intentar cargar desde AsyncStorage
+          const stored = await AsyncStorage.getItem('favoriteCategories');
+          if (stored) {
+            setSelectedCategories(JSON.parse(stored));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading preferences:', error);
+        // Cargar desde AsyncStorage en caso de error
+        const stored = await AsyncStorage.getItem('favoriteCategories');
+        if (stored) {
+          setSelectedCategories(JSON.parse(stored));
+        }
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
-  const toggleCategory = (key: string) => {
+  const toggleCategory = (categoryId: number) => {
     setSelectedCategories((prev) =>
-      prev.includes(key) ? prev.filter((c) => c !== key) : [...prev, key],
+      prev.includes(categoryId)
+        ? prev.filter((c) => c !== categoryId)
+        : [...prev, categoryId],
     );
   };
 
+  // 🔹 Guardar preferencias en el backend
   const savePreferences = async () => {
+    setSaving(true);
     try {
+      const token = await getAuthToken();
+
+      // Guardar localmente primero
       await AsyncStorage.setItem('favoriteCategories', JSON.stringify(selectedCategories));
 
-      // 👇 NUEVO: Marca que ya completó la configuración inicial
+      if (token) {
+        // 🌐 Llamada PUT al backend
+        const response = await fetch(`${API_BASE_URL}/preferences/`, {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            favorite_categories: selectedCategories,
+          }),
+        });
+
+        if (!response.ok) {
+          throw new Error('Failed to save preferences to backend');
+        }
+      }
+
+      // Verificar si es la primera vez
       const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
 
       if (!hasCompletedSetup) {
-        // Primera vez - marcar como completado e ir a tabs
         await AsyncStorage.setItem('hasCompletedSetup', 'true');
         Alert.alert(t('Saved'), t('Your preferences has been saved'), [
           {
@@ -227,7 +309,6 @@ export default function PreferencesScreen() {
           },
         ]);
       } else {
-        // Edición posterior - volver atrás
         Alert.alert(t('Saved'), t('Your preferences has been saved'), [
           {
             text: 'OK',
@@ -238,26 +319,42 @@ export default function PreferencesScreen() {
           },
         ]);
       }
-    } catch (e) {
+    } catch (error) {
+      console.error('Error saving preferences:', error);
       Alert.alert('Error', t('Your preferences has not been saved'));
+    } finally {
+      setSaving(false);
     }
   };
 
-  const renderCategory = ({ item }: { item: any }) => {
-    const isSelected = selectedCategories.includes(item.key);
+  const renderCategory = ({ item, index }: { item: any; index: number }) => {
+    const isSelected = selectedCategories.includes(index);
     return (
       <TouchableOpacity
         style={[styles.categoryItem, isSelected ? styles.categorySelected : null]}
-        onPress={() => toggleCategory(item.key)}
+        onPress={() => toggleCategory(index)}
       >
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
-        <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>{item.label}</Text>
+        <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>
+          {item.label}
+        </Text>
         {isSelected && (
           <Ionicons name="checkmark" size={20} color={CARD} style={styles.checkIcon} />
         )}
       </TouchableOpacity>
     );
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={ACCENT} />
+          <Text style={styles.loadingText}>Carregant preferències...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
@@ -271,15 +368,23 @@ export default function PreferencesScreen() {
       <FlatList
         data={ALL_CATEGORIES}
         renderItem={renderCategory}
-        keyExtractor={(item) => item.key}
+        keyExtractor={(item, index) => index.toString()}
         numColumns={numColumns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}
       />
 
       <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.saveButton} onPress={savePreferences}>
-          <Text style={styles.saveButtonText}>Guardar preferències</Text>
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          onPress={savePreferences}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color={CARD} />
+          ) : (
+            <Text style={styles.saveButtonText}>Guardar preferències</Text>
+          )}
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -288,6 +393,16 @@ export default function PreferencesScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BG },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: TEXT,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -350,6 +465,9 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
     elevation: 4,
+  },
+  saveButtonDisabled: {
+    opacity: 0.6,
   },
   saveButtonText: {
     color: CARD,
