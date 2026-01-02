@@ -233,7 +233,60 @@ export default function CercaScreen() {
     return { minDate, maxDate };
   };
 
-  // Substitueix el component EventCard dins de cerca.tsx amb aquest:
+  // Función para verificar si una fecha es hoy
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const compareDate = new Date(date);
+
+    return (
+      today.getDate() === compareDate.getDate() &&
+      today.getMonth() === compareDate.getMonth() &&
+      today.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  // Función para verificar si una fecha es mañana
+  const isTomorrow = (date: Date): boolean => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const compareDate = new Date(date);
+
+    return (
+      tomorrow.getDate() === compareDate.getDate() &&
+      tomorrow.getMonth() === compareDate.getMonth() &&
+      tomorrow.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  // Función para verificar si la fecha de asistencia ya ha pasado (antes de hoy)
+  const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+    const today = new Date();
+    const attendance = new Date(attendanceDate);
+
+    // Comparar solo año, mes y día (ignorar horas)
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const attendanceOnlyDate = new Date(
+      attendance.getFullYear(),
+      attendance.getMonth(),
+      attendance.getDate(),
+    );
+
+    // Solo ha pasado si es ANTES de hoy (no incluye hoy)
+    return attendanceOnlyDate < todayDate;
+  };
+
+  // Función para verificar si el evento ya ha pasado completamente
+  const hasEventPassedCompletely = (event: any): boolean => {
+    if (!event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
 
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
@@ -266,15 +319,64 @@ export default function CercaScreen() {
 
     const isSaved = !!savedEvents[item.id];
 
+    const eventHasPassedCompletely = hasEventPassedCompletely(item);
+
+    // Si tiene fecha de asistencia, verificar si esa fecha ya pasó o es hoy
+    const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+    const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+    const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+    const userAttendanceIsFuture =
+      attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
+
     const getButtonText = () => {
-      if (isGoing && attendanceDate) {
+      // Prioridad 1: Si la fecha de asistencia del usuario es hoy
+      if (userAttendanceIsToday) {
+        return "Avui és l'esdeveniment";
+      }
+      // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
+      else if (userAttendancePassed) {
+        const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+          day: 'numeric',
+          month: 'short',
+        });
+        return `Vares assistir - ${formattedDate}`;
+      }
+      // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
+      else if (eventHasPassedCompletely && !attendanceDate) {
+        return 'No vares assistir';
+      }
+      // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
+      else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
         const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
           day: 'numeric',
           month: 'short',
         });
-        return `${t('I will attend')} - ${formattedDate}`;
+        return `Assistiré - ${formattedDate}`;
       }
-      return isGoing ? t('I will attend') : t('Want to go');
+      // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
+      else if (isGoing && !attendanceDate) {
+        return t('Assistiré');
+      }
+      // Prioridad 6: No está activo
+      else {
+        return t('Vull assistir');
+      }
+    };
+
+    const getButtonColor = () => {
+      if (userAttendanceIsToday) {
+        return '#FFA500'; // Naranja/amarillo
+      } else if (userAttendancePassed || eventHasPassedCompletely) {
+        return '#FF6B6B'; // Rojo
+      } else if (isGoing) {
+        return Colors.going; // Verde
+      } else {
+        return Colors.accent;
+      }
+    };
+
+    const isButtonDisabled = () => {
+      return userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely;
     };
 
     const handleShare = () => {
@@ -283,6 +385,21 @@ export default function CercaScreen() {
     };
 
     const handleButtonPress = () => {
+      // Si la fecha de asistencia del usuario es hoy, no permitir cambios
+      if (userAttendanceIsToday) {
+        return;
+      }
+
+      // Si la fecha de asistencia del usuario ya pasó, no permitir cambios
+      if (userAttendancePassed) {
+        return;
+      }
+
+      // Si ya ha pasado completamente el evento, no permitir cambios
+      if (eventHasPassedCompletely) {
+        return;
+      }
+
       if (!isGoing) {
         setSelectedEventForDate(item);
         if (item.data_inici) {
@@ -298,11 +415,12 @@ export default function CercaScreen() {
         const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
         startDate.setHours(0, 0, 0, 0);
 
-        let minDate: Date;
-        if (startDate <= today) {
-          minDate = today;
-        } else {
-          minDate = startDate < tomorrow ? tomorrow : startDate;
+        // Siempre empezar desde mañana como mínimo
+        let minDate = tomorrow;
+
+        // Si el evento empieza después de mañana, usar esa fecha
+        if (startDate > tomorrow) {
+          minDate = startDate;
         }
 
         const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
@@ -332,6 +450,11 @@ export default function CercaScreen() {
           <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
             {title}
           </Text>
+
+          {/* Message for today's event */}
+          {userAttendanceIsToday && (
+            <Text style={[styles.messageText, { color: Colors.accent }]}>Recorda assistir-hi</Text>
+          )}
 
           <View style={styles.labelContainer}>
             {espai && (
@@ -412,8 +535,12 @@ export default function CercaScreen() {
             </View>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+              style={[
+                styles.button,
+                { backgroundColor: getButtonColor(), opacity: isButtonDisabled() ? 0.7 : 1 },
+              ]}
               onPress={handleButtonPress}
+              disabled={isButtonDisabled()}
             >
               <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
             </TouchableOpacity>
@@ -542,7 +669,7 @@ export default function CercaScreen() {
 
         <DateFilterComponent
           mode="one"
-          onModeChange={(m) => console.log('Modo de fecha:', m)}
+          onModeChange={(m) => {}}
           onDatesChange={({ date, date1, date2, fromDate }) => {
             setIsFiltered(true);
             let extraParams: string[] = [];
@@ -971,7 +1098,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 10,
   },
   dateText: {
     marginTop: 12,
@@ -1086,7 +1213,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   eventTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -1101,7 +1228,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   labelText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '500',
   },
   button: {
@@ -1112,7 +1239,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: 9,
   },
   iconButton: {
     padding: 6,
@@ -1202,5 +1329,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
+  },
+  messageText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
   },
 });
