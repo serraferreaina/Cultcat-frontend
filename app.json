@@ -2,7 +2,6 @@
   "expo": {
     "name": "cultcat-frontend",
     "slug": "cultcat-frontend",
-
     "scheme": "com.anonymous.cultcatfrontend",
     "router": {
       "origin": false
@@ -63,7 +62,7 @@
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "2244d658-5f13-4aef-ad90-49905e4184c0"
+        "projectId": "a66e7047-40b5-4bc3-9912-17da233c2093"
       }
     }
   }
