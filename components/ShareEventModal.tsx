@@ -135,54 +135,54 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
   const shareViaSystemShare = async () => {
     try {
       let shareMessage = `🎉 ${event.titol}\n\n`;
-      
+
       // Descripció
       if (event.descripcio?.trim()) {
         shareMessage += `${event.descripcio}\n\n`;
       }
-      
+
       // Data
       shareMessage += `📅 ${formatDate(event.data_inici)}`;
       if (event.data_fi && event.data_fi !== event.data_inici) {
         shareMessage += ` - ${formatDate(event.data_fi)}`;
       }
       shareMessage += '\n\n';
-      
+
       // Espai
       if (event.espai) {
         shareMessage += `🏛️ Espai: ${event.espai}\n`;
       }
-      
+
       // Adreça
       if (event.direccio) {
         shareMessage += `📍 Adreça: ${event.direccio}\n`;
       }
-      
+
       // Localitat
       if (event.localitat) {
         shareMessage += `🏙️ Localitat: ${event.localitat}\n`;
       }
-      
+
       // Modalitat
       if (event.modalitat) {
         shareMessage += `💡 Modalitat: ${event.modalitat}\n`;
       }
-      
+
       // Horari
       if (event.infoHorari) {
         shareMessage += `⏰ Horari: ${event.infoHorari}\n`;
       }
-      
+
       // Entrades
       if (event.infoEntrades) {
         shareMessage += `🎟️ Entrades: ${event.infoEntrades}\n`;
       }
-      
+
       // Telèfon
       if (event.telefon) {
         shareMessage += `☎️ Telèfon: ${event.telefon}\n`;
       }
-      
+
       // Email
       if (event.email) {
         shareMessage += `📧 Email: ${event.email}\n`;
@@ -342,9 +342,7 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
               style={[styles.quickShareButton, { backgroundColor: Colors.background }]}
             >
               <Ionicons name="share-outline" size={24} color={ORANGE} />
-              <Text style={[styles.quickShareText, { color: Colors.text }]}>
-                Compartir fora
-              </Text>
+              <Text style={[styles.quickShareText, { color: Colors.text }]}>Compartir fora</Text>
             </TouchableOpacity>
           </View>
 
