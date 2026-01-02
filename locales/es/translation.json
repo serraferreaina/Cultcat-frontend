@@ -218,5 +218,22 @@
   "Eliminar foto": "Eliminar foto",
   "Obtained at": "Conseguido el",
   "Requested": "Pendiente",
-  "Connect": "Conecta"
+  "Connect": "Conecta",
+  "Today is the event": "El evento es hoy",
+  "You attended - ": "Has asistido - ",
+  "No vares assistir": "No asististe",
+  "Select attendance date": "Selecciona fecha de asistencia",
+  "Choose the day you want to attend this event": "Elige el día que quieres asistir a este evento",
+  "Confirm": "Confirmar",
+  "Recorda assistir-hi": "Recuerda asistir",
+  "Date not available": "Fecha no disponible",
+  "Data inici: ": "Start date: ",
+  "Data fi: ": "End date: ",
+  "Encara no has afegit una descripció.": "You haven't added a description yet.",
+  "Cap esdeveniment": "No events",
+  "No hi ha esdeveniments a ": "There are no events in ",
+  "D'acord": "OK",
+  "Hi ha hagut un problema carregant els esdeveniments.": "There was a problem loading the events.",
+  "There was a problem fetching events.": "Hi ha hagut un problema carregant els esdeveniments.",
+  "This user has no description.": "Este usuario no tiene descripción."
 }
