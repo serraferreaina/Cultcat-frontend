@@ -4,15 +4,12 @@
     "slug": "cultcat-frontend",
 
     "scheme": "com.anonymous.cultcatfrontend",
-
     "router": {
       "origin": false
     },
-
     "experiments": {
       "typedRoutes": false
     },
-
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -25,7 +22,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cultcatfrontend"
+      "bundleIdentifier": "com.anonymous.cultcatfrontend",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "softwareKeyboardLayoutMode": "resize",
@@ -35,13 +35,16 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-
       "package": "com.anonymous.cultcatfrontend",
-
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
         "android.permission.ACCESS_FINE_LOCATION"
-      ]
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCIcm5OKhUPpnKFVTrgkTvZSYEwqU8GmxA"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
