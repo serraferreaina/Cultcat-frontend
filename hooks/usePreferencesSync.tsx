@@ -13,18 +13,18 @@ interface UserPreferences {
  * Sincronitza preferències del backend AL INICIAR SESSIÓ
  */
 export const syncPreferencesFromBackend = async (
-  token: string, 
-  i18n: any, 
-  setTheme?: (theme: 'light' | 'dark') => void
+  token: string,
+  i18n: any,
+  setTheme?: (theme: 'light' | 'dark') => void,
 ): Promise<boolean> => {
   try {
     console.log('🔄 Syncing preferences from backend...');
-    
+
     const response = await fetch(`${API_BASE_URL}/preferences/`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
     });
 
@@ -76,7 +76,7 @@ export const syncPreferencesFromBackend = async (
  */
 export const restoreBackendPreferences = async (
   i18n: any,
-  setTheme?: (theme: 'light' | 'dark') => void
+  setTheme?: (theme: 'light' | 'dark') => void,
 ): Promise<void> => {
   try {
     const token = await AsyncStorage.getItem('authToken');
@@ -87,12 +87,12 @@ export const restoreBackendPreferences = async (
     // 🗑️ Eliminar tema temporal
     await AsyncStorage.removeItem('sessionTheme');
 
-    const [languageBackend, darkModeBackend, favCategoriesBackend, notificationsBackend] = 
+    const [languageBackend, darkModeBackend, favCategoriesBackend, notificationsBackend] =
       await AsyncStorage.multiGet([
         'language_backend',
-        'darkMode_backend', 
+        'darkMode_backend',
         'favoriteCategories_backend',
-        'allowNotifications_backend'
+        'allowNotifications_backend',
       ]);
 
     const updates: [string, string][] = [];
@@ -147,7 +147,7 @@ export const clearSessionPreferences = async (): Promise<void> => {
       'language_backend',
       'allowNotifications_backend',
     ]);
-    
+
     console.log('✅ Session preferences cleared');
   } catch (error) {
     console.error('❌ Error clearing session preferences:', error);
@@ -179,8 +179,8 @@ export const savePreferencesToBackend = async (preferences: {
     const currentRes = await fetch(`${API_BASE_URL}/preferences/`, {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${token}`,
-        'Accept': 'application/json',
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/json',
       },
     });
 
@@ -211,7 +211,7 @@ export const savePreferencesToBackend = async (preferences: {
     const response = await fetch(`${API_BASE_URL}/preferences/`, {
       method: 'PUT',
       headers: {
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(updatedPrefs),
@@ -244,19 +244,19 @@ export const savePreferencesToBackend = async (preferences: {
       updates.push(['appLanguage', preferences.language]);
       updates.push(['preferredLanguage', preferences.language]);
     }
-    
+
     if (preferences.dark_mode !== undefined) {
       const darkModeStr = JSON.stringify(preferences.dark_mode);
       updates.push(['darkMode_backend', darkModeStr]);
       updates.push(['darkMode', darkModeStr]);
     }
-    
+
     if (preferences.favorite_categories !== undefined) {
       const categoriesStr = JSON.stringify(preferences.favorite_categories);
       updates.push(['favoriteCategories_backend', categoriesStr]);
       updates.push(['favoriteCategories', categoriesStr]);
     }
-    
+
     if (preferences.allow_notifications !== undefined) {
       const notifStr = JSON.stringify(preferences.allow_notifications);
       updates.push(['allowNotifications_backend', notifStr]);
