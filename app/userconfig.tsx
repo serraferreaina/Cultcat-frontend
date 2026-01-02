@@ -1,5 +1,5 @@
 // app/userconfig.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,8 @@ import {
   Alert,
   Switch,
   Modal,
+  Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,6 +22,7 @@ import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useNotifications } from '../context/NotificationContext';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { deleteAccount, logout } from '../api';
 import * as WebBrowser from 'expo-web-browser';
@@ -42,6 +45,97 @@ export default function UserConfig() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [showDeletePhotoModal, setShowDeletePhotoModal] = useState(false);
+
+  // Estats per a la ubicació
+  const [locationEnabled, setLocationEnabled] = useState(false);
+  const [locationStatus, setLocationStatus] = useState<string>('');
+
+  // Comprovar permís d'ubicació a l'inici
+  useEffect(() => {
+    checkLocationPermission();
+  }, []);
+
+  const checkLocationPermission = async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+      setLocationEnabled(status === 'granted');
+
+      if (status === 'granted') {
+        setLocationStatus(t('Location enabled') || 'Ubicació activada');
+      } else if (status === 'denied') {
+        setLocationStatus(t('Location disabled') || 'Ubicació desactivada');
+      } else {
+        setLocationStatus(t('Location not configured') || 'Ubicació no configurada');
+      }
+    } catch (error) {
+      console.error('Error checking location permission:', error);
+      setLocationStatus(t('Error checking location') || 'Error al comprovar ubicació');
+    }
+  };
+
+  const handleLocationPress = async () => {
+    try {
+      const { status } = await Location.getForegroundPermissionsAsync();
+
+      if (status === 'undetermined') {
+        // Si mai s'ha demanat, sol·licitar permís
+        const { status: newStatus } = await Location.requestForegroundPermissionsAsync();
+
+        if (newStatus === 'granted') {
+          setLocationEnabled(true);
+          setLocationStatus(t('Location enabled') || 'Ubicació activada');
+          Alert.alert(
+            '✅ ' + t('Success'),
+            t('Location enabled successfully') || 'Ubicació activada correctament',
+          );
+        } else {
+          setLocationEnabled(false);
+          setLocationStatus(t('Location disabled') || 'Ubicació desactivada');
+        }
+        await checkLocationPermission();
+      } else {
+        // Si ja s'ha demanat abans, intentar obrir configuració
+        Alert.alert(
+          t('Location settings') || "Configuració d'ubicació",
+          t('Manage location permissions in system settings') ||
+            "Gestiona els permisos d'ubicació a la configuració del sistema",
+          [
+            { text: t('Cancel'), style: 'cancel' },
+            {
+              text: t('Open settings') || 'Obrir configuració',
+              onPress: async () => {
+                try {
+                  if (Platform.OS === 'ios') {
+                    await Linking.openURL('app-settings:');
+                  } else {
+                    await Linking.openSettings();
+                  }
+                } catch (err) {
+                  console.error('Error opening settings:', err);
+                  // Si falla (per exemple amb Expo Go), mostrar instruccions
+                  Alert.alert(
+                    t('Manual instructions') || 'Instruccions manuals',
+                    Platform.OS === 'ios'
+                      ? t('Go to Settings > [App Name] > Location to manage permissions') ||
+                          "Ves a Configuració > [Nom de l'app] > Ubicació per gestionar els permisos"
+                      : t('Go to Settings > Apps > [App Name] > Permissions > Location') ||
+                          "Ves a Configuració > Aplicacions > [Nom de l'app] > Permisos > Ubicació",
+                    [{ text: 'OK' }],
+                  );
+                }
+              },
+            },
+          ],
+        );
+      }
+    } catch (error) {
+      console.error('Error managing location:', error);
+      Alert.alert(
+        t('Error'),
+        t('Could not open location settings') || "No s'ha pogut obrir la configuració d'ubicació",
+      );
+    }
+  };
 
   const handleSave = async () => {
     try {
@@ -92,8 +186,6 @@ export default function UserConfig() {
       };
 
       await AsyncStorage.setItem('justSavedProfile', 'true');
-
-      // ⚠️ NO TOCAR EL TEMA AQUÍ - És temporal i NO es guarda al perfil
 
       Alert.alert(
         '✅ ' + t('Success'),
@@ -323,6 +415,26 @@ export default function UserConfig() {
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Preferences')}</Text>
 
+          {/* Gestió d'ubicació */}
+          <TouchableOpacity style={styles.preferenceItem} onPress={handleLocationPress}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+              <Ionicons
+                name={locationEnabled ? 'location' : 'location-outline'}
+                size={22}
+                color={locationEnabled ? colors.accent : colors.text}
+              />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: colors.text }]}>
+                  {t('Location services') || "Serveis d'ubicació"}
+                </Text>
+                <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>
+                  {locationStatus}
+                </Text>
+              </View>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+          </TouchableOpacity>
+
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
 
           <TouchableOpacity
@@ -403,7 +515,7 @@ export default function UserConfig() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Modals (sin cambios) */}
+      {/* Modals */}
       <Modal visible={showLogoutModal} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.backdrop }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -618,7 +730,10 @@ const styles = StyleSheet.create({
   preferenceText: {
     fontSize: 15,
     fontWeight: '500',
-    marginLeft: 12,
+  },
+  preferenceSubtext: {
+    fontSize: 13,
+    marginTop: 2,
   },
   dividerLine: {
     height: 1,
