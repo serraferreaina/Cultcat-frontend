@@ -46,9 +46,12 @@ export default function UserConfig() {
   const handleSave = async () => {
     try {
       const token = await AsyncStorage.getItem('authToken');
-      if (!token) return;
+      if (!token) {
+        Alert.alert(t('Error'), t('Authentication required'));
+        return;
+      }
 
-      // 2. Construir FormData
+      // Construir FormData
       let formData = new FormData();
       formData.append('id', global.currentUser?.id?.toString() ?? '0');
       formData.append('username', username);
@@ -68,14 +71,18 @@ export default function UserConfig() {
       const res = await fetch('http://nattech.fib.upc.edu:40490/profile/edit/', {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`, // <--- nuevo formato JWT
+          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
 
+      if (!res.ok) {
+        throw new Error('Failed to update profile');
+      }
+
       const data = await res.json();
 
-      // 3. Actualizar usuario global
+      // Actualitzar usuari global
       global.currentUser = {
         id: data.id ?? global.currentUser?.id ?? 0,
         username: data.username ?? username,
@@ -85,10 +92,21 @@ export default function UserConfig() {
       };
 
       await AsyncStorage.setItem('justSavedProfile', 'true');
+
+      // ⚠️ NO TOCAR EL TEMA AQUÍ - És temporal i NO es guarda al perfil
+
+      Alert.alert(
+        '✅ ' + t('Success'),
+        t('Profile updated successfully') || 'Perfil actualitzat correctament',
+      );
+
       router.back();
     } catch (err) {
-      console.error('Error actualizando perfil:', err);
-      alert('Error al actualizar perfil');
+      console.error('Error updating profile:', err);
+      Alert.alert(
+        t('Error'),
+        t('Could not update profile') || "No s'ha pogut actualitzar el perfil",
+      );
     }
   };
 
@@ -385,7 +403,7 @@ export default function UserConfig() {
         <View style={{ height: 32 }} />
       </ScrollView>
 
-      {/* Custom Logout Modal */}
+      {/* Modals (sin cambios) */}
       <Modal visible={showLogoutModal} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.backdrop }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -427,7 +445,6 @@ export default function UserConfig() {
         </View>
       </Modal>
 
-      {/* Custom Delete Photo Modal */}
       <Modal visible={showDeletePhotoModal} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.backdrop }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
@@ -465,7 +482,6 @@ export default function UserConfig() {
         </View>
       </Modal>
 
-      {/* Custom Delete Account Modal */}
       <Modal visible={showDeleteModal} transparent animationType="fade">
         <View style={[styles.modalOverlay, { backgroundColor: colors.backdrop }]}>
           <View style={[styles.modalContent, { backgroundColor: colors.card }]}>

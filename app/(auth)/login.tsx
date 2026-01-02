@@ -136,9 +136,11 @@ const Login: React.FC = () => {
         console.log('🔑 ACCESS TOKEN (Google):', data.access);
         console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
 
+        // 👇 NUEVO: Verifica si es la primera vez
         const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
 
         if (!hasCompletedSetup) {
+          // Primera vez con Google - va a configuración
           router.replace('/SetupScreen');
         } else {
           router.replace('/(tabs)');
