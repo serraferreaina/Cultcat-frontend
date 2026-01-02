@@ -48,7 +48,7 @@ interface EventData {
 }
 
 export default function EventDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const eventId = Array.isArray(id) ? id[0] : id;
 
@@ -200,10 +200,15 @@ export default function EventDetail() {
 
     if (endDate && endDate !== startDate) {
       const end = new Date(endDate);
-      return `Data inici: ${start.toLocaleDateString('ca-ES', options)} - Data fi: ${end.toLocaleDateString('ca-ES', options)}`;
+      return (
+        t('Data inici: ') +
+        `${start.toLocaleDateString(i18n.language, options)} - ` +
+        t('Data fi: ') +
+        `${end.toLocaleDateString(i18n.language, options)}`
+      );
     }
 
-    return start.toLocaleDateString('ca-ES', options);
+    return start.toLocaleDateString(i18n.language, options);
   };
 
   const onDateChange = (event: any, date?: Date) => {
@@ -323,35 +328,35 @@ export default function EventDetail() {
     let messageColor = Colors.text;
 
     if (userAttendanceIsToday) {
-      buttonText = "Avui és l'esdeveniment";
+      buttonText = t('Today is the event');
       buttonColor = '#FFA500';
       isDisabled = true;
-      messageText = 'Recorda assistir-hi';
+      messageText = t('Recorda assistir-hi');
       messageColor = Colors.accent;
     } else if (userAttendancePassed) {
       buttonColor = '#FF6B6B';
       isDisabled = true;
-      const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      buttonText = `Vares assistir - ${formattedDate}`;
+      buttonText = t('You attended - ') + formattedDate;
     } else if (eventHasPassedCompletely && !attendanceDate) {
       isDisabled = true;
       buttonColor = '#FF6B6B';
-      buttonText = 'No vares assistir';
+      buttonText = t('No vares assistir');
     } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
-      const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+      const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      buttonText = `Assistiré - ${formattedDate}`;
+      buttonText = t('I will attend') + ` - ${formattedDate}`;
       buttonColor = Colors.going;
     } else if (isActive && !attendanceDate) {
-      buttonText = t('Assistiré');
+      buttonText = t('I will attend');
       buttonColor = Colors.going;
     } else {
-      buttonText = t('Vull assistir');
+      buttonText = t('Want to go');
       buttonColor = Colors.accent;
     }
 
@@ -564,7 +569,7 @@ export default function EventDetail() {
                   onChange={onDateChange}
                   minimumDate={minDate}
                   maximumDate={maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -575,7 +580,7 @@ export default function EventDetail() {
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',

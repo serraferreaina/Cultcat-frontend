@@ -34,7 +34,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
 
 export default function CercaScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
@@ -180,14 +180,14 @@ export default function CercaScreen() {
       setIsFiltered(true);
 
       if (filteredData.length === 0) {
-        Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
+        Alert.alert(t('Cap esdeveniment'), t('No hi ha esdeveniments a ') + `${municipi}`, [
           { text: "D'acord" },
         ]);
       }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
-      Alert.alert('Error', 'Hi ha hagut un problema carregant els esdeveniments.');
+      Alert.alert(t('Error'), t('Hi ha hagut un problema carregant els esdeveniments.'));
     } finally {
       setLoading(false);
     }
@@ -331,35 +331,35 @@ export default function CercaScreen() {
     const getButtonText = () => {
       // Prioridad 1: Si la fecha de asistencia del usuario es hoy
       if (userAttendanceIsToday) {
-        return "Avui és l'esdeveniment";
+        return t('Today is the event');
       }
       // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
       else if (userAttendancePassed) {
-        const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+        const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
           day: 'numeric',
           month: 'short',
         });
-        return `Vares assistir - ${formattedDate}`;
+        return t('You attended - ') + formattedDate;
       }
       // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
       else if (eventHasPassedCompletely && !attendanceDate) {
-        return 'No vares assistir';
+        return t('No vares assistir');
       }
       // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
       else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+        const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
           day: 'numeric',
           month: 'short',
         });
-        return `Assistiré - ${formattedDate}`;
+        return t('I will attend') + ` - ${formattedDate}`;
       }
       // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
       else if (isGoing && !attendanceDate) {
-        return t('Assistiré');
+        return t('I will attend');
       }
       // Prioridad 6: No está activo
       else {
-        return t('Vull assistir');
+        return t('Want to go');
       }
     };
 
@@ -588,7 +588,7 @@ export default function CercaScreen() {
       }, 50);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'There was a problem fetching events.');
+      Alert.alert('Error', t('There was a problem fetching events.'));
     }
   };
 
@@ -944,7 +944,7 @@ export default function CercaScreen() {
                   onChange={onDateChange}
                   minimumDate={getMinMaxDates().minDate}
                   maximumDate={getMinMaxDates().maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -955,7 +955,7 @@ export default function CercaScreen() {
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',

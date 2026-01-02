@@ -162,7 +162,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
   savedEvents,
   onToggleSave,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
@@ -207,25 +207,25 @@ const FeedCard: React.FC<FeedCardProps> = ({
 
   const getButtonText = () => {
     if (userAttendanceIsToday) {
-      return "Avui és l'esdeveniment";
+      return t('Today is the event');
     } else if (userAttendancePassed) {
-      const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      return `Vares assistir - ${formattedDate}`;
+      return t('You attended - ') + formattedDate;
     } else if (eventHasPassedCompletely && !attendanceDate) {
-      return 'No vares assistir';
+      return t('No vares assistir');
     } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
-      const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+      const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      return `Assistiré - ${formattedDate}`;
+      return t('I will attend') + ` - ${formattedDate}`;
     } else if (isActive && !attendanceDate) {
-      return t('Assistiré');
+      return t('I will attend');
     } else {
-      return t('Vull assistir');
+      return t('Want to go');
     }
   };
 
@@ -315,11 +315,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
 
   const { minDate, maxDate } = getMinMaxDates();
 
-  const handleShare = () => {
-    const url = `https://tu-app.com/event/${item.id}`;
-    Share.share({ message: `Mira este evento: ${url}`, url });
-  };
-
   return (
     <>
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
@@ -335,7 +330,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
         {/* Message for today's event */}
         {userAttendanceIsToday && (
           <Text style={[styles.messageText, { color: Colors.accent, marginHorizontal: 12 }]}>
-            Recorda assistir-hi
+            {t('Recorda assistir-hi')}
           </Text>
         )}
 
@@ -419,7 +414,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                   onChange={onDateChange}
                   minimumDate={minDate}
                   maximumDate={maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -430,7 +425,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
