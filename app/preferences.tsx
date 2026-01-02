@@ -264,9 +264,7 @@ export default function PreferencesScreen() {
 
   const toggleCategory = (categoryId: number) => {
     setSelectedCategories((prev) =>
-      prev.includes(categoryId)
-        ? prev.filter((c) => c !== categoryId)
-        : [...prev, categoryId],
+      prev.includes(categoryId) ? prev.filter((c) => c !== categoryId) : [...prev, categoryId],
     );
   };
 
@@ -335,9 +333,7 @@ export default function PreferencesScreen() {
         onPress={() => toggleCategory(index)}
       >
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
-        <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>
-          {item.label}
-        </Text>
+        <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>{item.label}</Text>
         {isSelected && (
           <Ionicons name="checkmark" size={20} color={CARD} style={styles.checkIcon} />
         )}

@@ -19,7 +19,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       try {
         // Primero intentar cargar el tema temporal de la sesión actual
         const sessionTheme = await AsyncStorage.getItem('sessionTheme');
-        
+
         if (sessionTheme) {
           // Si hay tema temporal, usarlo
           setThemeState(sessionTheme as 'light' | 'dark');
@@ -35,7 +35,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         console.error('Error loading theme:', error);
       }
     };
-    
+
     loadTheme();
   }, []);
 
@@ -43,7 +43,7 @@ export const ThemeProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const toggleTheme = async () => {
     const newTheme = theme === 'light' ? 'dark' : 'light';
     setThemeState(newTheme);
-    
+
     // Guardar solo en sessionTheme, NO en darkMode
     try {
       await AsyncStorage.setItem('sessionTheme', newTheme);
