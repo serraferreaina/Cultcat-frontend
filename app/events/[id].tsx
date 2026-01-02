@@ -200,7 +200,12 @@ export default function EventDetail() {
 
     if (endDate && endDate !== startDate) {
       const end = new Date(endDate);
-      return t("Data inici: ") + `${start.toLocaleDateString(i18n.language, options)} - ` + t("Data fi: ") + `${end.toLocaleDateString(i18n.language, options)}`;
+      return (
+        t('Data inici: ') +
+        `${start.toLocaleDateString(i18n.language, options)} - ` +
+        t('Data fi: ') +
+        `${end.toLocaleDateString(i18n.language, options)}`
+      );
     }
 
     return start.toLocaleDateString(i18n.language, options);

@@ -180,7 +180,7 @@ export default function CercaScreen() {
       setIsFiltered(true);
 
       if (filteredData.length === 0) {
-        Alert.alert(t('Cap esdeveniment'), t("No hi ha esdeveniments a ") + `${municipi}`, [
+        Alert.alert(t('Cap esdeveniment'), t('No hi ha esdeveniments a ') + `${municipi}`, [
           { text: "D'acord" },
         ]);
       }
