@@ -39,6 +39,67 @@ interface EventCardProps {
   onUnsaved?: (eventId: number) => void;
 }
 
+// Función para verificar si una fecha es hoy
+const isToday = (date: Date): boolean => {
+  const today = new Date();
+  const compareDate = new Date(date);
+
+  return (
+    today.getDate() === compareDate.getDate() &&
+    today.getMonth() === compareDate.getMonth() &&
+    today.getFullYear() === compareDate.getFullYear()
+  );
+};
+
+// Función para verificar si una fecha es mañana
+const isTomorrow = (date: Date): boolean => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const compareDate = new Date(date);
+
+  return (
+    tomorrow.getDate() === compareDate.getDate() &&
+    tomorrow.getMonth() === compareDate.getMonth() &&
+    tomorrow.getFullYear() === compareDate.getFullYear()
+  );
+};
+
+// Función para verificar si la fecha de asistencia ya ha pasado (antes de hoy)
+const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+  const today = new Date();
+  const attendance = new Date(attendanceDate);
+
+  // Comparar solo año, mes y día (ignorar horas)
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const attendanceOnlyDate = new Date(
+    attendance.getFullYear(),
+    attendance.getMonth(),
+    attendance.getDate(),
+  );
+
+  // Solo ha pasado si es ANTES de hoy (no incluye hoy)
+  return attendanceOnlyDate < todayDate;
+};
+
+// Función para verificar si el evento ya ha pasado completamente
+const hasEventPassedCompletely = (event: Event): boolean => {
+  if (!event.data_fi) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(event.data_fi);
+  endDate.setHours(0, 0, 0, 0);
+
+  return endDate < today;
+};
+
+const normalizeDate = (date: Date): Date => {
+  // Crear una nova data amb les hores establertes al migdia en zona horària LOCAL
+  const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
+  return normalized;
+};
+
 export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
   const {
     goingEvents,
@@ -60,23 +121,16 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const isSaved = !!savedEvents[item.id];
   const isAssisted = !!assistedEvents[item.id];
 
-  const normalizeDate = (date: Date): Date => {
-    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
-    const normalized = new Date(date);
-    normalized.setHours(12, 0, 0, 0);
-    return normalized;
-  };
-
   const [shareModalVisible, setShareModalVisible] = useState(false);
 
-  // Obtener fecha de asistencia guardada y SUMAR UN DÍA para compensar UTC
-  const savedAttendanceDate = attendanceDates[item.id]
+  // Obtener fecha de asistencia guardada
+  const attendanceDate = attendanceDates[item.id]
     ? (() => {
-        // Parsejar manualment per evitar problemes de zona horària
         const [year, month, day] = attendanceDates[item.id].split('-').map(Number);
         return new Date(year, month - 1, day, 12, 0, 0);
       })()
     : undefined;
+
   const images: string[] =
     item.imatges && item.imatges.trim() !== ''
       ? item.imatges.split(',').map((url) => `https://agenda.cultura.gencat.cat${url.trim()}`)
@@ -86,43 +140,13 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
 
   const imageToShow = images[0];
 
-  const isEventPast = (): boolean => {
-    if (!item.data_inici) return false;
+  const eventHasPassedCompletely = hasEventPassedCompletely(item);
 
-    const eventDate = new Date(item.data_inici);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    return eventDate < today;
-  };
-
-  const hasEventPassed = (): boolean => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
-
-    // Si hay fecha de asistencia guardada, verificar si ya pasó
-    // NO sumem el dia aquí perquè estem comparant amb "now"
-    if (attendanceDates[item.id]) {
-      const savedDate = new Date(attendanceDates[item.id]);
-      savedDate.setHours(0, 0, 0, 0);
-      if (savedDate < now) {
-        return true;
-      }
-    }
-
-    // Si no hay fecha de asistencia, verificar la fecha de fin del evento
-    if (item.data_fi) {
-      const endDate = new Date(item.data_fi);
-      endDate.setHours(0, 0, 0, 0);
-      if (endDate < now) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const isPast = hasEventPassed();
+  // Si tiene fecha de asistencia, verificar si esa fecha ya pasó o es hoy
+  const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+  const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+  const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+  const userAttendanceIsFuture = attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
 
   // Calcular fechas mínima y máxima para el selector
   const getMinMaxDates = () => {
@@ -135,13 +159,12 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
-    // Si l'esdeveniment ja ha començat (startDate <= today), permetre des d'avui
-    // Si encara no ha començat, permetre des de la data d'inici o demà (el que sigui més tard)
-    let minDate: Date;
-    if (startDate <= today) {
-      minDate = today; // L'esdeveniment ja està en curs, permetre avui
-    } else {
-      minDate = startDate < tomorrow ? tomorrow : startDate;
+    // Siempre empezar desde mañana como mínimo
+    let minDate = tomorrow;
+
+    // Si el evento empieza después de mañana, usar esa fecha
+    if (startDate > tomorrow) {
+      minDate = startDate;
     }
 
     const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
@@ -167,33 +190,24 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     }
   };
 
-  const handleWantToGo = () => {
+  const handleButtonPress = () => {
+    // Si la fecha de asistencia del usuario es hoy, no permitir cambios
+    if (userAttendanceIsToday) {
+      return;
+    }
+
+    // Si la fecha de asistencia del usuario ya pasó, no permitir cambios
+    if (userAttendancePassed) {
+      return;
+    }
+
+    // Si ya ha pasado completamente el evento, no permitir cambios
+    if (eventHasPassedCompletely) {
+      return;
+    }
+
     if (!isGoing) {
-      // Preparar fecha inicial
-      if (item.data_inici) {
-        setSelectedDate(new Date(item.data_inici));
-      }
-
-      // Comprobar si solo hay un día disponible
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
-      startDate.setHours(0, 0, 0, 0);
-
-      // Calcular minDate igual que a getMinMaxDates
-      let minDate: Date;
-      if (startDate <= today) {
-        minDate = today;
-      } else {
-        minDate = startDate < tomorrow ? tomorrow : startDate;
-      }
-
-      const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
-      maxDate.setHours(0, 0, 0, 0);
+      const { minDate, maxDate } = getMinMaxDates();
 
       const isSingleDay = minDate.getTime() === maxDate.getTime();
 
@@ -202,17 +216,13 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
         const normalizedMinDate = normalizeDate(minDate);
         toggleGoing(item.id, normalizedMinDate);
       } else {
-        // Si hay múltiples días, mostrar modal
+        // Resetear selectedDate a minDate cuando abrimos el modal
+        setSelectedDate(minDate);
         setShowDateModal(true);
       }
     } else {
-      // Desmarcar
       toggleGoing(item.id);
     }
-  };
-
-  const handleAssisted = () => {
-    toggleAssisted(item.id);
   };
 
   const onDateChange = (event: any, date?: Date) => {
@@ -233,27 +243,56 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     setShowDateModal(false);
   };
 
-  // Determinar texto del botón
+  // Determinar texto del botón con la nueva lógica
   const getButtonText = () => {
-    if (isPast) {
-      if (isAssisted && savedAttendanceDate) {
-        const formattedDate = savedAttendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        return `${t('He anat')} - ${formattedDate}`;
-      }
-      return isAssisted ? t('He anat') : t('Vull anar');
-    } else {
-      if (isGoing && savedAttendanceDate) {
-        const formattedDate = savedAttendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        return `${t('Assistiré')} - ${formattedDate}`;
-      }
-      return isGoing ? t('Assistiré') : t('Vull assistir');
+    // Prioridad 1: Si la fecha de asistencia del usuario es hoy
+    if (userAttendanceIsToday) {
+      return "Avui és l'esdeveniment";
     }
+    // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
+    else if (userAttendancePassed) {
+      const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+        day: 'numeric',
+        month: 'short',
+      });
+      return `Vares assistir - ${formattedDate}`;
+    }
+    // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
+    else if (eventHasPassedCompletely && !attendanceDate) {
+      return 'No vares assistir';
+    }
+    // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
+    else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+        day: 'numeric',
+        month: 'short',
+      });
+      return `Assistiré - ${formattedDate}`;
+    }
+    // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
+    else if (isGoing && !attendanceDate) {
+      return t('Assistiré');
+    }
+    // Prioridad 6: No está activo
+    else {
+      return t('Vull assistir');
+    }
+  };
+
+  const getButtonColor = () => {
+    if (userAttendanceIsToday) {
+      return '#FFA500';
+    } else if (userAttendancePassed || eventHasPassedCompletely) {
+      return '#FF6B6B';
+    } else if (isGoing) {
+      return Colors.going;
+    } else {
+      return Colors.accent;
+    }
+  };
+
+  const isButtonDisabled = () => {
+    return userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely;
   };
 
   const { minDate, maxDate } = getMinMaxDates();
@@ -271,6 +310,11 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
           <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
             {item.titol || t('Event without title')}
           </Text>
+
+          {/* Message for today's event */}
+          {userAttendanceIsToday && (
+            <Text style={[styles.messageText, { color: Colors.accent }]}>Recorda assistir-hi</Text>
+          )}
 
           <View style={styles.labelContainer}>
             {item.espai && <Label text={item.espai} color={Colors.accent} />}
@@ -313,25 +357,17 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
               </TouchableOpacity>
             </View>
 
-            {/* DYNAMIC BUTTON LOGIC */}
-            {isPast ? (
-              <TouchableOpacity
-                style={[
-                  styles.button,
-                  { backgroundColor: isAssisted ? Colors.going : Colors.accent },
-                ]}
-                onPress={handleAssisted}
-              >
-                <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-                onPress={handleWantToGo}
-              >
-                <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
-              </TouchableOpacity>
-            )}
+            {/* DYNAMIC BUTTON with new logic */}
+            <TouchableOpacity
+              style={[
+                styles.button,
+                { backgroundColor: getButtonColor(), opacity: isButtonDisabled() ? 0.7 : 1 },
+              ]}
+              onPress={handleButtonPress}
+              disabled={isButtonDisabled()}
+            >
+              <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
@@ -489,14 +525,20 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   eventTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 4,
+  },
+  messageText: {
+    fontSize: 10,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   labelContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 6,
+    marginBottom: 8,
   },
   label: {
     borderRadius: 10,
@@ -504,22 +546,21 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   labelText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '500',
   },
   cardButtonsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 10,
   },
   cardButtonsLeft: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconButton: {
-    padding: 6,
-    marginRight: 12,
+    padding: 4,
+    marginRight: 8,
   },
   comments: {
     flexDirection: 'row',
@@ -527,16 +568,17 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   commentCount: {
-    fontSize: 13,
+    fontSize: 12,
   },
   button: {
     paddingVertical: 6,
-    paddingHorizontal: 12,
+    paddingHorizontal: 10,
     borderRadius: 20,
+    flexShrink: 1,
   },
   buttonText: {
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: 8,
   },
   // Estilos del modal
   modalOverlay: {
@@ -549,7 +591,6 @@ const styles = StyleSheet.create({
   dateModalContainer: {
     width: '100%',
     maxWidth: 400,
-    maxHeight: '80%',
     borderRadius: 20,
     padding: 24,
     shadowColor: '#000',

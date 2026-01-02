@@ -64,7 +64,6 @@ export default function EventDetail() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
 
-  // Estados para el selector de fecha
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -85,34 +84,77 @@ export default function EventDetail() {
   };
 
   const normalizeDate = (date: Date): Date => {
-    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
     const normalized = new Date(date);
     normalized.setHours(12, 0, 0, 0);
     return normalized;
   };
 
-  // Función para verificar si el evento ya ha pasado
-  const hasEventPassed = (event: EventData, attendanceDate?: Date): boolean => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const compareDate = new Date(date);
 
-    if (attendanceDate) {
-      const attendance = new Date(attendanceDate);
-      attendance.setHours(0, 0, 0, 0);
-      if (attendance < now) {
-        return true;
-      }
-    }
+    const result =
+      today.getDate() === compareDate.getDate() &&
+      today.getMonth() === compareDate.getMonth() &&
+      today.getFullYear() === compareDate.getFullYear();
 
-    if (event.data_fi) {
-      const endDate = new Date(event.data_fi);
-      endDate.setHours(0, 0, 0, 0);
-      if (endDate < now) {
-        return true;
-      }
-    }
+    return result;
+  };
 
-    return false;
+  const isTomorrow = (date: Date): boolean => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const compareDate = new Date(date);
+
+    const result =
+      tomorrow.getDate() === compareDate.getDate() &&
+      tomorrow.getMonth() === compareDate.getMonth() &&
+      tomorrow.getFullYear() === compareDate.getFullYear();
+
+    return result;
+  };
+
+  const isEventToday = (event: EventData): boolean => {
+    if (!event.data_inici || !event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(event.data_inici);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return today >= startDate && today <= endDate;
+  };
+
+  const hasEventPassedCompletely = (event: EventData): boolean => {
+    if (!event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
+
+  const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+    const today = new Date();
+    const attendance = new Date(attendanceDate);
+
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const attendanceOnlyDate = new Date(
+      attendance.getFullYear(),
+      attendance.getMonth(),
+      attendance.getDate(),
+    );
+
+    const hasPassed = attendanceOnlyDate < todayDate;
+
+    return hasPassed;
   };
 
   useEffect(() => {
@@ -201,16 +243,22 @@ export default function EventDetail() {
 
   const LogicWrapper = () => {
     const eventLogic = useEventLogic(event);
-    const { isActive, toggle, textKey, textKeyInactive } = eventLogic;
+    const { isActive, toggle } = eventLogic;
 
     const attendanceDate =
       'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
         ? eventLogic.attendanceDate
         : undefined;
 
-    const isPast = hasEventPassed(event, attendanceDate);
+    const eventIsToday = isEventToday(event);
+    const eventHasPassedCompletely = hasEventPassedCompletely(event);
 
-    // Calcular si solo hay un día disponible
+    const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+    const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+    const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+    const userAttendanceIsFuture =
+      attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -220,28 +268,36 @@ export default function EventDetail() {
     const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
-    // Si l'esdeveniment ja ha començat, permetre des d'avui
-    let minDate: Date;
-    if (startDate <= today) {
-      minDate = today;
-    } else {
-      minDate = startDate < tomorrow ? tomorrow : startDate;
+    let minDate = tomorrow;
+
+    if (startDate > tomorrow) {
+      minDate = startDate;
     }
 
     const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
     maxDate.setHours(0, 0, 0, 0);
 
-    // Comprobar si minDate y maxDate son el mismo día
     const isSingleDay = minDate.getTime() === maxDate.getTime();
 
     const handleWantToGo = () => {
+      if (userAttendanceIsToday) {
+        return;
+      }
+
+      if (userAttendancePassed) {
+        return;
+      }
+
+      if (eventHasPassedCompletely) {
+        return;
+      }
+
       if (!isActive) {
         if (isSingleDay) {
-          // Si solo hay un día disponible, usar automáticamente ese día (normalitzat)
           const normalizedMinDate = normalizeDate(minDate);
           toggle(normalizedMinDate);
         } else {
-          // Si hay múltiples días, mostrar selector
+          setSelectedDate(minDate);
           setShowDateModal(true);
         }
       } else {
@@ -250,7 +306,6 @@ export default function EventDetail() {
     };
 
     const handleConfirmDate = () => {
-      // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
       toggle(normalizedDate);
       setShowDatePicker(false);
@@ -262,37 +317,58 @@ export default function EventDetail() {
     }, [selectedDate]);
 
     let buttonText = '';
-    if (isPast) {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        buttonText = `${t('He anat')} - ${formattedDate}`;
-      } else {
-        buttonText = isActive ? t('He anat') : t('Vull anar');
-      }
+    let buttonColor = Colors.accent;
+    let isDisabled = false;
+    let messageText = '';
+    let messageColor = Colors.text;
+
+    if (userAttendanceIsToday) {
+      buttonText = "Avui és l'esdeveniment";
+      buttonColor = '#FFA500';
+      isDisabled = true;
+      messageText = 'Recorda assistir-hi';
+      messageColor = Colors.accent;
+    } else if (userAttendancePassed) {
+      buttonColor = '#FF6B6B';
+      isDisabled = true;
+      const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+        day: 'numeric',
+        month: 'short',
+      });
+      buttonText = `Vares assistir - ${formattedDate}`;
+    } else if (eventHasPassedCompletely && !attendanceDate) {
+      isDisabled = true;
+      buttonColor = '#FF6B6B';
+      buttonText = 'No vares assistir';
+    } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+        day: 'numeric',
+        month: 'short',
+      });
+      buttonText = `Assistiré - ${formattedDate}`;
+      buttonColor = Colors.going;
+    } else if (isActive && !attendanceDate) {
+      buttonText = t('Assistiré');
+      buttonColor = Colors.going;
     } else {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        buttonText = `${t('Assistiré')} - ${formattedDate}`;
-      } else if (isActive) {
-        buttonText = t('Assistiré');
-      } else {
-        buttonText = t('Vull assistir');
-      }
+      buttonText = t('Vull assistir');
+      buttonColor = Colors.accent;
     }
 
     return (
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
-        onPress={handleWantToGo}
-      >
-        <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
-      </TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: buttonColor, opacity: isDisabled ? 0.7 : 1 }]}
+          onPress={handleWantToGo}
+          disabled={isDisabled}
+        >
+          <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
+        </TouchableOpacity>
+
+        {messageText !== '' && (
+          <Text style={[styles.messageText, { color: messageColor }]}>{messageText}</Text>
+        )}
+      </View>
     );
   };
 
@@ -314,12 +390,9 @@ export default function EventDetail() {
   const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
   startDate.setHours(0, 0, 0, 0);
 
-  // Si l'esdeveniment ja ha començat, permetre des d'avui
-  let minDate: Date;
-  if (startDate <= today) {
-    minDate = today;
-  } else {
-    minDate = startDate < tomorrow ? tomorrow : startDate;
+  let minDate = tomorrow;
+  if (startDate > tomorrow) {
+    minDate = startDate;
   }
 
   const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
@@ -575,7 +648,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: '700' },
+  title: { fontSize: 14, fontWeight: '700' },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -618,7 +691,7 @@ const styles = StyleSheet.create({
   },
   topButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: 15,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -633,6 +706,12 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '600',
     fontSize: 14,
+  },
+  messageText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'center',
   },
   iconsRow: {
     flexDirection: 'row',
