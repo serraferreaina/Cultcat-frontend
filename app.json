@@ -2,7 +2,6 @@
   "expo": {
     "name": "cultcat-frontend",
     "slug": "cultcat-frontend",
-
     "scheme": "com.anonymous.cultcatfrontend",
     "router": {
       "origin": false
@@ -58,10 +57,18 @@
           "locationAlwaysAndWhenInUsePermission": "Permet que l'aplicació accedeixi a la teva ubicació.",
           "isIosBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
     ],
     "extra": {
-      "router": {},
+      "API_URL": "http://nattech.fib.upc.edu:40490",
       "eas": {
         "projectId": "2244d658-5f13-4aef-ad90-49905e4184c0"
       }
