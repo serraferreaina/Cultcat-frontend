@@ -123,9 +123,10 @@ export default function CercaScreen() {
 
     try {
       const currentOffset = reset ? 0 : offset;
+      const today = new Date().toISOString().split('T')[0];
 
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&order_by_date=desc`,
+        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&from_date=${today}&order_by_date=asc`,
       );
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
