@@ -301,7 +301,7 @@ export default function CercaScreen() {
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
-        ? item.imatges
+        ? item.imatgess
             .split(',')
             .map((url: string) => `https://agenda.cultura.gencat.cat${url.trim()}`)
         : item.imgApp && item.imgApp.trim() !== ''
@@ -518,16 +518,6 @@ export default function CercaScreen() {
                 }}
               >
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={{ marginRight: 12 }}
-                onPress={() => {
-                  setSelectedEventId(item.id);
-                  setShowReviews(true);
-                }}
-              >
-                <Ionicons name="star-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.iconButton} onPress={handleShare}>

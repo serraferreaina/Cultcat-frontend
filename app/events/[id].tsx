@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
-  Share,
   Modal,
   Platform,
 } from 'react-native';
@@ -69,6 +68,40 @@ export default function EventDetail() {
   const [showDateModal, setShowDateModal] = useState(false);
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+
+  // IMPORTANT: Cridem useEventLogic ABANS dels useEffect (amb fallback per evitar null)
+  const eventLogic = useEventLogic(
+    event || {
+      id: 0,
+      titol: '',
+      descripcio: '',
+      enllacos: {},
+      imgApp: null,
+      imatges: null,
+      infoEntrades: null,
+      infoHorari: null,
+      gratuita: false,
+      modalitat: null,
+      direccio: null,
+      espai: null,
+      localitat: null,
+      georeferencia: null,
+      latitud: null,
+      longitud: null,
+      telefon: null,
+      email: null,
+      data_inici: null,
+      data_fi: null,
+    },
+  );
+  const { isActive, toggle } = eventLogic;
+
+  const userAttendanceDate =
+    'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
+      ? eventLogic.attendanceDate
+      : undefined;
 
   const shouldHideEvent = (event: EventData): boolean => {
     if (!event.data_fi) return false;
@@ -187,6 +220,38 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
+  // Fetch reviews
+  useEffect(() => {
+    if (!eventId) return;
+
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`http://nattech.fib.upc.edu:40490/reviews/event/${eventId}`);
+        if (!res.ok) throw new Error('Failed to fetch reviews');
+        const data = await res.json();
+        setReviews(data);
+
+        // Calcular mitjana
+        if (data.length > 0) {
+          const total = data.reduce((sum: number, review: any) => sum + review.rating, 0);
+          const avg = total / data.length;
+          setAverageRating(Math.round(avg * 10) / 10);
+        } else {
+          setAverageRating(null);
+        }
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+      }
+    };
+
+    fetchReviews();
+  }, [eventId, reviewVisible]);
+
+  // Determinar si es pot escriure una review (després dels useEffect)
+  // NOMÉS es pot fer review si vas marcar que aniràs i la data d'assistència ja ha passat
+  const canWriteReview =
+    event && userAttendanceDate ? hasAttendanceDatePassed(userAttendanceDate) : false;
+
   const formatEventDate = (startDate: string | null, endDate: string | null): string => {
     if (!startDate) return t('Date not available');
 
@@ -246,14 +311,9 @@ export default function EventDetail() {
     );
   }
 
+  // Cridem useEventLogic només una vegada aquí
   const LogicWrapper = () => {
-    const eventLogic = useEventLogic(event);
-    const { isActive, toggle } = eventLogic;
-
-    const attendanceDate =
-      'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
-        ? eventLogic.attendanceDate
-        : undefined;
+    const attendanceDate = userAttendanceDate;
 
     const eventIsToday = isEventToday(event);
     const eventHasPassedCompletely = hasEventPassedCompletely(event);
@@ -524,20 +584,61 @@ export default function EventDetail() {
         </TouchableOpacity>
       )}
 
-      <View style={{ alignItems: 'flex-end' }}>
-        <TouchableOpacity
-          style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-          onPress={() => setReviewVisible(true)}
-        >
-          <Ionicons
-            name="create-outline"
-            size={14}
-            color={Colors.card}
-            style={{ marginRight: 4 }}
-          />
-          <Text style={[styles.reviewButtonText, { color: Colors.card }]}>{t('Write review')}</Text>
-        </TouchableOpacity>
+      {/* Secció de Reviews - SEMPRE VISIBLE */}
+      <View style={styles.reviewsSection}>
+        <View style={styles.reviewsHeader}>
+          <Text style={[styles.reviewsSectionTitle, { color: Colors.text }]}>{t('Reviews')}</Text>
+          {averageRating !== null && (
+            <View style={styles.averageRatingContainer}>
+              <Ionicons name="star" size={20} color="#FFD700" />
+              <Text style={[styles.averageRatingText, { color: Colors.text }]}>
+                {averageRating.toFixed(1)}/5
+              </Text>
+              <Text style={[styles.reviewCount, { color: Colors.textSecondary }]}>
+                ({reviews.length})
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {reviews.length > 0 ? (
+          <>
+            <TouchableOpacity
+              style={[styles.viewAllReviewsButton, { backgroundColor: Colors.background }]}
+              onPress={() => setReviewVisible(true)}
+            >
+              <Text style={[styles.viewAllReviewsText, { color: Colors.accent }]}>
+                {t('View all reviews')}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={[styles.noReviewsText, { color: Colors.textSecondary }]}>
+            {t('No reviews yet')}
+          </Text>
+        )}
       </View>
+
+      {/* El botó de review apareix si l'esdeveniment ha passat O si la data d'assistència ha passat */}
+      {canWriteReview && (
+        <View style={{ alignItems: 'flex-end' }}>
+          <TouchableOpacity
+            style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+            onPress={() => setReviewVisible(true)}
+          >
+            <Ionicons
+              name="create-outline"
+              size={14}
+              color={Colors.card}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
+              {t('Write review')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         visible={showDateModal}
@@ -633,6 +734,7 @@ export default function EventDetail() {
         eventId={event.id}
         visible={reviewVisible}
         onClose={() => setReviewVisible(false)}
+        readOnly={!canWriteReview}
       />
       <ShareEventModal
         visible={shareModalVisible}
@@ -815,5 +917,108 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontWeight: '700',
     fontSize: 16,
+  },
+  reviewsSection: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewsSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  averageRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  averageRatingText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reviewCount: {
+    fontSize: 14,
+  },
+  viewAllReviewsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  viewAllReviewsText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  noReviewsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  reviewsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  reviewsModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+  },
+  reviewsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  reviewsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  reviewsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  reviewItem: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewUsername: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reviewRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
   },
 });
