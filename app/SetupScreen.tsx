@@ -7,6 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import { registerForPushNotifications } from '../services/pushNotifications';
 
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
@@ -41,47 +42,22 @@ export default function SetupScreen() {
 
   const handleNotificationToggle = async (value: boolean) => {
     if (value) {
-      // Intentar activar notificacions - demanar permisos
       try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
+        const token = await registerForPushNotifications();
 
-        // Si no té permisos, demanar-los
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
+        if (token) {
+          setNotificationsEnabled(true);
+          Alert.alert('✅', 'Notificacions activades correctament');
+        } else {
+          Alert.alert('⚠️', "No s'han pogut activar les notificacions. Comprova els permisos.");
         }
-
-        if (finalStatus !== 'granted') {
-          Alert.alert(
-            t('Permission Required') || 'Permís necessari',
-            t('Please enable notifications in your device settings') ||
-              'Si us plau, activa les notificacions a la configuració del teu dispositiu',
-            [{ text: 'OK' }],
-          );
-          return;
-        }
-
-        // Permisos concedits
-        setNotificationsEnabled(true);
-        Alert.alert(
-          '✅ ' + (t('Enabled') || 'Activat'),
-          t('Notifications enabled successfully') || 'Notificacions activades correctament',
-        );
       } catch (error) {
-        console.error('Error requesting notification permissions:', error);
-        Alert.alert(
-          t('Error') || 'Error',
-          t('Could not enable notifications') || "No s'han pogut activar les notificacions",
-        );
+        console.error('Error:', error);
+        Alert.alert('❌', 'Error activant notificacions');
       }
     } else {
-      // Desactivar notificacions
       setNotificationsEnabled(false);
-      Alert.alert(
-        '🔕 ' + (t('Disabled') || 'Desactivat'),
-        t('Notifications disabled') || 'Notificacions desactivades',
-      );
+      Alert.alert('🔕', 'Notificacions desactivades');
     }
   };
 
