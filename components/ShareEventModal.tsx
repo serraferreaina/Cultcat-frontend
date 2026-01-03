@@ -1,4 +1,4 @@
-// components/ShareEventModal.tsx
+// components/ShareEventModal.tsx - VERSIÓ COMPLETA
 import React, { useState, useEffect } from 'react';
 import {
   Modal,
@@ -12,9 +12,10 @@ import {
   StyleSheet,
   TextInput,
   ScrollView,
+  Share,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import * as Clipboard from 'expo-clipboard';
 import { getConnections } from '../api/connections';
 import { getUsers } from '../api/users';
 import { getGroupChats } from '../api/groupchats';
@@ -46,7 +47,6 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
-  const [linkCopied, setLinkCopied] = useState(false);
 
   const ORANGE = '#d87c3a';
 
@@ -57,7 +57,6 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
       setSearchQuery('');
       setMessage('');
       setTab('individual');
-      setLinkCopied(false);
     }
   }, [visible]);
 
@@ -132,24 +131,90 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
     });
   };
 
-  const copyLinkToClipboard = async () => {
+  // Share nativa del sistema amb tota la informació
+  const shareViaSystemShare = async () => {
     try {
-      const eventUrl = `https://nattech.fib.upc.edu:40490/events/${event.id}`;
-      await Clipboard.setStringAsync(eventUrl);
-      setLinkCopied(true);
+      let shareMessage = `🎉 ${event.titol}\n\n`;
 
-      // Mostrar feedback visual temporal
-      setTimeout(() => {
-        setLinkCopied(false);
-      }, 2000);
+      // Descripció
+      if (event.descripcio?.trim()) {
+        shareMessage += `${event.descripcio}\n\n`;
+      }
 
-      Alert.alert('Enllaç copiat!', "L'enllaç de l'esdeveniment s'ha copiat al porta-retalls", [
-        { text: "D'acord" },
-      ]);
+      // Data
+      shareMessage += `📅 ${formatDate(event.data_inici)}`;
+      if (event.data_fi && event.data_fi !== event.data_inici) {
+        shareMessage += ` - ${formatDate(event.data_fi)}`;
+      }
+      shareMessage += '\n\n';
+
+      // Espai
+      if (event.espai) {
+        shareMessage += `🏛️ Espai: ${event.espai}\n`;
+      }
+
+      // Adreça
+      if (event.direccio) {
+        shareMessage += `📍 Adreça: ${event.direccio}\n`;
+      }
+
+      // Localitat
+      if (event.localitat) {
+        shareMessage += `🏙️ Localitat: ${event.localitat}\n`;
+      }
+
+      // Modalitat
+      if (event.modalitat) {
+        shareMessage += `💡 Modalitat: ${event.modalitat}\n`;
+      }
+
+      // Horari
+      if (event.infoHorari) {
+        shareMessage += `⏰ Horari: ${event.infoHorari}\n`;
+      }
+
+      // Entrades
+      if (event.infoEntrades) {
+        shareMessage += `🎟️ Entrades: ${event.infoEntrades}\n`;
+      }
+
+      // Telèfon
+      if (event.telefon) {
+        shareMessage += `☎️ Telèfon: ${event.telefon}\n`;
+      }
+
+      // Email
+      if (event.email) {
+        shareMessage += `📧 Email: ${event.email}\n`;
+      }
+
+      const result = await Share.share({
+        message: shareMessage.trim(),
+        title: event.titol,
+      });
+
+      if (result.action === Share.sharedAction) {
+        if (result.activityType) {
+          console.log('Shared via:', result.activityType);
+        } else {
+          console.log('Shared successfully');
+        }
+      }
     } catch (error) {
-      console.error('Error copying link:', error);
-      Alert.alert('Error', "No s'ha pogut copiar l'enllaç");
+      console.error('Error sharing:', error);
+      Alert.alert('Error', "No s'ha pogut compartir l'esdeveniment");
     }
+  };
+
+  const formatDate = (dateStr: string | null) => {
+    if (!dateStr) return '';
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('ca-ES', {
+      weekday: 'long',
+      day: 'numeric',
+      month: 'long',
+      year: 'numeric',
+    });
   };
 
   const sendToChats = async () => {
@@ -270,27 +335,16 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
             </TouchableOpacity>
           </View>
 
-          {/* Copy Link Button */}
-          <TouchableOpacity
-            onPress={copyLinkToClipboard}
-            style={[
-              styles.copyLinkButton,
-              {
-                backgroundColor: linkCopied ? Colors.success || '#4CAF50' : Colors.background,
-              },
-            ]}
-          >
-            <View style={styles.copyLinkContent}>
-              <Ionicons
-                name={linkCopied ? 'checkmark-circle' : 'link'}
-                size={24}
-                color={linkCopied ? '#fff' : ORANGE}
-              />
-              <Text style={[styles.copyLinkText, { color: linkCopied ? '#fff' : Colors.text }]}>
-                {linkCopied ? 'Enllaç copiat!' : "Copiar enllaç de l'esdeveniment"}
-              </Text>
-            </View>
-          </TouchableOpacity>
+          {/* Botó de compartició ràpida */}
+          <View style={styles.quickShareContainer}>
+            <TouchableOpacity
+              onPress={shareViaSystemShare}
+              style={[styles.quickShareButton, { backgroundColor: Colors.background }]}
+            >
+              <Ionicons name="share-outline" size={24} color={ORANGE} />
+              <Text style={[styles.quickShareText, { color: Colors.text }]}>Compartir fora</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Search bar */}
           <View style={[styles.searchContainer, { backgroundColor: Colors.background }]}>
@@ -460,23 +514,21 @@ const styles = StyleSheet.create({
   sendText: {
     fontSize: 16,
   },
-  copyLinkButton: {
-    marginHorizontal: 16,
-    marginTop: 12,
-    paddingVertical: 14,
+  quickShareContainer: {
     paddingHorizontal: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+  },
+  quickShareButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    gap: 8,
   },
-  copyLinkContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  copyLinkText: {
-    fontSize: 15,
+  quickShareText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   searchContainer: {

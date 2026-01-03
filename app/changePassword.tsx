@@ -332,7 +332,7 @@ const createDynamicStyles = (colors: any) =>
     },
     input: {
       flex: 1,
-      fontSize: 16,
+      fontSize: 12,
       marginLeft: 12,
       fontWeight: '500',
     },
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
   },

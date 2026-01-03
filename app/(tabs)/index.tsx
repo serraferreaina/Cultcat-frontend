@@ -50,13 +50,59 @@ interface PointsImages {
 }
 
 const normalizeDate = (date: Date): Date => {
-  // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
-  const normalized = new Date(date);
-  normalized.setHours(12, 0, 0, 0);
+  const normalized = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0, 0);
   return normalized;
 };
 
-// --- HELPER COMPONENT: IMAGES CAROUSEL ---
+const isToday = (date: Date): boolean => {
+  const today = new Date();
+  const compareDate = new Date(date);
+
+  return (
+    today.getDate() === compareDate.getDate() &&
+    today.getMonth() === compareDate.getMonth() &&
+    today.getFullYear() === compareDate.getFullYear()
+  );
+};
+
+const isTomorrow = (date: Date): boolean => {
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const compareDate = new Date(date);
+
+  return (
+    tomorrow.getDate() === compareDate.getDate() &&
+    tomorrow.getMonth() === compareDate.getMonth() &&
+    tomorrow.getFullYear() === compareDate.getFullYear()
+  );
+};
+
+const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+  const today = new Date();
+  const attendance = new Date(attendanceDate);
+
+  const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+  const attendanceOnlyDate = new Date(
+    attendance.getFullYear(),
+    attendance.getMonth(),
+    attendance.getDate(),
+  );
+
+  return attendanceOnlyDate < todayDate;
+};
+
+const hasEventPassedCompletely = (event: Events): boolean => {
+  if (!event.data_fi) return false;
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const endDate = new Date(event.data_fi);
+  endDate.setHours(0, 0, 0, 0);
+
+  return endDate < today;
+};
+
 const Images: React.FC<PointsImages> = ({ images }) => {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
@@ -101,7 +147,6 @@ const Images: React.FC<PointsImages> = ({ images }) => {
   );
 };
 
-// --- MAIN COMPONENT: FEED CARD ---
 interface FeedCardProps {
   item: Events;
   onOpenComments: (id: number) => void;
@@ -117,7 +162,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
   savedEvents,
   onToggleSave,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
@@ -125,7 +170,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
   const { isActive, toggle, attendanceDate } = useEventLogic(item);
   const { attendanceDates } = useEventStatus();
 
-  // Estados para el selector de fecha (DENTRO de FeedCard)
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
@@ -154,55 +198,51 @@ const FeedCard: React.FC<FeedCardProps> = ({
     return ['https://via.placeholder.com/375x250?text=Sin+Imagen'];
   }, [item.imatges, item.img_app, item.id]);
 
-  const hasEventPassed = (): boolean => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+  const eventHasPassedCompletely = hasEventPassedCompletely(item);
 
-    const savedAttendanceDate = attendanceDates[item.id]
-      ? new Date(attendanceDates[item.id])
-      : undefined;
-
-    if (savedAttendanceDate) {
-      const attendance = new Date(savedAttendanceDate);
-      attendance.setHours(0, 0, 0, 0);
-      if (attendance < now) {
-        return true;
-      }
-    }
-
-    if (item.data_fi) {
-      const endDate = new Date(item.data_fi);
-      endDate.setHours(0, 0, 0, 0);
-      if (endDate < now) {
-        return true;
-      }
-    }
-
-    return false;
-  };
-
-  const isPast = hasEventPassed();
+  const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+  const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+  const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+  const userAttendanceIsFuture = attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
 
   const getButtonText = () => {
-    if (isPast) {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        return `${t('He anat')} - ${formattedDate}`;
-      }
-      return isActive ? t('He anat') : t('Vull anar');
+    if (userAttendanceIsToday) {
+      return t('Today is the event');
+    } else if (userAttendancePassed) {
+      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'short',
+      });
+      return t('You attended - ') + formattedDate;
+    } else if (eventHasPassedCompletely && !attendanceDate) {
+      return t('No vares assistir');
+    } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'short',
+      });
+      return t('I will attend') + ` - ${formattedDate}`;
+    } else if (isActive && !attendanceDate) {
+      return t('I will attend');
     } else {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        return `${t('Assistiré')} - ${formattedDate}`;
-      }
-      return isActive ? t('Assistiré') : t('Vull assistir');
+      return t('Want to go');
     }
+  };
+
+  const getButtonColor = () => {
+    if (userAttendanceIsToday) {
+      return '#FFA500';
+    } else if (userAttendancePassed || eventHasPassedCompletely) {
+      return '#FF6B6B';
+    } else if (isActive) {
+      return Colors.going;
+    } else {
+      return Colors.accent;
+    }
+  };
+
+  const isButtonDisabled = () => {
+    return userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely;
   };
 
   const getMinMaxDates = () => {
@@ -215,12 +255,10 @@ const FeedCard: React.FC<FeedCardProps> = ({
     const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
-    // Si l'esdeveniment ja ha començat, permetre des d'avui
-    let minDate: Date;
-    if (startDate <= today) {
-      minDate = today;
-    } else {
-      minDate = startDate < tomorrow ? tomorrow : startDate;
+    let minDate = tomorrow;
+
+    if (startDate > tomorrow) {
+      minDate = startDate;
     }
 
     const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
@@ -229,38 +267,28 @@ const FeedCard: React.FC<FeedCardProps> = ({
   };
 
   const handleButtonPress = () => {
+    if (userAttendanceIsToday) {
+      return;
+    }
+
+    if (userAttendancePassed) {
+      return;
+    }
+
+    if (eventHasPassedCompletely) {
+      return;
+    }
+
     if (!isActive) {
-      if (item.data_inici) {
-        const initialDate = new Date(item.data_inici);
-        setSelectedDate(initialDate);
-      }
-
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-
-      const tomorrow = new Date(today);
-      tomorrow.setDate(tomorrow.getDate() + 1);
-
-      const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
-      startDate.setHours(0, 0, 0, 0);
-
-      let minDate: Date;
-      if (startDate <= today) {
-        minDate = today;
-      } else {
-        minDate = startDate < tomorrow ? tomorrow : startDate;
-      }
-
-      const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
-      maxDate.setHours(0, 0, 0, 0);
+      const { minDate, maxDate } = getMinMaxDates();
 
       const isSingleDay = minDate.getTime() === maxDate.getTime();
 
       if (isSingleDay) {
-        // Normalitzar la data abans d'enviar
         const normalizedMinDate = normalizeDate(minDate);
         toggle(normalizedMinDate);
       } else {
+        setSelectedDate(minDate);
         setShowDateModal(true);
       }
     } else {
@@ -269,7 +297,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
   };
 
   const handleConfirmDate = () => {
-    // Normalitzar la data abans d'enviar-la
     const normalizedDate = normalizeDate(selectedDate);
     toggle(normalizedDate);
     setShowDatePicker(false);
@@ -288,34 +315,24 @@ const FeedCard: React.FC<FeedCardProps> = ({
 
   const { minDate, maxDate } = getMinMaxDates();
 
-  const handleShare = () => {
-    const url = `https://tu-app.com/event/${item.id}`;
-    Share.share({ message: `Mira este evento: ${url}`, url });
-  };
-
   return (
     <>
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
         {/* Header */}
         <View style={styles.cardHeader}>
-          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)}>
-            <Text style={[styles.title, { color: Colors.text, flex: 1 }]} numberOfLines={1}>
-              {item.titol
-                ? item.titol.length > 20
-                  ? item.titol.slice(0, 20) + '…'
-                  : item.titol
-                : t('Event without title')}
+          <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)} style={{ flex: 1 }}>
+            <Text style={[styles.cardTitle, { color: Colors.text }]} numberOfLines={2}>
+              {item.titol || t('Event without title')}
             </Text>
           </TouchableOpacity>
-
-          {/* Dynamic Button */}
-          <TouchableOpacity
-            style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
-            onPress={handleButtonPress}
-          >
-            <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
-          </TouchableOpacity>
         </View>
+
+        {/* Message for today's event */}
+        {userAttendanceIsToday && (
+          <Text style={[styles.messageText, { color: Colors.accent, marginHorizontal: 12 }]}>
+            {t('Recorda assistir-hi')}
+          </Text>
+        )}
 
         {/* Images */}
         <Images images={images} />
@@ -340,12 +357,17 @@ const FeedCard: React.FC<FeedCardProps> = ({
             </TouchableOpacity>
           </View>
 
-          <View style={{ alignItems: 'flex-end' }}>
-            <TouchableOpacity style={styles.reviewButton} onPress={() => onOpenReviews(item.id)}>
-              <Ionicons name="create-outline" size={20} color="white" />
-              <Text style={styles.reviewButtonText}>{t('Write review')}</Text>
-            </TouchableOpacity>
-          </View>
+          {/* Dynamic Button moved to right */}
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: getButtonColor(), opacity: isButtonDisabled() ? 0.7 : 1 },
+            ]}
+            onPress={handleButtonPress}
+            disabled={isButtonDisabled()}
+          >
+            <Text style={[styles.actionButtonText, { color: Colors.card }]}>{getButtonText()}</Text>
+          </TouchableOpacity>
         </View>
 
         <Text
@@ -361,7 +383,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* MODAL DE SELECCIÓN DE FECHA - AHORA DENTRO DE FEEDCARD */}
+      {/* MODAL DE SELECCIÓN DE FECHA */}
       <Modal
         visible={showDateModal}
         transparent
@@ -392,7 +414,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                   onChange={onDateChange}
                   minimumDate={minDate}
                   maximumDate={maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -403,7 +425,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -482,7 +504,6 @@ const FeedCard: React.FC<FeedCardProps> = ({
   );
 };
 
-// --- MAIN SCREEN ---
 export default function Home() {
   const { t } = useTranslation();
   const { theme } = useTheme();
@@ -496,10 +517,8 @@ export default function Home() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Estado local para eventos guardados
   const [savedEvents, setSavedEvents] = useState<{ [key: number]: boolean }>({});
 
-  // Modals state
   const [modalOpen, setModalOpen] = useState(false);
   const [activeEventId, setActiveEventId] = useState<number | null>(null);
   const [reviewVisible, setReviewVisible] = useState(false);
@@ -522,7 +541,6 @@ export default function Home() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
 
-  // Cargar eventos guardados desde la API
   const loadSavedEvents = async () => {
     try {
       const data = await api('/saved-events/?state=wishlist');
@@ -536,11 +554,9 @@ export default function Home() {
     }
   };
 
-  // Función para guardar/quitar de guardados
   const handleToggleSave = async (eventId: number) => {
     const isSaved = savedEvents[eventId] || false;
 
-    // Actualización optimista del UI
     setSavedEvents((prev) => ({ ...prev, [eventId]: !isSaved }));
 
     try {
@@ -556,10 +572,6 @@ export default function Home() {
       }
     } catch (err: any) {
       setSavedEvents((prev) => ({ ...prev, [eventId]: isSaved }));
-
-      if (err.message === 'Unauthorized') {
-        console.log('⚠️ User not authenticated, redirecting to login...');
-      }
     }
   };
 
@@ -654,6 +666,9 @@ export default function Home() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
+          {t('Loading events')}
+        </Text>
       </View>
     );
 
@@ -803,6 +818,10 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   title: { fontSize: 20, fontWeight: '700' },
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
   iconButton: { padding: 6 },
   badge: {
     position: 'absolute',
@@ -824,25 +843,30 @@ const styles = StyleSheet.create({
   leftFooter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   button: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   buttonText: { fontWeight: '600', fontSize: 13 },
-  descriptionText: { fontSize: 14, marginTop: 4, marginHorizontal: 12, marginBottom: 12 },
-  reviewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#d96c29',
+  actionButton: {
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: 20,
-    alignSelf: 'flex-start',
-    marginTop: 10,
+    minWidth: 100,
+    alignItems: 'center',
   },
-  reviewButtonText: { color: 'white', marginLeft: 6, fontWeight: '600' },
+  actionButtonText: {
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  messageText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  descriptionText: { fontSize: 14, marginTop: 4, marginHorizontal: 12, marginBottom: 12 },
   seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 12, marginBottom: 12 },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingTop: 12,
+    paddingBottom: 8,
   },
   dateModalOverlay: {
     flex: 1,

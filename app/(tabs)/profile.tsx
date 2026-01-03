@@ -379,7 +379,7 @@ export default function Profile() {
               </Text>
 
               <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
-                {user?.profile_description || 'Encara no has afegit una descripció.'}
+                {user?.profile_description || t('Encara no has afegit una descripció.')}
               </Text>
 
               <Text style={[styles.points, { color: Colors.text }]}></Text>
@@ -426,7 +426,7 @@ export default function Profile() {
 
             {badges.length > 0 && (
               <TouchableOpacity onPress={() => router.push('/badges')}>
-                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more')}</Text>
+                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more...')}</Text>
               </TouchableOpacity>
             )}
           </View>

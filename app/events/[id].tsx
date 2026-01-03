@@ -8,7 +8,6 @@ import {
   TouchableOpacity,
   Linking,
   ActivityIndicator,
-  Share,
   Modal,
   Platform,
 } from 'react-native';
@@ -48,7 +47,7 @@ interface EventData {
 }
 
 export default function EventDetail() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { id } = useLocalSearchParams<{ id: string }>();
   const eventId = Array.isArray(id) ? id[0] : id;
 
@@ -64,12 +63,45 @@ export default function EventDetail() {
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
 
-  // Estados para el selector de fecha
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDateModal, setShowDateModal] = useState(false);
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+
+  // IMPORTANT: Cridem useEventLogic ABANS dels useEffect (amb fallback per evitar null)
+  const eventLogic = useEventLogic(
+    event || {
+      id: 0,
+      titol: '',
+      descripcio: '',
+      enllacos: {},
+      imgApp: null,
+      imatges: null,
+      infoEntrades: null,
+      infoHorari: null,
+      gratuita: false,
+      modalitat: null,
+      direccio: null,
+      espai: null,
+      localitat: null,
+      georeferencia: null,
+      latitud: null,
+      longitud: null,
+      telefon: null,
+      email: null,
+      data_inici: null,
+      data_fi: null,
+    },
+  );
+  const { isActive, toggle } = eventLogic;
+
+  const userAttendanceDate =
+    'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
+      ? eventLogic.attendanceDate
+      : undefined;
 
   const shouldHideEvent = (event: EventData): boolean => {
     if (!event.data_fi) return false;
@@ -85,34 +117,77 @@ export default function EventDetail() {
   };
 
   const normalizeDate = (date: Date): Date => {
-    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
     const normalized = new Date(date);
     normalized.setHours(12, 0, 0, 0);
     return normalized;
   };
 
-  // Función para verificar si el evento ya ha pasado
-  const hasEventPassed = (event: EventData, attendanceDate?: Date): boolean => {
-    const now = new Date();
-    now.setHours(0, 0, 0, 0);
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const compareDate = new Date(date);
 
-    if (attendanceDate) {
-      const attendance = new Date(attendanceDate);
-      attendance.setHours(0, 0, 0, 0);
-      if (attendance < now) {
-        return true;
-      }
-    }
+    const result =
+      today.getDate() === compareDate.getDate() &&
+      today.getMonth() === compareDate.getMonth() &&
+      today.getFullYear() === compareDate.getFullYear();
 
-    if (event.data_fi) {
-      const endDate = new Date(event.data_fi);
-      endDate.setHours(0, 0, 0, 0);
-      if (endDate < now) {
-        return true;
-      }
-    }
+    return result;
+  };
 
-    return false;
+  const isTomorrow = (date: Date): boolean => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const compareDate = new Date(date);
+
+    const result =
+      tomorrow.getDate() === compareDate.getDate() &&
+      tomorrow.getMonth() === compareDate.getMonth() &&
+      tomorrow.getFullYear() === compareDate.getFullYear();
+
+    return result;
+  };
+
+  const isEventToday = (event: EventData): boolean => {
+    if (!event.data_inici || !event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const startDate = new Date(event.data_inici);
+    startDate.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return today >= startDate && today <= endDate;
+  };
+
+  const hasEventPassedCompletely = (event: EventData): boolean => {
+    if (!event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
+
+  const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+    const today = new Date();
+    const attendance = new Date(attendanceDate);
+
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const attendanceOnlyDate = new Date(
+      attendance.getFullYear(),
+      attendance.getMonth(),
+      attendance.getDate(),
+    );
+
+    const hasPassed = attendanceOnlyDate < todayDate;
+
+    return hasPassed;
   };
 
   useEffect(() => {
@@ -145,6 +220,38 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
+  // Fetch reviews
+  useEffect(() => {
+    if (!eventId) return;
+
+    const fetchReviews = async () => {
+      try {
+        const res = await fetch(`http://nattech.fib.upc.edu:40490/reviews/event/${eventId}`);
+        if (!res.ok) throw new Error('Failed to fetch reviews');
+        const data = await res.json();
+        setReviews(data);
+
+        // Calcular mitjana
+        if (data.length > 0) {
+          const total = data.reduce((sum: number, review: any) => sum + review.rating, 0);
+          const avg = total / data.length;
+          setAverageRating(Math.round(avg * 10) / 10);
+        } else {
+          setAverageRating(null);
+        }
+      } catch (err) {
+        console.error('Error fetching reviews:', err);
+      }
+    };
+
+    fetchReviews();
+  }, [eventId, reviewVisible]);
+
+  // Determinar si es pot escriure una review (després dels useEffect)
+  // NOMÉS es pot fer review si vas marcar que aniràs i la data d'assistència ja ha passat
+  const canWriteReview =
+    event && userAttendanceDate ? hasAttendanceDatePassed(userAttendanceDate) : false;
+
   const formatEventDate = (startDate: string | null, endDate: string | null): string => {
     if (!startDate) return t('Date not available');
 
@@ -158,10 +265,15 @@ export default function EventDetail() {
 
     if (endDate && endDate !== startDate) {
       const end = new Date(endDate);
-      return `Data inici: ${start.toLocaleDateString('ca-ES', options)} - Data fi: ${end.toLocaleDateString('ca-ES', options)}`;
+      return (
+        t('Data inici: ') +
+        `${start.toLocaleDateString(i18n.language, options)} - ` +
+        t('Data fi: ') +
+        `${end.toLocaleDateString(i18n.language, options)}`
+      );
     }
 
-    return start.toLocaleDateString('ca-ES', options);
+    return start.toLocaleDateString(i18n.language, options);
   };
 
   const onDateChange = (event: any, date?: Date) => {
@@ -199,18 +311,19 @@ export default function EventDetail() {
     );
   }
 
+  // Cridem useEventLogic només una vegada aquí
   const LogicWrapper = () => {
-    const eventLogic = useEventLogic(event);
-    const { isActive, toggle, textKey, textKeyInactive } = eventLogic;
+    const attendanceDate = userAttendanceDate;
 
-    const attendanceDate =
-      'attendanceDate' in eventLogic && eventLogic.attendanceDate instanceof Date
-        ? eventLogic.attendanceDate
-        : undefined;
+    const eventIsToday = isEventToday(event);
+    const eventHasPassedCompletely = hasEventPassedCompletely(event);
 
-    const isPast = hasEventPassed(event, attendanceDate);
+    const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+    const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+    const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+    const userAttendanceIsFuture =
+      attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
 
-    // Calcular si solo hay un día disponible
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
@@ -220,28 +333,36 @@ export default function EventDetail() {
     const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
     startDate.setHours(0, 0, 0, 0);
 
-    // Si l'esdeveniment ja ha començat, permetre des d'avui
-    let minDate: Date;
-    if (startDate <= today) {
-      minDate = today;
-    } else {
-      minDate = startDate < tomorrow ? tomorrow : startDate;
+    let minDate = tomorrow;
+
+    if (startDate > tomorrow) {
+      minDate = startDate;
     }
 
     const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
     maxDate.setHours(0, 0, 0, 0);
 
-    // Comprobar si minDate y maxDate son el mismo día
     const isSingleDay = minDate.getTime() === maxDate.getTime();
 
     const handleWantToGo = () => {
+      if (userAttendanceIsToday) {
+        return;
+      }
+
+      if (userAttendancePassed) {
+        return;
+      }
+
+      if (eventHasPassedCompletely) {
+        return;
+      }
+
       if (!isActive) {
         if (isSingleDay) {
-          // Si solo hay un día disponible, usar automáticamente ese día (normalitzat)
           const normalizedMinDate = normalizeDate(minDate);
           toggle(normalizedMinDate);
         } else {
-          // Si hay múltiples días, mostrar selector
+          setSelectedDate(minDate);
           setShowDateModal(true);
         }
       } else {
@@ -250,7 +371,6 @@ export default function EventDetail() {
     };
 
     const handleConfirmDate = () => {
-      // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
       toggle(normalizedDate);
       setShowDatePicker(false);
@@ -262,37 +382,58 @@ export default function EventDetail() {
     }, [selectedDate]);
 
     let buttonText = '';
-    if (isPast) {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        buttonText = `${t('He anat')} - ${formattedDate}`;
-      } else {
-        buttonText = isActive ? t('He anat') : t('Vull anar');
-      }
+    let buttonColor = Colors.accent;
+    let isDisabled = false;
+    let messageText = '';
+    let messageColor = Colors.text;
+
+    if (userAttendanceIsToday) {
+      buttonText = t('Today is the event');
+      buttonColor = '#FFA500';
+      isDisabled = true;
+      messageText = t('Recorda assistir-hi');
+      messageColor = Colors.accent;
+    } else if (userAttendancePassed) {
+      buttonColor = '#FF6B6B';
+      isDisabled = true;
+      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'short',
+      });
+      buttonText = t('You attended - ') + formattedDate;
+    } else if (eventHasPassedCompletely && !attendanceDate) {
+      isDisabled = true;
+      buttonColor = '#FF6B6B';
+      buttonText = t('No vares assistir');
+    } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
+        day: 'numeric',
+        month: 'short',
+      });
+      buttonText = t('I will attend') + ` - ${formattedDate}`;
+      buttonColor = Colors.going;
+    } else if (isActive && !attendanceDate) {
+      buttonText = t('I will attend');
+      buttonColor = Colors.going;
     } else {
-      if (isActive && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
-          day: 'numeric',
-          month: 'short',
-        });
-        buttonText = `${t('Assistiré')} - ${formattedDate}`;
-      } else if (isActive) {
-        buttonText = t('Assistiré');
-      } else {
-        buttonText = t('Vull assistir');
-      }
+      buttonText = t('Want to go');
+      buttonColor = Colors.accent;
     }
 
     return (
-      <TouchableOpacity
-        style={[styles.button, { backgroundColor: isActive ? Colors.going : Colors.accent }]}
-        onPress={handleWantToGo}
-      >
-        <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
-      </TouchableOpacity>
+      <View style={{ flex: 1 }}>
+        <TouchableOpacity
+          style={[styles.button, { backgroundColor: buttonColor, opacity: isDisabled ? 0.7 : 1 }]}
+          onPress={handleWantToGo}
+          disabled={isDisabled}
+        >
+          <Text style={[styles.buttonText, { color: Colors.card }]}>{buttonText}</Text>
+        </TouchableOpacity>
+
+        {messageText !== '' && (
+          <Text style={[styles.messageText, { color: messageColor }]}>{messageText}</Text>
+        )}
+      </View>
     );
   };
 
@@ -314,12 +455,9 @@ export default function EventDetail() {
   const startDate = event.data_inici ? new Date(event.data_inici) : new Date();
   startDate.setHours(0, 0, 0, 0);
 
-  // Si l'esdeveniment ja ha començat, permetre des d'avui
-  let minDate: Date;
-  if (startDate <= today) {
-    minDate = today;
-  } else {
-    minDate = startDate < tomorrow ? tomorrow : startDate;
+  let minDate = tomorrow;
+  if (startDate > tomorrow) {
+    minDate = startDate;
   }
 
   const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
@@ -446,20 +584,61 @@ export default function EventDetail() {
         </TouchableOpacity>
       )}
 
-      <View style={{ alignItems: 'flex-end' }}>
-        <TouchableOpacity
-          style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-          onPress={() => setReviewVisible(true)}
-        >
-          <Ionicons
-            name="create-outline"
-            size={14}
-            color={Colors.card}
-            style={{ marginRight: 4 }}
-          />
-          <Text style={[styles.reviewButtonText, { color: Colors.card }]}>{t('Write review')}</Text>
-        </TouchableOpacity>
+      {/* Secció de Reviews - SEMPRE VISIBLE */}
+      <View style={styles.reviewsSection}>
+        <View style={styles.reviewsHeader}>
+          <Text style={[styles.reviewsSectionTitle, { color: Colors.text }]}>{t('Reviews')}</Text>
+          {averageRating !== null && (
+            <View style={styles.averageRatingContainer}>
+              <Ionicons name="star" size={20} color="#FFD700" />
+              <Text style={[styles.averageRatingText, { color: Colors.text }]}>
+                {averageRating.toFixed(1)}/5
+              </Text>
+              <Text style={[styles.reviewCount, { color: Colors.textSecondary }]}>
+                ({reviews.length})
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {reviews.length > 0 ? (
+          <>
+            <TouchableOpacity
+              style={[styles.viewAllReviewsButton, { backgroundColor: Colors.background }]}
+              onPress={() => setReviewVisible(true)}
+            >
+              <Text style={[styles.viewAllReviewsText, { color: Colors.accent }]}>
+                {t('View all reviews')}
+              </Text>
+              <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
+            </TouchableOpacity>
+          </>
+        ) : (
+          <Text style={[styles.noReviewsText, { color: Colors.textSecondary }]}>
+            {t('No reviews yet')}
+          </Text>
+        )}
       </View>
+
+      {/* El botó de review apareix si l'esdeveniment ha passat O si la data d'assistència ha passat */}
+      {canWriteReview && (
+        <View style={{ alignItems: 'flex-end' }}>
+          <TouchableOpacity
+            style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+            onPress={() => setReviewVisible(true)}
+          >
+            <Ionicons
+              name="create-outline"
+              size={14}
+              color={Colors.card}
+              style={{ marginRight: 4 }}
+            />
+            <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
+              {t('Write review')}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      )}
 
       <Modal
         visible={showDateModal}
@@ -491,7 +670,7 @@ export default function EventDetail() {
                   onChange={onDateChange}
                   minimumDate={minDate}
                   maximumDate={maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -502,7 +681,7 @@ export default function EventDetail() {
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -555,6 +734,7 @@ export default function EventDetail() {
         eventId={event.id}
         visible={reviewVisible}
         onClose={() => setReviewVisible(false)}
+        readOnly={!canWriteReview}
       />
       <ShareEventModal
         visible={shareModalVisible}
@@ -575,7 +755,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: '700' },
+  title: { fontSize: 14, fontWeight: '700' },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -618,7 +798,7 @@ const styles = StyleSheet.create({
   },
   topButtons: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     marginTop: 15,
     justifyContent: 'space-between',
     paddingHorizontal: 20,
@@ -633,6 +813,12 @@ const styles = StyleSheet.create({
   buttonText: {
     fontWeight: '600',
     fontSize: 14,
+  },
+  messageText: {
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 6,
+    textAlign: 'center',
   },
   iconsRow: {
     flexDirection: 'row',
@@ -731,5 +917,108 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontWeight: '700',
     fontSize: 16,
+  },
+  reviewsSection: {
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  reviewsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewsSectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  averageRatingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  averageRatingText: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  reviewCount: {
+    fontSize: 14,
+  },
+  viewAllReviewsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+  },
+  viewAllReviewsText: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  noReviewsText: {
+    fontSize: 14,
+    fontStyle: 'italic',
+  },
+  reviewsModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  reviewsModalContainer: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    height: '80%',
+  },
+  reviewsModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  reviewsModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+  },
+  reviewsList: {
+    flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+  },
+  reviewItem: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+  },
+  reviewHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  reviewUsername: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  reviewRating: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  reviewRatingText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  reviewText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 8,
+  },
+  reviewDate: {
+    fontSize: 12,
   },
 });

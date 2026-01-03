@@ -34,14 +34,12 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
 
 export default function CercaScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
-
-  const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
 
   const [isTopicsModalVisible, setIsTopicsModalVisible] = useState(false);
 
@@ -76,6 +74,7 @@ export default function CercaScreen() {
   const [isMunicipiModalVisible, setIsMunicipiModalVisible] = useState(false);
   const [municipiSearch, setMunicipiSearch] = useState('');
   const [selectedMunicipi, setSelectedMunicipi] = useState<string | null>(null);
+  const [hasDateFilter, setHasDateFilter] = useState(false);
   const filteredMunicipis = useMemo(() => {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
@@ -89,6 +88,16 @@ export default function CercaScreen() {
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
     );
+  };
+
+  const clearFilters = () => {
+    setSelectedMunicipi(null);
+    setSelectedTopics([]);
+    setHasDateFilter(false);
+    setIsFiltered(false);
+    setOffset(0);
+    setHasMore(true);
+    fetchEvents(true);
   };
 
   const handleCloseModal = () => {
@@ -123,9 +132,10 @@ export default function CercaScreen() {
 
     try {
       const currentOffset = reset ? 0 : offset;
+      const today = new Date().toISOString().split('T')[0];
 
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&order_by_date=desc`,
+        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&from_date=${today}&order_by_date=asc`,
       );
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
@@ -157,7 +167,8 @@ export default function CercaScreen() {
     setLoading(true);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -180,14 +191,14 @@ export default function CercaScreen() {
       setIsFiltered(true);
 
       if (filteredData.length === 0) {
-        Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
+        Alert.alert(t('Cap esdeveniment'), t('No hi ha esdeveniments a ') + `${municipi}`, [
           { text: "D'acord" },
         ]);
       }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
-      Alert.alert('Error', 'Hi ha hagut un problema carregant els esdeveniments.');
+      Alert.alert(t('Error'), t('Hi ha hagut un problema carregant els esdeveniments.'));
     } finally {
       setLoading(false);
     }
@@ -233,7 +244,60 @@ export default function CercaScreen() {
     return { minDate, maxDate };
   };
 
-  // Substitueix el component EventCard dins de cerca.tsx amb aquest:
+  // Función para verificar si una fecha es hoy
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const compareDate = new Date(date);
+
+    return (
+      today.getDate() === compareDate.getDate() &&
+      today.getMonth() === compareDate.getMonth() &&
+      today.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  // Función para verificar si una fecha es mañana
+  const isTomorrow = (date: Date): boolean => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const compareDate = new Date(date);
+
+    return (
+      tomorrow.getDate() === compareDate.getDate() &&
+      tomorrow.getMonth() === compareDate.getMonth() &&
+      tomorrow.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  // Función para verificar si la fecha de asistencia ya ha pasado (antes de hoy)
+  const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+    const today = new Date();
+    const attendance = new Date(attendanceDate);
+
+    // Comparar solo año, mes y día (ignorar horas)
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const attendanceOnlyDate = new Date(
+      attendance.getFullYear(),
+      attendance.getMonth(),
+      attendance.getDate(),
+    );
+
+    // Solo ha pasado si es ANTES de hoy (no incluye hoy)
+    return attendanceOnlyDate < todayDate;
+  };
+
+  // Función para verificar si el evento ya ha pasado completamente
+  const hasEventPassedCompletely = (event: any): boolean => {
+    if (!event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
 
   const EventCard = React.memo(({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
@@ -266,15 +330,64 @@ export default function CercaScreen() {
 
     const isSaved = !!savedEvents[item.id];
 
+    const eventHasPassedCompletely = hasEventPassedCompletely(item);
+
+    // Si tiene fecha de asistencia, verificar si esa fecha ya pasó o es hoy
+    const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+    const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+    const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+    const userAttendanceIsFuture =
+      attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
+
     const getButtonText = () => {
-      if (isGoing && attendanceDate) {
-        const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+      // Prioridad 1: Si la fecha de asistencia del usuario es hoy
+      if (userAttendanceIsToday) {
+        return t('Today is the event');
+      }
+      // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
+      else if (userAttendancePassed) {
+        const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
           day: 'numeric',
           month: 'short',
         });
-        return `${t('I will attend')} - ${formattedDate}`;
+        return t('You attended - ') + formattedDate;
       }
-      return isGoing ? t('I will attend') : t('Want to go');
+      // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
+      else if (eventHasPassedCompletely && !attendanceDate) {
+        return t('No vares assistir');
+      }
+      // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
+      else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+        const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
+          day: 'numeric',
+          month: 'short',
+        });
+        return t('I will attend') + ` - ${formattedDate}`;
+      }
+      // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
+      else if (isGoing && !attendanceDate) {
+        return t('I will attend');
+      }
+      // Prioridad 6: No está activo
+      else {
+        return t('Want to go');
+      }
+    };
+
+    const getButtonColor = () => {
+      if (userAttendanceIsToday) {
+        return '#FFA500'; // Naranja/amarillo
+      } else if (userAttendancePassed || eventHasPassedCompletely) {
+        return '#FF6B6B'; // Rojo
+      } else if (isGoing) {
+        return Colors.going; // Verde
+      } else {
+        return Colors.accent;
+      }
+    };
+
+    const isButtonDisabled = () => {
+      return userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely;
     };
 
     const handleShare = () => {
@@ -283,6 +396,21 @@ export default function CercaScreen() {
     };
 
     const handleButtonPress = () => {
+      // Si la fecha de asistencia del usuario es hoy, no permitir cambios
+      if (userAttendanceIsToday) {
+        return;
+      }
+
+      // Si la fecha de asistencia del usuario ya pasó, no permitir cambios
+      if (userAttendancePassed) {
+        return;
+      }
+
+      // Si ya ha pasado completamente el evento, no permitir cambios
+      if (eventHasPassedCompletely) {
+        return;
+      }
+
       if (!isGoing) {
         setSelectedEventForDate(item);
         if (item.data_inici) {
@@ -298,11 +426,12 @@ export default function CercaScreen() {
         const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
         startDate.setHours(0, 0, 0, 0);
 
-        let minDate: Date;
-        if (startDate <= today) {
-          minDate = today;
-        } else {
-          minDate = startDate < tomorrow ? tomorrow : startDate;
+        // Siempre empezar desde mañana como mínimo
+        let minDate = tomorrow;
+
+        // Si el evento empieza después de mañana, usar esa fecha
+        if (startDate > tomorrow) {
+          minDate = startDate;
         }
 
         const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
@@ -332,6 +461,11 @@ export default function CercaScreen() {
           <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
             {title}
           </Text>
+
+          {/* Message for today's event */}
+          {userAttendanceIsToday && (
+            <Text style={[styles.messageText, { color: Colors.accent }]}>Recorda assistir-hi</Text>
+          )}
 
           <View style={styles.labelContainer}>
             {espai && (
@@ -396,24 +530,18 @@ export default function CercaScreen() {
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={{ marginRight: 12 }}
-                onPress={() => {
-                  setSelectedEventId(item.id);
-                  setShowReviews(true);
-                }}
-              >
-                <Ionicons name="star-outline" size={20} color={Colors.text} />
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
+              style={[
+                styles.button,
+                { backgroundColor: getButtonColor(), opacity: isButtonDisabled() ? 0.7 : 1 },
+              ]}
               onPress={handleButtonPress}
+              disabled={isButtonDisabled()}
             >
               <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
             </TouchableOpacity>
@@ -439,7 +567,7 @@ export default function CercaScreen() {
 
     try {
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}`,
+        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&order_by_date=asc`,
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
@@ -461,7 +589,7 @@ export default function CercaScreen() {
       }, 50);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'There was a problem fetching events.');
+      Alert.alert('Error', t('There was a problem fetching events.'));
     }
   };
 
@@ -488,7 +616,8 @@ export default function CercaScreen() {
     setEvents([]);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -519,115 +648,122 @@ export default function CercaScreen() {
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
+  if (load) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={Colors.accent} />
+          <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
+            {t('Loading events')}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <SearchBar value={searchQuery} onChangeText={setSearchQuery} onSearch={handleSearch} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersScroll}
-        contentContainerStyle={styles.filtersRow}
+      <View
+        style={[
+          styles.filtersContainer,
+          { backgroundColor: 'transparent', borderBottomColor: Colors.border },
+        ]}
       >
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsMunicipiModalVisible(true)}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filtersScroll}
+          contentContainerStyle={styles.filtersRow}
         >
-          <MapPin color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>
-            {selectedMunicipi || t('Location')}
-          </Text>
-        </TouchableOpacity>
-
-        <DateFilterComponent
-          mode="one"
-          onModeChange={(m) => console.log('Modo de fecha:', m)}
-          onDatesChange={({ date, date1, date2, fromDate }) => {
-            setIsFiltered(true);
-            let extraParams: string[] = [];
-
-            if (date) {
-              extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
-            }
-            if (date1 && date2) {
-              extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
-              extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
-            }
-            if (fromDate) {
-              extraParams.push(
-                `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
-              );
-            }
-
-            const query = buildQuery(extraParams);
-            const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-            setLoading(true);
-            fetch(url)
-              .then((res) => res.json())
-              .then((data) => setEvents(data))
-              .catch((err) => console.error(err))
-              .finally(() => setLoading(false));
-          }}
-        />
-
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsTopicsModalVisible(true)}
-        >
-          <Star color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Category')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsOptionsModalVisible(true)}
-        >
-          <SlidersHorizontal color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <Modal
-        visible={isOptionsModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsOptionsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
-
-              <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
-                <X color={Colors.text} size={20} />
-              </TouchableOpacity>
-            </View>
-
+          {(selectedMunicipi || hasDateFilter || selectedTopics.length > 0) && (
             <TouchableOpacity
-              style={[styles.optionItem, { paddingVertical: 8 }]}
-              onPress={() => {
-                setSelectedMunicipi(null);
-                setIsMunicipiModalVisible(false);
-                setEvents([]);
-                setIsFiltered(false);
-                setLoading(true);
-
-                fetch('http://nattech.fib.upc.edu:40490/events')
-                  .then((res) => res.json())
-                  .then((data) => setEvents(data))
-                  .catch((err) => console.error(err))
-                  .finally(() => setLoading(false));
-              }}
+              style={[
+                styles.filterButton,
+                { backgroundColor: '#fee', borderWidth: 1, borderColor: '#fcc' },
+              ]}
+              onPress={clearFilters}
             >
-              <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
-                {t('Clear filter')}
-              </Text>
+              <Ionicons name="trash-outline" size={18} color="#d00" />
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedMunicipi ? Colors.accent : Colors.card,
+                borderWidth: selectedMunicipi ? 0 : 0,
+              },
+            ]}
+            onPress={() => setIsMunicipiModalVisible(true)}
+          >
+            <MapPin color={selectedMunicipi ? '#fff' : Colors.text} size={18} />
+            <Text style={[styles.filterText, { color: selectedMunicipi ? '#fff' : Colors.text }]}>
+              {selectedMunicipi || t('Select municipality')}
+            </Text>
+          </TouchableOpacity>
+
+          <DateFilterComponent
+            mode="one"
+            onModeChange={(m) => {}}
+            backgroundColor={hasDateFilter ? Colors.accent : Colors.card}
+            textColor={hasDateFilter ? '#fff' : Colors.text}
+            onDatesChange={({ date, date1, date2, fromDate }) => {
+              setIsFiltered(true);
+              setHasDateFilter(true);
+              let extraParams: string[] = ['order_by_date=asc'];
+
+              if (date) {
+                extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
+              }
+              if (date1 && date2) {
+                extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
+                extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
+              }
+              if (fromDate) {
+                extraParams.push(
+                  `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+                );
+              }
+
+              const query = buildQuery(extraParams);
+              const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+              setLoading(true);
+              fetch(url)
+                .then((res) => res.json())
+                .then((data) => setEvents(data))
+                .catch((err) => console.error(err))
+                .finally(() => setLoading(false));
+            }}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedTopics.length > 0 ? Colors.accent : Colors.card,
+                borderWidth: selectedTopics.length > 0 ? 0 : 0,
+              },
+            ]}
+            onPress={() => setIsTopicsModalVisible(true)}
+          >
+            <Star color={selectedTopics.length > 0 ? '#fff' : Colors.text} size={18} />
+            <Text
+              style={[
+                styles.filterText,
+                { color: selectedTopics.length > 0 ? '#fff' : Colors.text },
+              ]}
+            >
+              {t('Category')}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       <Modal
         visible={isTopicsModalVisible}
@@ -767,7 +903,7 @@ export default function CercaScreen() {
               }}
             >
               <Text style={{ color: Colors.background, fontWeight: '600' }}>
-                {t('Clear filter')}
+                {t('Clear filters')}
               </Text>
             </TouchableOpacity>
 
@@ -817,7 +953,7 @@ export default function CercaScreen() {
                   onChange={onDateChange}
                   minimumDate={getMinMaxDates().minDate}
                   maximumDate={getMinMaxDates().maxDate}
-                  locale="ca-ES"
+                  locale={i18n.language}
                   textColor={Colors.text}
                 />
               ) : (
@@ -828,7 +964,7 @@ export default function CercaScreen() {
                   >
                     <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
                     <Text style={[styles.dateButtonText, { color: Colors.text }]}>
-                      {selectedDate.toLocaleDateString('ca-ES', {
+                      {selectedDate.toLocaleDateString(i18n.language, {
                         weekday: 'long',
                         year: 'numeric',
                         month: 'long',
@@ -948,8 +1084,26 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 8,
   },
+  filtersContainer: {
+    paddingVertical: 5,
+    paddingHorizontal: 0,
+    marginTop: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    marginRight: 5,
+    borderBottomWidth: 0.5,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+  },
   filtersScroll: {
-    marginTop: 12,
+    marginTop: 4,
   },
   filtersRow: {
     flexDirection: 'row',
@@ -971,7 +1125,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 10,
   },
   dateText: {
     marginTop: 12,
@@ -1086,7 +1240,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   eventTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -1101,7 +1255,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   labelText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '500',
   },
   button: {
@@ -1112,7 +1266,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: 9,
   },
   iconButton: {
     padding: 6,
@@ -1202,5 +1356,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 20,
     elevation: 10,
+  },
+  messageText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
   },
 });

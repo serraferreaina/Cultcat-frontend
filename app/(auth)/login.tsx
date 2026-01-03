@@ -141,9 +141,11 @@ const Login: React.FC = () => {
         console.log('🔑 ACCESS TOKEN (Google):', data.access);
         console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
 
+        // 👇 NUEVO: Verifica si es la primera vez
         const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
 
         if (!hasCompletedSetup) {
+          // Primera vez con Google - va a configuración
           router.replace('/SetupScreen');
         } else {
           router.replace('/(tabs)');
@@ -350,7 +352,11 @@ const Login: React.FC = () => {
             >
               <View style={styles.logoSection}>
                 <Image
-                  source={require('../../assets/cultcat-logo.png')}
+                  source={
+                    theme === 'dark'
+                      ? require('../../assets/cultcat-logo_dark.png')
+                      : require('../../assets/cultcat-logo_white.png')
+                  }
                   style={styles.logo}
                   resizeMode="contain"
                 />

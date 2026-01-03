@@ -282,28 +282,6 @@ export function ShareProfileModal({ visible, onClose, profile, Colors }: SharePr
             </View>
           </View>
 
-          {/* Copy Link Button */}
-          <TouchableOpacity
-            onPress={copyLinkToClipboard}
-            style={[
-              styles.copyLinkButton,
-              {
-                backgroundColor: linkCopied ? Colors.success || '#4CAF50' : Colors.background,
-              },
-            ]}
-          >
-            <View style={styles.copyLinkContent}>
-              <Ionicons
-                name={linkCopied ? 'checkmark-circle' : 'link'}
-                size={24}
-                color={linkCopied ? '#fff' : ORANGE}
-              />
-              <Text style={[styles.copyLinkText, { color: linkCopied ? '#fff' : Colors.text }]}>
-                {linkCopied ? 'Enllaç copiat!' : 'Copiar enllaç del perfil'}
-              </Text>
-            </View>
-          </TouchableOpacity>
-
           {/* Search bar */}
           <View style={[styles.searchContainer, { backgroundColor: Colors.background }]}>
             <Ionicons name="search" size={20} color={Colors.textSecondary} />

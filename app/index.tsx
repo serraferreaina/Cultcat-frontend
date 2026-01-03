@@ -64,7 +64,11 @@ export default function Welcome() {
         <Text style={[styles.tagline, { color: Colors.text }]}>{t('cultivate')}</Text>
 
         <Image
-          source={require('../assets/cultcat-logo.png')}
+          source={
+            theme === 'dark'
+              ? require('../assets/cultcat-logo_dark.png')
+              : require('../assets/cultcat-logo_white.png')
+          }
           style={styles.logo}
           resizeMode="contain"
         />
@@ -104,9 +108,9 @@ const styles = StyleSheet.create({
   },
   tagline: { fontSize: 30, textAlign: 'right', fontWeight: '600' },
   logo: {
-    width: '70%',
-    height: '70%',
-    marginBottom: 90,
+    width: '90%',
+    height: '90%',
+    marginBottom: 0,
   },
   nextButtonWrapper: {
     position: 'absolute',

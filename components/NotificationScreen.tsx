@@ -1,5 +1,5 @@
 // components/NotificationScreen.tsx
-// Versió simplificada - només backend notifications
+// Versió amb suport complet per tots els tipus de notificacions
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -32,10 +32,23 @@ interface Notification {
     category_name?: string;
     from_user_id?: number;
     from_username?: string;
+    title?: string;
+    message?: string;
+    saved_as?: string;
     [key: string]: any;
   };
   created_at: string;
   read: boolean;
+}
+
+interface BadgeModalData {
+  reward_id: number;
+  name: string;
+  category: string;
+  level: number;
+  level_label: string;
+  icon: string;
+  obtained_at: string;
 }
 
 interface NotificationsScreenProps {
@@ -60,6 +73,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const previousNotificationIdsRef = useRef<Set<number>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
 
+  // Modal per mostrar detalls de la insígnia
+  const [badgeModalVisible, setBadgeModalVisible] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState<BadgeModalData | null>(null);
+
   // Obtenir notificacions del backend
   const fetchNotifications = async () => {
     setLoading(true);
@@ -80,7 +97,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     if (visible) {
       fetchNotifications();
 
-      // Polling cada 30 segons
       pollingIntervalRef.current = setInterval(() => {
         fetchNotifications();
       }, 30000);
@@ -102,7 +118,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         (id) => !previousNotificationIdsRef.current.has(id),
       );
 
-      // Només enviar push si ja teníem notificacions abans (no és la primera càrrega)
       if (newNotificationIds.length > 0 && previousNotificationIdsRef.current.size > 0) {
         for (const id of newNotificationIds) {
           const notification = notifications.find((n) => n.id === id);
@@ -139,6 +154,13 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       } else if (notification.type === 'connection_request_received') {
         title = '👥 Nova sol·licitud de connexió';
         body = `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
+      } else if (notification.type === 'event_soon') {
+        title = '📅 Esdeveniment demà';
+        body =
+          notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà`;
+      } else if (notification.type === 'event_review_pending') {
+        title = '✍️ Escriu una ressenya';
+        body = notification.payload.message || `Què et va semblar '${notification.payload.title}'?`;
       } else {
         title = '🔔 Nova notificació';
         body = getNotificationText(notification);
@@ -217,7 +239,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       return `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
     }
 
-    // Altres tipus de notificacions
+    if (notification.type === 'event_soon') {
+      return (
+        notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà!`
+      );
+    }
+
+    if (notification.type === 'event_review_pending') {
+      return notification.payload.message || `Què et va semblar '${notification.payload.title}'?`;
+    }
+
     return 'Nova notificació';
   };
 
@@ -228,6 +259,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         return 'trophy';
       case 'connection_request_received':
         return 'person-add';
+      case 'event_soon':
+        return 'time-outline';
+      case 'event_review_pending':
+        return 'create-outline';
       case 'comment':
         return 'chatbubble';
       case 'review':
@@ -250,7 +285,26 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       return '#FFD700';
     }
 
+    if (notification.type === 'event_soon') {
+      return '#FFA726';
+    }
+
+    if (notification.type === 'event_review_pending') {
+      return '#66BB6A';
+    }
+
     return Colors.accent;
+  };
+
+  // Carregar detalls de la insígnia
+  const loadBadgeDetails = async (rewardId: number) => {
+    try {
+      const data = await api(`/rewards/${rewardId}/`);
+      setSelectedBadge(data);
+      setBadgeModalVisible(true);
+    } catch (err) {
+      console.error('Error loading badge details:', err);
+    }
   };
 
   // Gestionar press
@@ -258,11 +312,19 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     await handleMarkAsRead(notification);
 
     if (notification.type === 'reward_unlocked') {
-      onClose();
-      router.push('/badges');
+      // Mostrar modal amb detalls de la insígnia
+      await loadBadgeDetails(notification.reference_id);
     } else if (notification.type === 'connection_request_received') {
+      // Navegar al perfil de l'usuari que ha enviat la sol·licitud
       onClose();
-      router.push('/profile/connections');
+      const userId = notification.payload.from_user_id;
+      if (userId) {
+        router.push(`/user/${userId}`);
+      }
+    } else if (notification.type === 'event_soon' || notification.type === 'event_review_pending') {
+      // Navegar a l'esdeveniment
+      onClose();
+      router.push(`/events/${notification.reference_id}`);
     } else if (notification.type === 'event' || notification.type === 'event_reminder') {
       onClose();
       router.push(`/events/${notification.reference_id}`);
@@ -387,6 +449,65 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           />
         )}
       </View>
+
+      {/* Modal de detalls de la insígnia */}
+      <Modal
+        visible={badgeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setBadgeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
+            {selectedBadge && (
+              <>
+                <Image
+                  source={{ uri: selectedBadge.icon }}
+                  style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 16 }}
+                />
+
+                <Text
+                  style={{
+                    fontSize: 22,
+                    fontWeight: 'bold',
+                    color: Colors.text,
+                    textAlign: 'center',
+                  }}
+                >
+                  {selectedBadge.name}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  🏅 {selectedBadge.level_label} · Nivell {selectedBadge.level}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  ⭐ Categoria: {selectedBadge.category}
+                </Text>
+
+                <Text
+                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                >
+                  📅 Obtinguda el: {new Date(selectedBadge.obtained_at).toLocaleDateString('ca-ES')}
+                </Text>
+
+                <TouchableOpacity
+                  onPress={() => setBadgeModalVisible(false)}
+                  style={[styles.modalButton, { backgroundColor: Colors.accent }]}
+                >
+                  <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+                    Tancar
+                  </Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -481,6 +602,22 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.6)',
+  },
+  modalContent: {
+    width: '80%',
+    borderRadius: 20,
+    padding: 20,
+  },
+  modalButton: {
+    marginTop: 20,
+    padding: 12,
+    borderRadius: 10,
   },
 });
 

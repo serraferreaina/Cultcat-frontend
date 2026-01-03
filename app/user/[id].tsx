@@ -124,7 +124,7 @@ export default function PublicProfile() {
               </Text>
 
               <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
-                {user.profile_description || 'This user has no description.'}
+                {user.profile_description || t('This user has no description.')}
               </Text>
 
               <View style={{ marginTop: 16 }}>
