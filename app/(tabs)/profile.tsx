@@ -453,7 +453,7 @@ export default function Profile() {
                   <Text
                     style={{ fontSize: 12, marginTop: 4, color: Colors.text, textAlign: 'center' }}
                   >
-                    {badge.name}
+                    {t(badge.name)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -487,7 +487,7 @@ export default function Profile() {
                     textAlign: 'center',
                   }}
                 >
-                  {selectedBadge.name}
+                  {t(selectedBadge.name)}
                 </Text>
 
                 <Text

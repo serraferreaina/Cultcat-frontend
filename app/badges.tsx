@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { ScrollView, View, Text, Image, TouchableOpacity, StyleSheet, Modal } from 'react-native';
-import { getUserBadges } from '../api';
+import { getUserBadges, getUserBadgesByUserId } from '../api';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams } from 'expo-router';
 
 export default function BadgesScreen() {
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
   const { t } = useTranslation();
+  const { userId } = useLocalSearchParams<{ userId?: string }>();
 
   type Badge = {
     reward_id: number;
@@ -31,10 +33,24 @@ export default function BadgesScreen() {
   const [modalVisible, setModalVisible] = useState(false);
 
   useEffect(() => {
-    getUserBadges()
-      .then(setBadges)
-      .catch(() => setBadges([]));
-  }, []);
+    const loadBadges = async () => {
+      try {
+        if (userId) {
+          //perfil extern
+          const data = await getUserBadgesByUserId(userId);
+          setBadges(data);
+        } else {
+          //perfil loggejat
+          const data = await getUserBadges();
+          setBadges(data);
+        }
+      } catch {
+        setBadges([]);
+      }
+    };
+
+    loadBadges();
+  }, [userId]);
 
   const openBadge = (badge: Badge) => {
     setSelectedBadge(badge);
@@ -67,7 +83,7 @@ export default function BadgesScreen() {
             >
               <Image source={{ uri: badge.icon }} style={{ width: 70, height: 70 }} />
               <Text style={{ color: Colors.text, marginTop: 8, textAlign: 'center' }}>
-                {badge.name}
+                {t(badge.name)}
               </Text>
             </TouchableOpacity>
           ))}
@@ -98,7 +114,7 @@ export default function BadgesScreen() {
                     textAlign: 'center',
                   }}
                 >
-                  {selectedBadge.name}
+                  {t(selectedBadge.name)}
                 </Text>
 
                 <Text
