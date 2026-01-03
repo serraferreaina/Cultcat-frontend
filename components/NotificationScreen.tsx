@@ -1,5 +1,5 @@
 // components/NotificationScreen.tsx
-// Versió amb suport complet per tots els tipus de notificacions
+// Versió amb gestió d'usuaris/esdeveniments eliminats
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -220,6 +220,72 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
+  // Eliminar notificació (quan l'usuari/esdeveniment ja no existeix)
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      // Eliminar del backend si té endpoint per això
+      // await api(`/notifications/${notificationId}/`, { method: 'DELETE' });
+
+      // Eliminar de l'estat local
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+
+      console.log(`✅ Notificació ${notificationId} eliminada`);
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  // Verificar si l'usuari existeix
+  const checkUserExists = async (userId: number): Promise<boolean> => {
+    try {
+      const response = await api(`/users/${userId}/`);
+      return !!response;
+    } catch (err: any) {
+      // Si retorna 404, l'usuari no existeix
+      if (err.message?.includes('404') || err.status === 404) {
+        return false;
+      }
+      // Per altres errors, assumim que existeix per no eliminar la notificació per error
+      return true;
+    }
+  };
+
+  const checkAndCleanupDeletedUsers = async () => {
+    const connectionRequestNotifications = notifications.filter(
+      (n) => n.type === 'connection_request_received',
+    );
+
+    for (const notification of connectionRequestNotifications) {
+      const userId = notification.payload.from_user_id;
+      if (userId) {
+        const userExists = await checkUserExists(userId);
+        if (!userExists) {
+          console.log(`🗑️ Netejant notificació de sol·licitud de l'usuari eliminat ${userId}`);
+          await deleteNotification(notification.id);
+        }
+      }
+    }
+  };
+
+  useEffect(() => {
+    if (visible && notifications.length > 0) {
+      checkAndCleanupDeletedUsers();
+    }
+  }, [visible, notifications.length]);
+
+  // Verificar si l'esdeveniment existeix
+  const checkEventExists = async (eventId: number): Promise<boolean> => {
+    try {
+      const response = await api(`/events/${eventId}/`);
+      return !!response;
+    } catch (err: any) {
+      if (err.message?.includes('404') || err.status === 404) {
+        return false;
+      }
+      return true;
+    }
+  };
+
   // Obtenir emoji per rewards
   const getRewardEmoji = (rewardName: string): string => {
     if (rewardName.includes('_3')) return '🏆';
@@ -307,7 +373,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
-  // Gestionar press
+  // Gestionar press amb validació d'existència
   const handleNotificationPress = async (notification: Notification) => {
     await handleMarkAsRead(notification);
 
@@ -315,19 +381,38 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       // Mostrar modal amb detalls de la insígnia
       await loadBadgeDetails(notification.reference_id);
     } else if (notification.type === 'connection_request_received') {
-      // Navegar al perfil de l'usuari que ha enviat la sol·licitud
-      onClose();
+      // Verificar que l'usuari existeix
       const userId = notification.payload.from_user_id;
-      if (userId) {
-        router.push(`/user/${userId}`);
+      if (!userId) {
+        console.warn('No user ID in notification');
+        await deleteNotification(notification.id);
+        return;
       }
+
+      const userExists = await checkUserExists(userId);
+
+      if (!userExists) {
+        console.log(`❌ L'usuari ${userId} ja no existeix, eliminant notificació`);
+        await deleteNotification(notification.id);
+        return;
+      }
+
+      // Navegar al perfil
+      onClose();
+      router.push(`/user/${userId}`);
     } else if (notification.type === 'event_soon' || notification.type === 'event_review_pending') {
-      // Navegar a l'esdeveniment
+      const eventId = notification.reference_id;
+
+      const eventExists = await checkEventExists(eventId);
+
+      if (!eventExists) {
+        console.log(`❌ L'esdeveniment ${eventId} ja no existeix, eliminant notificació`);
+        await deleteNotification(notification.id);
+        return;
+      }
+
       onClose();
-      router.push(`/events/${notification.reference_id}`);
-    } else if (notification.type === 'event' || notification.type === 'event_reminder') {
-      onClose();
-      router.push(`/events/${notification.reference_id}`);
+      router.push(`/events/${eventId}`);
     }
   };
 
@@ -340,10 +425,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return 'Ara mateix';
-    if (diffMins < 60) return `Fa ${diffMins} min`;
-    if (diffHours < 24) return `Fa ${diffHours} h`;
-    if (diffDays < 7) return `Fa ${diffDays} dies`;
+    if (diffMins < 1) return t('Now') || 'Ara mateix';
+    if (diffMins < 60) return `${t('ago')} ${diffMins} min` || `Fa ${diffMins} min`;
+    if (diffHours < 24) return `${t('ago')} ${diffHours} h` || `Fa ${diffHours} h`;
+    if (diffDays < 7) return `${t('ago')} ${diffDays} ${t('days')}` || `Fa ${diffDays} dies`;
 
     return date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
   };
@@ -407,12 +492,16 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
 
-          <Text style={[styles.headerTitle, { color: Colors.text }]}>Notificacions</Text>
+          <Text style={[styles.headerTitle, { color: Colors.text }]}>
+            {t('Notifications') || 'Notificacions'}
+          </Text>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {notifications.some((n) => !n.read) && (
               <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
-                <Text style={[styles.markAllText, { color: Colors.accent }]}>Marcar tot</Text>
+                <Text style={[styles.markAllText, { color: Colors.accent }]}>
+                  {t('Mark all') || 'Marcar tot'}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
@@ -430,14 +519,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
               style={[styles.retryButton, { backgroundColor: Colors.accent }]}
               onPress={fetchNotifications}
             >
-              <Text style={styles.retryButtonText}>Tornar a intentar</Text>
+              <Text style={styles.retryButtonText}>{t('Retry') || 'Tornar a intentar'}</Text>
             </TouchableOpacity>
           </View>
         ) : notifications.length === 0 ? (
           <View style={styles.centerContainer}>
             <Ionicons name="notifications-off-outline" size={64} color={Colors.textSecondary} />
             <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
-              No hi ha notificacions
+              {t('No notifications') || 'No hi ha notificacions'}
             </Text>
           </View>
         ) : (
@@ -478,19 +567,34 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                 </Text>
 
                 <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                  style={{
+                    fontSize: 14,
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                    marginTop: 8,
+                  }}
                 >
                   🏅 {selectedBadge.level_label} · Nivell {selectedBadge.level}
                 </Text>
 
                 <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                  style={{
+                    fontSize: 14,
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                    marginTop: 8,
+                  }}
                 >
                   ⭐ Categoria: {selectedBadge.category}
                 </Text>
 
                 <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                  style={{
+                    fontSize: 14,
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                    marginTop: 8,
+                  }}
                 >
                   📅 Obtinguda el: {new Date(selectedBadge.obtained_at).toLocaleDateString('ca-ES')}
                 </Text>
@@ -500,7 +604,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                   style={[styles.modalButton, { backgroundColor: Colors.accent }]}
                 >
                   <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
-                    Tancar
+                    {t('Close') || 'Tancar'}
                   </Text>
                 </TouchableOpacity>
               </>
