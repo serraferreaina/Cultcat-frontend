@@ -234,5 +234,13 @@
   "D'acord": "OK",
   "Hi ha hagut un problema carregant els esdeveniments.": "There was a problem loading the events.",
   "There was a problem fetching events.": "There was a problem fetching events.",
-  "This user has no description.": "This user has no description."
+  "This user has no description.": "This user has no description.",
+  "Reviews": "Reviews",
+  "No reviews yet": "No reviews yet",
+  "There was a problem fetching events": "There was a problem fetching events",
+  "There was a problem fetching users": "There was a problem fetching users",
+  "Search": "Search",
+  "Events": "Events",
+  "Users": "Users",
+  "No users to display": "No users to display"
 }

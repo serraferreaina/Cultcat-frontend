@@ -520,16 +520,6 @@ export default function CercaScreen() {
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={{ marginRight: 12 }}
-                onPress={() => {
-                  setSelectedEventId(item.id);
-                  setShowReviews(true);
-                }}
-              >
-                <Ionicons name="star-outline" size={20} color={Colors.text} />
-              </TouchableOpacity>
-
               <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>

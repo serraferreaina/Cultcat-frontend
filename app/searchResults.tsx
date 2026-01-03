@@ -40,7 +40,6 @@ export default function SearchResultsScreen() {
     const endDate = new Date(event.data_fi);
     const targetDate = new Date('2924-06-30');
 
-    // Compara només any, mes i dia (ignora hora)
     return (
       endDate.getFullYear() === targetDate.getFullYear() &&
       endDate.getMonth() === targetDate.getMonth() &&
@@ -59,7 +58,6 @@ export default function SearchResultsScreen() {
       const textData = await res.text();
       const data = textData ? JSON.parse(textData) : [];
 
-      // Filtra esdeveniments amb data_fi = 30/06/2924
       const filteredData = Array.isArray(data)
         ? data.filter((event: any) => !shouldHideEvent(event))
         : [];
@@ -67,7 +65,7 @@ export default function SearchResultsScreen() {
       setEvents(filteredData);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'There was a problem fetching events.');
+      Alert.alert(t('Error'), t('There was a problem fetching events'));
       setEvents([]);
     } finally {
       setLoading(false);
@@ -86,7 +84,7 @@ export default function SearchResultsScreen() {
       setUsers(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'There was a problem fetching users.');
+      Alert.alert(t('Error'), t('There was a problem fetching users'));
       setUsers([]);
     } finally {
       setLoading(false);
@@ -116,7 +114,15 @@ export default function SearchResultsScreen() {
             value={searchQuery}
             onChangeText={(text) => setSearchQuery(text)}
             placeholder={t('Search')}
-            style={[styles.searchInput, { borderColor: Colors.accent, color: Colors.text }]}
+            placeholderTextColor={Colors.textSecondary}
+            style={[
+              styles.searchInput,
+              {
+                borderColor: Colors.accent,
+                color: Colors.text,
+                backgroundColor: Colors.card,
+              },
+            ]}
             returnKeyType="search"
             onSubmitEditing={() => handleSearch(searchQuery)}
             clearButtonMode="while-editing"
@@ -165,10 +171,12 @@ export default function SearchResultsScreen() {
 
       {/* Content */}
       {loading ? (
-        <ActivityIndicator size="large" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color={Colors.accent} style={{ marginTop: 20 }} />
       ) : searchType === 'events' ? (
         events.length === 0 ? (
-          <Text style={styles.noResultsText}>{t('No events to display')}</Text>
+          <Text style={[styles.noResultsText, { color: Colors.textSecondary }]}>
+            {t('No events to display')}
+          </Text>
         ) : (
           <FlatList
             data={events}
@@ -178,7 +186,9 @@ export default function SearchResultsScreen() {
           />
         )
       ) : users.length === 0 ? (
-        <Text style={styles.noResultsText}>{t('No users to display')}</Text>
+        <Text style={[styles.noResultsText, { color: Colors.textSecondary }]}>
+          {t('No users to display')}
+        </Text>
       ) : (
         <FlatList
           data={users}
