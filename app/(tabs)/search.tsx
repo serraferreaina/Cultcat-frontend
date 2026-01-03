@@ -647,6 +647,20 @@ export default function CercaScreen() {
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
+  if (load) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
+          <ActivityIndicator size="large" color={Colors.accent} />
+          <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
+            {t('Loading events')}
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
