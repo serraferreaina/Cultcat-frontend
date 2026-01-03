@@ -670,7 +670,7 @@ export default function CercaScreen() {
       <View
         style={[
           styles.filtersContainer,
-          { backgroundColor: Colors.card, borderBottomColor: Colors.border },
+          { backgroundColor: 'transparent', borderBottomColor: Colors.border },
         ]}
       >
         <ScrollView
@@ -1085,9 +1085,17 @@ const styles = StyleSheet.create({
     paddingTop: 8,
   },
   filtersContainer: {
-    paddingVertical: 10,
+    paddingVertical: 5,
     paddingHorizontal: 0,
+    marginTop: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    marginRight: 5,
     borderBottomWidth: 0.5,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
     elevation: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
