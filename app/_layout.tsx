@@ -6,8 +6,9 @@ import { ThemeProvider } from '../theme/ThemeContext';
 import { EventStatusProvider } from '../context/EventStatus';
 import { NotificationsProvider } from '../context/NotificationContext';
 
+import i18n from '../i18n'; // el teu fitxer d'init
+
 export default function RootLayout() {
-  const { i18n } = useTranslation();
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {

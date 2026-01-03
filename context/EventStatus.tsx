@@ -46,25 +46,35 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       // Carregar esdeveniments "going"
       const goingData = await api('/saved-events/?state=wantToGo');
       const goingMap: Record<number, boolean> = {};
-      goingData.forEach((item: any) => {
-        const eventId = parseInt(item.event_id, 10);
-        goingMap[eventId] = true;
-        if (item.attendance_date) {
-          datesMap[eventId] = item.attendance_date;
-        }
-      });
+
+      if (Array.isArray(goingData)) {
+        goingData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          goingMap[eventId] = true;
+
+          if (item.attendance_date) {
+            datesMap[eventId] = item.attendance_date;
+          }
+        });
+      }
       setGoingEvents(goingMap);
 
       // Carregar esdeveniments "attended"
+      // B. Load "Attended"
       const assistedData = await api('/saved-events/?state=attended');
       const assistedMap: Record<number, boolean> = {};
-      assistedData.forEach((item: any) => {
-        const eventId = parseInt(item.event_id, 10);
-        assistedMap[eventId] = true;
-        if (item.attendance_date) {
-          datesMap[eventId] = item.attendance_date;
-        }
-      });
+
+      if (Array.isArray(assistedData)) {
+        assistedData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          assistedMap[eventId] = true;
+
+          if (item.attendance_date) {
+            datesMap[eventId] = item.attendance_date;
+          }
+        });
+      }
+
       setAssistedEvents(assistedMap);
 
       // Actualitzar totes les dates
@@ -72,12 +82,19 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       await AsyncStorage.setItem('attendanceDates', JSON.stringify(datesMap));
 
       // Carregar esdeveniments "wishlist"
+      // C. Load "Wishlist" (Saved/Bookmarked)
       const savedData = await api('/saved-events/?state=wishlist');
       const savedMap: Record<number, boolean> = {};
-      savedData.forEach((item: any) => {
-        savedMap[parseInt(item.event_id, 10)] = true;
-      });
+
+      if (Array.isArray(savedData)) {
+        savedData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          savedMap[eventId] = true;
+        });
+      }
+
       setSavedEvents(savedMap);
+
       await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
     } catch (error: any) {
       if (error?.silent) return;

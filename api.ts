@@ -1,7 +1,12 @@
 // api.ts
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
 
-const API_URL = 'http://nattech.fib.upc.edu:40490';
+export const API_URL = Constants.expoConfig?.extra?.API_URL;
+console.log('API_URL', API_URL);
+
+export const apiFetch = (path: string, options?: RequestInit) =>
+  fetch(`${API_URL}${path}`, options);
 
 const AUTH_TOKEN_KEY = 'authToken';
 const REFRESH_TOKEN_KEY = 'refreshToken';

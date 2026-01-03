@@ -25,6 +25,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { apiFetch } from '../../api';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -102,6 +103,7 @@ const Login: React.FC = () => {
   // MANEIG RESPONSE GOOGLE
   useEffect(() => {
     if (response?.type === 'success') {
+      console.log('✅ GOOGLE AUTH SUCCESS');
       const idToken = response.authentication?.idToken;
       console.log('🪪 ID TOKEN REBUT:', idToken);
 
@@ -117,15 +119,18 @@ const Login: React.FC = () => {
   }, [response]);
 
   const handleGoogleAuth = async (googleToken: string) => {
+    console.log('📤 GOOGLE TOKEN SENT TO BACKEND:', googleToken.slice(0, 20));
     await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'isLoggedIn']);
     try {
-      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/google/token/', {
+      const res = await apiFetch('/api/auth/google/token/', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ google_token: googleToken }),
       });
+      console.log('📥 GOOGLE LOGIN STATUS:', res.status);
 
       const data = await res.json();
+      console.log('📥 GOOGLE LOGIN RESPONSE:', data);
       console.log('BACKEND RESPONSE:', data);
 
       if (res.ok && data.access) {
@@ -164,13 +169,19 @@ const Login: React.FC = () => {
   };
 
   const handleManualLogin = async () => {
+    console.log('🟡 MANUAL LOGIN CLICKED');
+
+    console.log('📤 LOGIN BODY:', {
+      identifier: email.toLowerCase().trim(),
+      password,
+    });
     if (!email || !password) {
       Alert.alert(t('Error'), t('Please fill in all fields'));
       return;
     }
     setLoading(true);
     try {
-      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/login/', {
+      const res = await apiFetch('/api/auth/login/', {
         method: 'POST',
         headers: { Accept: '*/*', 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -178,7 +189,10 @@ const Login: React.FC = () => {
           password,
         }),
       });
+      console.log('📥 LOGIN STATUS:', res.status);
+
       const data = await res.json();
+      console.log('📥 LOGIN RESPONSE:', data);
       if (res.ok && data.access) {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
@@ -221,7 +235,7 @@ const Login: React.FC = () => {
 
     setLoading(true);
     try {
-      const res = await fetch('http://nattech.fib.upc.edu:40490/api/auth/register/', {
+      const res = await apiFetch('/api/auth/register/', {
         method: 'POST',
         headers: { Accept: '*/*', 'Content-Type': 'application/json' },
         body: JSON.stringify({
