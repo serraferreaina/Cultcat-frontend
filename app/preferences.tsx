@@ -22,7 +22,7 @@ const ACCENT = '#C86A2E';
 const CARD = '#FFF';
 
 // 🔹 Configuración del API
-const API_BASE_URL = 'https://tu-api.com'; // ⚠️ Cambia esto por tu URL real
+const API_BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
 const ALL_CATEGORIES = [
   {
