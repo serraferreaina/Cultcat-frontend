@@ -142,6 +142,10 @@ export const deleteAccount = async () => {
 
 export const getUserBadges = () => api('/rewards/');
 
+export function getUserBadgesByUserId(userId: string) {
+  return api(`/rewards/users/${userId}`);
+}
+
 export function sendConnectionRequest(userId: string) {
   return api('/connection/send/', {
     method: 'POST',

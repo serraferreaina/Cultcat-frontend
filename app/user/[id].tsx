@@ -18,7 +18,7 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
 import { useTranslation } from 'react-i18next';
-import { sendConnectionRequest, getUserBadges } from '../../api';
+import { sendConnectionRequest, getUserBadgesByUserId } from '../../api';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
@@ -31,10 +31,7 @@ export default function PublicProfile() {
 
   const [loading, setLoading] = useState(true);
   const [shareModalVisible, setShareModalVisible] = useState(false);
-  const { t, i18n } = useTranslation();
-
-  const [requestSent, setRequestSent] = useState(false);
-  const [isSending, setIsSending] = useState(false);
+  const { t } = useTranslation();
 
   type Badge = {
     reward_id: number;
@@ -91,6 +88,12 @@ export default function PublicProfile() {
 
   useEffect(() => {
     fetchUser();
+
+    if (id) {
+      getUserBadgesByUserId(String(id))
+        .then(setBadges)
+        .catch(() => setBadges([]));
+    }
   }, [id]);
 
   if (loading)
@@ -206,7 +209,14 @@ export default function PublicProfile() {
             <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
 
             {badges.length > 0 && (
-              <TouchableOpacity onPress={() => router.push('/badges')}>
+              <TouchableOpacity
+                onPress={() =>
+                  router.push({
+                    pathname: '/badges',
+                    params: { userId: String(user.id) },
+                  })
+                }
+              >
                 <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more')}</Text>
               </TouchableOpacity>
             )}
@@ -234,7 +244,7 @@ export default function PublicProfile() {
                   <Text
                     style={{ fontSize: 12, marginTop: 4, color: Colors.text, textAlign: 'center' }}
                   >
-                    {badge.name}
+                    {t(badge.name)}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -268,7 +278,7 @@ export default function PublicProfile() {
                     textAlign: 'center',
                   }}
                 >
-                  {selectedBadge.name}
+                  {t(selectedBadge.name)}
                 </Text>
 
                 <Text
