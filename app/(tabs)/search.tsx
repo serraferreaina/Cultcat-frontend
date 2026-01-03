@@ -41,8 +41,6 @@ export default function CercaScreen() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
-
   const [isTopicsModalVisible, setIsTopicsModalVisible] = useState(false);
 
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -76,6 +74,7 @@ export default function CercaScreen() {
   const [isMunicipiModalVisible, setIsMunicipiModalVisible] = useState(false);
   const [municipiSearch, setMunicipiSearch] = useState('');
   const [selectedMunicipi, setSelectedMunicipi] = useState<string | null>(null);
+  const [hasDateFilter, setHasDateFilter] = useState(false);
   const filteredMunicipis = useMemo(() => {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
@@ -89,6 +88,16 @@ export default function CercaScreen() {
     setSelectedTopics((prev) =>
       prev.includes(topic) ? prev.filter((t) => t !== topic) : [...prev, topic],
     );
+  };
+
+  const clearFilters = () => {
+    setSelectedMunicipi(null);
+    setSelectedTopics([]);
+    setHasDateFilter(false);
+    setIsFiltered(false);
+    setOffset(0);
+    setHasMore(true);
+    fetchEvents(true);
   };
 
   const handleCloseModal = () => {
@@ -658,107 +667,103 @@ export default function CercaScreen() {
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
       <SearchBar value={searchQuery} onChangeText={setSearchQuery} onSearch={handleSearch} />
 
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersScroll}
-        contentContainerStyle={styles.filtersRow}
+      <View
+        style={[
+          styles.filtersContainer,
+          { backgroundColor: 'transparent', borderBottomColor: Colors.border },
+        ]}
       >
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsMunicipiModalVisible(true)}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filtersScroll}
+          contentContainerStyle={styles.filtersRow}
         >
-          <MapPin color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>
-            {selectedMunicipi || t('Select municipality')}
-          </Text>
-        </TouchableOpacity>
-
-        <DateFilterComponent
-          mode="one"
-          onModeChange={(m) => {}}
-          onDatesChange={({ date, date1, date2, fromDate }) => {
-            setIsFiltered(true);
-            let extraParams: string[] = ['order_by_date=asc'];
-
-            if (date) {
-              extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
-            }
-            if (date1 && date2) {
-              extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
-              extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
-            }
-            if (fromDate) {
-              extraParams.push(
-                `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
-              );
-            }
-
-            const query = buildQuery(extraParams);
-            const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-            setLoading(true);
-            fetch(url)
-              .then((res) => res.json())
-              .then((data) => setEvents(data))
-              .catch((err) => console.error(err))
-              .finally(() => setLoading(false));
-          }}
-        />
-
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsTopicsModalVisible(true)}
-        >
-          <Star color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Category')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsOptionsModalVisible(true)}
-        >
-          <SlidersHorizontal color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      <Modal
-        visible={isOptionsModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsOptionsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
-
-              <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
-                <X color={Colors.text} size={20} />
-              </TouchableOpacity>
-            </View>
-
+          {(selectedMunicipi || hasDateFilter || selectedTopics.length > 0) && (
             <TouchableOpacity
-              style={[styles.optionItem, { paddingVertical: 8 }]}
-              onPress={() => {
-                setSelectedMunicipi(null);
-                setSelectedTopics([]);
-                setIsMunicipiModalVisible(false);
-                setIsOptionsModalVisible(false);
-                setIsFiltered(false);
-                setOffset(0);
-                setHasMore(true);
-                fetchEvents(true);
-              }}
+              style={[
+                styles.filterButton,
+                { backgroundColor: '#fee', borderWidth: 1, borderColor: '#fcc' },
+              ]}
+              onPress={clearFilters}
             >
-              <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
-                {t('Clear filters')}
-              </Text>
+              <Ionicons name="trash-outline" size={18} color="#d00" />
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          )}
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedMunicipi ? Colors.accent : Colors.card,
+                borderWidth: selectedMunicipi ? 0 : 0,
+              },
+            ]}
+            onPress={() => setIsMunicipiModalVisible(true)}
+          >
+            <MapPin color={selectedMunicipi ? '#fff' : Colors.text} size={18} />
+            <Text style={[styles.filterText, { color: selectedMunicipi ? '#fff' : Colors.text }]}>
+              {selectedMunicipi || t('Select municipality')}
+            </Text>
+          </TouchableOpacity>
+
+          <DateFilterComponent
+            mode="one"
+            onModeChange={(m) => {}}
+            backgroundColor={hasDateFilter ? Colors.accent : Colors.card}
+            textColor={hasDateFilter ? '#fff' : Colors.text}
+            onDatesChange={({ date, date1, date2, fromDate }) => {
+              setIsFiltered(true);
+              setHasDateFilter(true);
+              let extraParams: string[] = ['order_by_date=asc'];
+
+              if (date) {
+                extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
+              }
+              if (date1 && date2) {
+                extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
+                extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
+              }
+              if (fromDate) {
+                extraParams.push(
+                  `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+                );
+              }
+
+              const query = buildQuery(extraParams);
+              const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+              setLoading(true);
+              fetch(url)
+                .then((res) => res.json())
+                .then((data) => setEvents(data))
+                .catch((err) => console.error(err))
+                .finally(() => setLoading(false));
+            }}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedTopics.length > 0 ? Colors.accent : Colors.card,
+                borderWidth: selectedTopics.length > 0 ? 0 : 0,
+              },
+            ]}
+            onPress={() => setIsTopicsModalVisible(true)}
+          >
+            <Star color={selectedTopics.length > 0 ? '#fff' : Colors.text} size={18} />
+            <Text
+              style={[
+                styles.filterText,
+                { color: selectedTopics.length > 0 ? '#fff' : Colors.text },
+              ]}
+            >
+              {t('Category')}
+            </Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
 
       <Modal
         visible={isTopicsModalVisible}
@@ -1079,8 +1084,26 @@ const styles = StyleSheet.create({
   content: {
     paddingTop: 8,
   },
+  filtersContainer: {
+    paddingVertical: 5,
+    paddingHorizontal: 0,
+    marginTop: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    marginRight: 5,
+    borderBottomWidth: 0.5,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+  },
   filtersScroll: {
-    marginTop: 12,
+    marginTop: 4,
   },
   filtersRow: {
     flexDirection: 'row',
