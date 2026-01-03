@@ -158,7 +158,8 @@ export default function CercaScreen() {
     setLoading(true);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([`from_date=${today}`]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -301,7 +302,7 @@ export default function CercaScreen() {
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
-        ? item.imatgess
+        ? item.imatges
             .split(',')
             .map((url: string) => `https://agenda.cultura.gencat.cat${url.trim()}`)
         : item.imgApp && item.imgApp.trim() !== ''
@@ -606,7 +607,8 @@ export default function CercaScreen() {
     setEvents([]);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([`from_date=${today}`]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
