@@ -666,6 +666,9 @@ export default function Home() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={Colors.accent} />
+        <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
+          {t('Loading events')}
+        </Text>
       </View>
     );
 
