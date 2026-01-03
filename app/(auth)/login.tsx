@@ -338,7 +338,11 @@ const Login: React.FC = () => {
             >
               <View style={styles.logoSection}>
                 <Image
-                  source={require('../../assets/cultcat-logo.png')}
+                  source={
+                    theme === 'dark'
+                      ? require('../../assets/cultcat-logo_dark.png')
+                      : require('../../assets/cultcat-logo_white.png')
+                  }
                   style={styles.logo}
                   resizeMode="contain"
                 />
