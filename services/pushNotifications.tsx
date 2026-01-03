@@ -36,7 +36,7 @@ export async function setupNotificationChannel() {
 // Registrar i obtenir Expo Push Token
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
-    console.log('⚠️ Has d\'usar un dispositiu físic per Push Notifications');
+    console.log("⚠️ Has d'usar un dispositiu físic per Push Notifications");
     return null;
   }
 
@@ -61,22 +61,23 @@ export async function registerForPushNotifications() {
     }
 
     // Obtenir Expo Push Token
-    const projectId = Constants.expoConfig?.extra?.eas?.projectId || '2244d658-5f13-4aef-ad90-49905e4184c0';
-    
+    const projectId =
+      Constants.expoConfig?.extra?.eas?.projectId || '2244d658-5f13-4aef-ad90-49905e4184c0';
+
     const token = (
       await Notifications.getExpoPushTokenAsync({
         projectId: projectId,
       })
     ).data;
-    
+
     console.log('✅ Expo Push Token obtingut:', token);
-    
+
     // Guardar token localment
     await AsyncStorage.setItem('expoPushToken', token);
-    
+
     // Enviar token al backend
     await sendTokenToBackend(token);
-    
+
     return token;
   } catch (error) {
     console.error('❌ Error obtenint push token:', error);
@@ -88,7 +89,7 @@ export async function registerForPushNotifications() {
 async function sendTokenToBackend(token: string) {
   try {
     const authToken = await AsyncStorage.getItem('authToken');
-    
+
     if (!authToken) {
       console.log('⚠️ No hi ha authToken, no es pot enviar el push token');
       return;
@@ -98,7 +99,7 @@ async function sendTokenToBackend(token: string) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`,
+        Authorization: `Bearer ${authToken}`,
       },
       body: JSON.stringify({
         expo_push_token: token,
@@ -119,7 +120,7 @@ async function sendTokenToBackend(token: string) {
 // Escoltar quan arriben notificacions
 export function setupNotificationListeners(
   onNotificationReceived?: (notification: Notifications.Notification) => void,
-  onNotificationResponse?: (response: Notifications.NotificationResponse) => void
+  onNotificationResponse?: (response: Notifications.NotificationResponse) => void,
 ) {
   // Quan arriba una notificació (app oberta o en background)
   const listener1 = Notifications.addNotificationReceivedListener((notification) => {
@@ -165,7 +166,7 @@ export async function sendLocalNotification(title: string, body: string, data?: 
 // Testing - Enviar notificació de prova
 export async function testPushNotification() {
   const token = await AsyncStorage.getItem('expoPushToken');
-  
+
   if (!token) {
     console.log('❌ No hi ha token guardat');
     return;

@@ -72,14 +72,21 @@ function RootLayoutContent() {
             console.log('👆 Notificació tocada:', data);
 
             // Navegar segons el tipus de notificació
-            if (data.type === 'event' || data.type === 'event_soon' || data.type === 'event_review_pending') {
+            if (
+              data.type === 'event' ||
+              data.type === 'event_soon' ||
+              data.type === 'event_review_pending'
+            ) {
               const eventId = data.eventId || data.reference_id;
               if (eventId) {
                 router.push(`/events/${eventId}`);
               }
             } else if (data.type === 'reward' || data.type === 'reward_unlocked') {
               router.push('/rewards');
-            } else if (data.type === 'connection_request_received' || data.type === 'connection_request') {
+            } else if (
+              data.type === 'connection_request_received' ||
+              data.type === 'connection_request'
+            ) {
               const userId = data.userId || data.from_user_id;
               if (userId) {
                 router.push(`/user/${userId}`);
@@ -89,7 +96,7 @@ function RootLayoutContent() {
                 router.push(`/events/${data.eventId}`);
               }
             }
-          }
+          },
         );
       } catch (error) {
         console.error('❌ Error inicialitzant notificacions:', error);
