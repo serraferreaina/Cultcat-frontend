@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, Button, Modal, TouchableOpacity, StyleSheet } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { Ionicons } from '@expo/vector-icons';
 
 import { useTranslation } from 'react-i18next';
 
@@ -10,12 +11,16 @@ export interface DateFilterProps {
   mode?: DateFilterMode;
   onModeChange: (m: DateFilterMode) => void;
   onDatesChange: (dates: { date?: Date; date1?: Date; date2?: Date; fromDate?: Date }) => void;
+  backgroundColor?: string;
+  textColor?: string;
 }
 
 export default function DateFilterComponent({
   mode: initialMode = 'one',
   onModeChange,
   onDatesChange,
+  backgroundColor = '#fff',
+  textColor = '#000',
 }: DateFilterProps) {
   const { t } = useTranslation();
   const [modalVisible, setModalVisible] = useState(false);
@@ -53,8 +58,12 @@ export default function DateFilterComponent({
 
   return (
     <View>
-      <TouchableOpacity style={styles.filterButton} onPress={() => setModalVisible(true)}>
-        <Text style={styles.filterText}>{t('Date')}</Text>
+      <TouchableOpacity
+        style={[styles.filterButton, { backgroundColor }]}
+        onPress={() => setModalVisible(true)}
+      >
+        <Ionicons name="calendar-outline" size={18} color={textColor} style={{ marginTop: -3 }} />
+        <Text style={[styles.filterText, { color: textColor, marginTop: -1 }]}>{t('Date')}</Text>
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -114,17 +123,18 @@ export default function DateFilterComponent({
 
 const styles = StyleSheet.create({
   filterButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderRadius: 12,
-    backgroundColor: '#fff', // fondo blanco
     marginHorizontal: 4,
-    alignItems: 'center',
+    minHeight: 38,
   },
   filterText: {
-    fontSize: 14,
-    fontWeight: '400', // normal, no negrita
-    color: '#000', // texto negro
+    fontSize: 10,
   },
   modalOverlay: {
     flex: 1,
