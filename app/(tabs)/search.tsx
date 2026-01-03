@@ -743,16 +743,13 @@ export default function CercaScreen() {
               style={[styles.optionItem, { paddingVertical: 8 }]}
               onPress={() => {
                 setSelectedMunicipi(null);
+                setSelectedTopics([]);
                 setIsMunicipiModalVisible(false);
-                setEvents([]);
+                setIsOptionsModalVisible(false);
                 setIsFiltered(false);
-                setLoading(true);
-
-                fetch('http://nattech.fib.upc.edu:40490/events')
-                  .then((res) => res.json())
-                  .then((data) => setEvents(data))
-                  .catch((err) => console.error(err))
-                  .finally(() => setLoading(false));
+                setOffset(0);
+                setHasMore(true);
+                fetchEvents(true);
               }}
             >
               <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
