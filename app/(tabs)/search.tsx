@@ -301,7 +301,7 @@ export default function CercaScreen() {
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
-        ? item.imatges
+        ? item.imatgess
             .split(',')
             .map((url: string) => `https://agenda.cultura.gencat.cat${url.trim()}`)
         : item.imgApp && item.imgApp.trim() !== ''

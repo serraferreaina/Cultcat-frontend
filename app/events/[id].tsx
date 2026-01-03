@@ -249,9 +249,8 @@ export default function EventDetail() {
 
   // Determinar si es pot escriure una review (després dels useEffect)
   // NOMÉS es pot fer review si vas marcar que aniràs i la data d'assistència ja ha passat
-  const canWriteReview = event && userAttendanceDate
-    ? hasAttendanceDatePassed(userAttendanceDate)
-    : false;
+  const canWriteReview =
+    event && userAttendanceDate ? hasAttendanceDatePassed(userAttendanceDate) : false;
 
   const formatEventDate = (startDate: string | null, endDate: string | null): string => {
     if (!startDate) return t('Date not available');

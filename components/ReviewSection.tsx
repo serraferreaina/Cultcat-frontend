@@ -104,7 +104,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
     const loadCurrentUser = async () => {
       setUserLoading(true);
       setUserError(null);
-      
+
       try {
         const token = await AsyncStorage.getItem('authToken');
         if (!token) {
@@ -113,7 +113,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
           setUserLoading(false);
           return;
         }
-        
+
         // Try each endpoint until one works
         let userData = null;
         let workingEndpoint = null;
@@ -121,9 +121,9 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
         for (const endpoint of PROFILE_ENDPOINTS) {
           try {
             const url = `${BASE_URL}${endpoint}`;
-            
+
             const res = await fetch(url, {
-              headers: { 
+              headers: {
                 Authorization: `Bearer ${token}`,
                 'Content-Type': 'application/json',
               },
@@ -142,13 +142,13 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
 
         if (!userData || !workingEndpoint) {
           setUserError('Profile endpoint not found');
-          
+
           Alert.alert(
             'Error de configuració',
             `No s'ha trobat l'endpoint del perfil d'usuari. Contacta amb suport tècnic.\n\nEndpoints provats: ${PROFILE_ENDPOINTS.join(', ')}`,
-            [{ text: 'OK', onPress: onClose }]
+            [{ text: 'OK', onPress: onClose }],
           );
-          
+
           setUserLoading(false);
           return;
         }
@@ -157,24 +157,20 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
         setCurrentUser({
           id: userData.id,
           username: userData.username || userData.user || userData.name,
-          profile_picture: userData.profile_picture || userData.profilePic || userData.avatar || null,
+          profile_picture:
+            userData.profile_picture || userData.profilePic || userData.avatar || null,
         });
-        
-        setUserLoading(false);
 
+        setUserLoading(false);
       } catch (e) {
         console.error('❌ Unexpected error loading user:', e);
         setUserError('Error de connexió');
-        
-        Alert.alert(
-          'Error',
-          "No s'ha pogut carregar el perfil. Comprova la connexió a internet.",
-          [
-            { text: 'Tancar', onPress: onClose },
-            { text: 'Reintentar', onPress: () => loadCurrentUser() }
-          ]
-        );
-        
+
+        Alert.alert('Error', "No s'ha pogut carregar el perfil. Comprova la connexió a internet.", [
+          { text: 'Tancar', onPress: onClose },
+          { text: 'Reintentar', onPress: () => loadCurrentUser() },
+        ]);
+
         setUserLoading(false);
       }
     };
@@ -208,7 +204,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
         setLoading(false);
         return;
       }
-      
+
       const data = await res.json();
 
       // Filtro de reviews con usuario válido
@@ -225,7 +221,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
 
             // Si només tenim l'ID de l'usuari, carreguem les dades completes
             const userId = typeof review.user === 'number' ? review.user : review.user.id;
-            
+
             if (!userId) {
               console.warn('Review sense user ID:', review);
               return review;
@@ -242,17 +238,21 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
                 user: {
                   id: fullUserData.id,
                   username: fullUserData.username || fullUserData.user || fullUserData.name,
-                  profilePic: fullUserData.profile_picture || fullUserData.profilePic || fullUserData.avatar || null,
+                  profilePic:
+                    fullUserData.profile_picture ||
+                    fullUserData.profilePic ||
+                    fullUserData.avatar ||
+                    null,
                 },
               };
             }
 
             return review;
           } catch (err) {
-            console.error('Error carregant dades d\'usuari:', err);
+            console.error("Error carregant dades d'usuari:", err);
             return review;
           }
-        })
+        }),
       );
 
       setReviews(reviewsWithFullUserData);
@@ -521,12 +521,11 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
                   {/* USER PIC */}
                   <View style={styles.userSection}>
                     {item.user.profilePic ? (
-                      <Image
-                        source={{ uri: item.user.profilePic }}
-                        style={styles.profilePic}
-                      />
+                      <Image source={{ uri: item.user.profilePic }} style={styles.profilePic} />
                     ) : (
-                      <View style={[styles.profilePicPlaceholder, { backgroundColor: Colors.border }]}>
+                      <View
+                        style={[styles.profilePicPlaceholder, { backgroundColor: Colors.border }]}
+                      >
                         <Ionicons name="person" size={24} color={Colors.text} />
                       </View>
                     )}
@@ -552,9 +551,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
 
                     {/* REVIEW TEXT */}
                     {item.review && (
-                      <Text style={[styles.reviewText, { color: Colors.text }]}>
-                        {item.review}
-                      </Text>
+                      <Text style={[styles.reviewText, { color: Colors.text }]}>{item.review}</Text>
                     )}
 
                     {/* REVIEW IMAGES */}
@@ -585,9 +582,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
                         size={20}
                         color={item.upvoted ? '#FF4458' : Colors.text}
                       />
-                      <Text style={[styles.votesCount, { color: Colors.text }]}>
-                        {item.votes}
-                      </Text>
+                      <Text style={[styles.votesCount, { color: Colors.text }]}>{item.votes}</Text>
                     </TouchableOpacity>
                   </View>
 
