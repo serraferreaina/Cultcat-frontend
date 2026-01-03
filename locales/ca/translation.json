@@ -244,5 +244,8 @@
   "Search": "Cerca",
   "Events": "Events",
   "Users": " Usuaris",
-  "No users to display": "No hi ha usuaris per mostrar"
+  "No users to display": "No hi ha usuaris per mostrar",
+  "Clear filters": "Netejar filtres",
+  "Select municipality": "Selecciona municipi",
+  "Search municipality": "Cerca municipi"
 }

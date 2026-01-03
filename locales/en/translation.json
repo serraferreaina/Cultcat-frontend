@@ -243,5 +243,8 @@
   "Search": "Search",
   "Events": "Events",
   "Users": "Users",
-  "No users to display": "No users to display"
+  "No users to display": "No users to display",
+  "Clear filters": "Clear filters",
+  "Select municipality": "Select municipality",
+  "Search municipality": "Search municipality"
 }

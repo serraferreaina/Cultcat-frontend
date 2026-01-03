@@ -670,7 +670,7 @@ export default function CercaScreen() {
         >
           <MapPin color={Colors.text} size={18} />
           <Text style={[styles.filterText, { color: Colors.text }]}>
-            {selectedMunicipi || t('Location')}
+            {selectedMunicipi || t('Select municipality')}
           </Text>
         </TouchableOpacity>
 
@@ -753,7 +753,7 @@ export default function CercaScreen() {
               }}
             >
               <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
-                {t('Clear filter')}
+                {t('Clear filters')}
               </Text>
             </TouchableOpacity>
           </View>
@@ -898,7 +898,7 @@ export default function CercaScreen() {
               }}
             >
               <Text style={{ color: Colors.background, fontWeight: '600' }}>
-                {t('Clear filter')}
+                {t('Clear filters')}
               </Text>
             </TouchableOpacity>
 
