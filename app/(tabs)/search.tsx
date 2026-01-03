@@ -159,7 +159,7 @@ export default function CercaScreen() {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`]);
+      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -558,7 +558,7 @@ export default function CercaScreen() {
 
     try {
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}`,
+        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&order_by_date=asc`,
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
@@ -608,7 +608,7 @@ export default function CercaScreen() {
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`]);
+      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -679,7 +679,7 @@ export default function CercaScreen() {
           onModeChange={(m) => {}}
           onDatesChange={({ date, date1, date2, fromDate }) => {
             setIsFiltered(true);
-            let extraParams: string[] = [];
+            let extraParams: string[] = ['order_by_date=asc'];
 
             if (date) {
               extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
