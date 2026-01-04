@@ -158,16 +158,18 @@ export default function CercaScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      const newEvents = (data.results || data || []).filter((event: any) => !shouldHideEvent(event));
+      const newEvents = (data.results || data || []).filter(
+        (event: any) => !shouldHideEvent(event),
+      );
 
       setEvents((prev: any[]) => {
         if (reset) return newEvents;
-        
+
         // Evitar duplicats
         const map = new Map<number, any>();
         prev.forEach((evt: any) => map.set(evt.id, evt));
         newEvents.forEach((evt: any) => map.set(evt.id, evt));
-        
+
         return Array.from(map.values());
       });
 
