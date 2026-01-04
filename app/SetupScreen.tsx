@@ -24,14 +24,9 @@ export default function SetupScreen() {
   const { notificationsEnabled, setNotificationsEnabled } = useNotifications();
 
   const [language, setLanguageState] = useState<'en' | 'es' | 'ca'>('en');
-  const [canGoBack, setCanGoBack] = useState(false);
 
   useEffect(() => {
     (async () => {
-      // Comprovar si pot tornar enrere (si ve de configuració i no de login)
-      const hasCompletedSetupBefore = await AsyncStorage.getItem('hasCompletedSetup');
-      setCanGoBack(!!hasCompletedSetupBefore);
-
       // Cargar desde preferredLanguage (preferencias guardadas)
       const storedLang = await AsyncStorage.getItem('preferredLanguage');
       if (storedLang && ['en', 'es', 'ca'].includes(storedLang)) {
@@ -62,7 +57,6 @@ export default function SetupScreen() {
   };
 
   const saveAndNext = async () => {
-    // Guardar localment
     await AsyncStorage.multiSet([
       ['preferredLanguage', language],
       ['appLanguage', language],
@@ -72,29 +66,18 @@ export default function SetupScreen() {
 
     await i18n.changeLanguage(language);
 
-    // Guardar al backend (PERMANENT)
     const success = await savePreferencesToBackend({
       language,
       dark_mode: theme === 'dark',
       allow_notifications: notificationsEnabled,
-      favorite_categories: [],
     });
 
     if (!success) {
-      Alert.alert(
-        t('Warning') || 'Avís',
-        t('Settings saved locally but could not sync with server') ||
-          "Configuració guardada localment però no s'ha pogut sincronitzar amb el servidor",
-      );
+      Alert.alert(t('Warning'), t('Settings saved locally but could not sync with server'));
     }
 
-    // Si canGoBack és true, vol dir que ve de configuració, tornar enrere
-    if (canGoBack) {
-      router.back();
-    } else {
-      // Si és la primera vegada, anar a preferences
-      router.push('/preferences');
-    }
+    // 🔴 SEMPRE anar a Preferences
+    router.push('/preferences');
   };
 
   const handleLanguageChange = async (lang: 'en' | 'es' | 'ca') => {
@@ -110,25 +93,8 @@ export default function SetupScreen() {
     setTheme(newTheme);
   };
 
-  const handleBack = () => {
-    if (canGoBack) {
-      router.back();
-    }
-  };
-
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
-      {canGoBack && (
-        <View style={{ marginBottom: 32 }}>
-          <TouchableOpacity
-            onPress={handleBack}
-            style={{ position: 'absolute', top: 16, left: 16, zIndex: 10 }}
-          >
-            <Ionicons name="chevron-back" size={28} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
-      )}
-
       <View style={styles.content}>
         <Text style={[styles.title, { color: Colors.text, textAlign: 'center' }]}>
           {t('Initial Settings')}
@@ -172,9 +138,7 @@ export default function SetupScreen() {
           style={[styles.nextButton, { backgroundColor: Colors.accent }]}
           onPress={saveAndNext}
         >
-          <Text style={{ color: '#fff', fontWeight: '700' }}>
-            {canGoBack ? t('Save') : t('Next')}
-          </Text>
+          <Text style={{ color: '#fff', fontWeight: '700' }}>{t('Continue')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>

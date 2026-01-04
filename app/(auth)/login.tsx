@@ -140,15 +140,12 @@ const Login: React.FC = () => {
 
         console.log('🔑 ACCESS TOKEN (Google):', data.access);
         console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
-
-        // 👇 NUEVO: Verifica si es la primera vez
         const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
 
-        if (!hasCompletedSetup) {
-          // Primera vez con Google - va a configuración
-          router.replace('/SetupScreen');
-        } else {
+        if (hasCompletedSetup === 'true') {
           router.replace('/(tabs)');
+        } else {
+          router.replace('/SetupScreen');
         }
       } else {
         Alert.alert(t('Error'), t('Google authentication failed'));
@@ -203,15 +200,12 @@ const Login: React.FC = () => {
         console.log('🔑 ACCESS TOKEN:', data.access);
         console.log('🔄 REFRESH TOKEN:', data.refresh);
 
-        // 👇 NUEVO: Verifica si es la primera vez que inicia sesión
         const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
 
-        if (!hasCompletedSetup) {
-          // Primera vez - va a configuración
-          router.replace('/SetupScreen');
-        } else {
-          // Ya configuró anteriormente - va directo a tabs
+        if (hasCompletedSetup === 'true') {
           router.replace('/(tabs)');
+        } else {
+          router.replace('/SetupScreen');
         }
       } else {
         Alert.alert(t('Error'), data.message || data.detail || t('Invalid credentials'));
@@ -255,10 +249,18 @@ const Login: React.FC = () => {
         await AsyncStorage.setItem('authToken', data.access);
         await AsyncStorage.setItem('refreshToken', data.refresh);
         await AsyncStorage.setItem('isLoggedIn', 'true');
-        // NO guardamos hasCompletedSetup aquí - es la primera vez
 
         console.log('🔑 ACCESS TOKEN (Register):', data.access);
         console.log('🔄 REFRESH TOKEN (Register):', data.refresh);
+
+        // 🔥 RESET onboarding local (usuari nou)
+        await AsyncStorage.multiRemove([
+          'hasCompletedSetup',
+          'preferredLanguage',
+          'appLanguage',
+          'darkMode',
+          'allowNotifications',
+        ]);
 
         // Registro siempre va a configuración inicial
         router.replace('/SetupScreen');

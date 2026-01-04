@@ -353,6 +353,11 @@ export default function ChatList() {
                       return;
                     }
 
+                    if (groupName.length < 1) {
+                      alert('Un grup ha de tenir un nom');
+                      return;
+                    }
+
                     const chat = await createGroup(groupName, participantIds);
 
                     setShowCreateModal(false);

@@ -26,163 +26,192 @@ const API_BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
 const ALL_CATEGORIES = [
   {
+    id: 4,
     key: 'concerts',
     label: 'Conciertos',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/conciertos-en-Barcelona-2025-scaled.jpg',
   },
   {
+    id: 5,
     key: 'infantil',
     label: 'Infantil',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/experto-auxiliar-en-educacion-infantil-scaled.jpg',
   },
   {
+    id: 6,
     key: 'musica',
     label: 'Música',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/EEMM-288-3.jpg',
   },
   {
+    id: 8,
     key: 'espectacles',
     label: 'Espectacles',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/ajuntament-de-corbins-espectacles-194043-med.jpg',
   },
   {
+    id: 15,
     key: 'teatre',
     label: 'Teatre',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/17_02_239_35_49Teatre_Principal_2.jpg',
   },
   {
+    id: 24,
     key: 'activitats-virtuals',
     label: 'Activitats virtuals',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/realitat_virtual.webp',
   },
   {
+    id: 13,
     key: 'arts-visuals',
     label: 'Arts visuals',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/qHxzuPyzjLf6LL3xZJn4OZzSuj4uIk-metaQXJ0cyBWaXN1YWwgMjAyMy5qcGc%3D-.jpg',
   },
   {
+    id: 7,
     key: 'rutes-i-visites',
     label: 'Rutes i visites',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/IoxVokxS4feM3UKrgd7IFopa6qjPJCk2qgy1a1o0.png',
   },
   {
+    id: 12,
     key: 'exposicions',
     label: 'Exposicions',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/62159tutrankamon057max.jpg',
   },
   {
+    id: 1,
     key: 'divulgacio',
     label: 'Divulgació',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/social-3408791_1280.jpg',
   },
   {
+    id: 22,
     key: 'dansa',
     label: 'Dansa',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/9ca5b6_81d02fea4ddc43448bb3ad008a9f93c7.jpg',
   },
   {
+    id: 31,
     key: 'circ',
     label: 'Circ',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/Circ_Raluy_-_tent.jpg',
   },
   {
+    id: 3,
     key: 'conferencies',
     label: 'Conferències',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/animer-conferences-captivantes.jpg',
   },
   {
+    id: 20,
     key: 'cursos',
     label: 'Cursos',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/cursos-online-consejos.webp',
   },
   {
+    id: 14,
     key: 'cinema',
     label: 'Cinema',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/cinema-Familyandmedia-1.webp',
   },
   {
+    id: 2,
     key: 'llibres-i-lletres',
     label: 'Llibres i lletres',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/8314929977_4d7e817d68_h.jpg',
   },
   {
+    id: 19,
     key: 'festivals-i-mostres',
     label: 'Festivals i mostres',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/0_Featured_Image.jpg',
   },
   {
+    id: 10,
     key: 'tradicional-i-popular',
     label: 'Tradicional i popular',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/culturapopular01.jpg',
   },
   {
+    id: 27,
     key: 'cicles',
     label: 'Cicles',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/2024_02_13_cicle_cinema_franc%C3%A8s_2a.jpg',
   },
   {
+    id: 23,
     key: 'zz-altres-ambits',
     label: 'Altres àmbits',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/Alimara_62_1.jpg',
   },
   {
+    id: 28,
     key: 'carnavals',
     label: 'Carnavals',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/Dise%C3%B1o-sin-t%C3%ADtulo-6.jpg',
   },
   {
+    id: 11,
     key: 'fires-i-mercats',
     label: 'Fires i mercats',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/nadal_a_catalunya_derutaenfamilia_003.jpg',
   },
   {
+    id: 18,
     key: 'gastronomia',
     label: 'Gastronomia',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/cocina-profesional+.webp',
   },
   {
+    id: 9,
     key: 'festes',
     label: 'Festes',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/festes-majors-als-municipis-de-catalunya.jpg',
   },
   {
+    id: 16,
     key: 'commemoracions',
     label: 'Commemoracions',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/pexels-cottonbro-3171837-scaled-1150x768.jpg',
   },
   {
+    id: 29,
     key: 'setmana-santa',
     label: 'Setmana Santa',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/semanasanta-malaga-.jpg',
   },
   {
+    id: 25,
     key: 'gegants',
     label: 'Gegants',
     image:
       'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/gegants-de-la-paeria-de-lleida.webp',
   },
   {
+    id: 26,
     key: 'sardanes',
     label: 'Sardanes',
     image: 'https://cultcat-media.s3.us-east-1.amazonaws.com/categories/Sardanes.jpg',
   },
   {
+    id: 21,
     key: 'nadal',
     label: 'Nadal',
     image:
@@ -291,32 +320,14 @@ export default function PreferencesScreen() {
         });
 
         if (!response.ok) {
+          const errText = await response.text();
+          console.error('Backend error:', errText);
           throw new Error('Failed to save preferences to backend');
         }
       }
 
-      // Verificar si es la primera vez
-      const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
-
-      if (!hasCompletedSetup) {
-        await AsyncStorage.setItem('hasCompletedSetup', 'true');
-        Alert.alert(t('Saved'), t('Your preferences has been saved'), [
-          {
-            text: 'OK',
-            onPress: () => router.replace('/(tabs)'),
-          },
-        ]);
-      } else {
-        Alert.alert(t('Saved'), t('Your preferences has been saved'), [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.back();
-              setTimeout(() => router.back(), 50);
-            },
-          },
-        ]);
-      }
+      await AsyncStorage.setItem('hasCompletedSetup', 'true');
+      router.replace('/(tabs)');
     } catch (error) {
       console.error('Error saving preferences:', error);
       Alert.alert('Error', t('Your preferences has not been saved'));
@@ -326,11 +337,11 @@ export default function PreferencesScreen() {
   };
 
   const renderCategory = ({ item, index }: { item: any; index: number }) => {
-    const isSelected = selectedCategories.includes(index);
+    const isSelected = selectedCategories.includes(item.id);
     return (
       <TouchableOpacity
         style={[styles.categoryItem, isSelected ? styles.categorySelected : null]}
-        onPress={() => toggleCategory(index)}
+        onPress={() => toggleCategory(item.id)}
       >
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
         <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>{item.label}</Text>
@@ -364,7 +375,7 @@ export default function PreferencesScreen() {
       <FlatList
         data={ALL_CATEGORIES}
         renderItem={renderCategory}
-        keyExtractor={(item, index) => index.toString()}
+        keyExtractor={(item) => item.id.toString()}
         numColumns={numColumns}
         columnWrapperStyle={styles.row}
         contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}

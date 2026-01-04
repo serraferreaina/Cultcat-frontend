@@ -287,7 +287,22 @@ export default function UserConfig() {
     setShowDeleteModal(false);
     try {
       await deleteAccount();
-      await AsyncStorage.setItem('justDeleted', 'true');
+
+      // 🔥 RESET TOTAL LOCAL (molt important)
+      await AsyncStorage.multiRemove([
+        'authToken',
+        'refreshToken',
+        'isLoggedIn',
+        'hasCompletedSetup',
+        'preferredLanguage',
+        'appLanguage',
+        'darkMode',
+        'allowNotifications',
+        'justSavedProfile',
+        'justLoggedOut',
+        'justDeleted',
+      ]);
+
       router.replace('(auth)/login');
     } catch (e) {
       console.error(e);
