@@ -36,11 +36,21 @@ export default function PreviousEventsScreen() {
     try {
       setLoading(true);
 
-      const savedEvents: SavedEvent[] = await getSavedEvents('attended');
+      const savedEvents: SavedEvent[] = await getSavedEvents('wantToGo');
 
       const detailedEvents = await Promise.all(savedEvents.map((e) => getEventById(e.event_id)));
 
-      setEvents(detailedEvents); // ✅ AIXÒ FALTAVA
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      const previousEvents = detailedEvents.filter((event) => {
+        if (!event?.start_date) return false;
+
+        const eventDate = new Date(event.start_date);
+        return eventDate < today;
+      });
+
+      setEvents(previousEvents);
     } catch (error) {
       console.error('❌ Error loading previous events:', error);
     } finally {
