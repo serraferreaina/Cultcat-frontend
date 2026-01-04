@@ -59,13 +59,11 @@ export default function CercaScreen() {
   const [selectedEventForShare, setSelectedEventForShare] = useState<any | null>(null);
 
   const normalizeDate = (date: Date): Date => {
-    // Crear una nova data amb les hores establertes al migdia per evitar problemes de zona horària
     const normalized = new Date(date);
     normalized.setHours(12, 0, 0, 0);
     return normalized;
   };
 
-  // Estats per al modal de data
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -83,6 +81,7 @@ export default function CercaScreen() {
 
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -105,20 +104,38 @@ export default function CercaScreen() {
   };
 
   const shouldHideEvent = (event: any): boolean => {
-    if (!event.data_fi) return false;
+    // Ocultar esdeveniments amb data específica 2924-06-30
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      const targetDate = new Date('2924-06-30');
 
-    const endDate = new Date(event.data_fi);
-    const targetDate = new Date('2924-06-30');
+      if (
+        endDate.getFullYear() === targetDate.getFullYear() &&
+        endDate.getMonth() === targetDate.getMonth() &&
+        endDate.getDate() === targetDate.getDate()
+      ) {
+        return true;
+      }
+    }
 
-    return (
-      endDate.getFullYear() === targetDate.getFullYear() &&
-      endDate.getMonth() === targetDate.getMonth() &&
-      endDate.getDate() === targetDate.getDate()
-    );
+    // Ocultar esdeveniments amb data d'inici > 2030
+    if (event.data_inici) {
+      const startDate = new Date(event.data_inici);
+      if (startDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    // Ocultar esdeveniments amb data de fi > 2030
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      if (endDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    return false;
   };
-
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   const loadMoreEvents = () => {
     if (!hasMore || loadingMore || isFiltered) return;
@@ -141,9 +158,21 @@ export default function CercaScreen() {
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      const newEvents = (data.results || []).filter((event: any) => !shouldHideEvent(event));
+      const newEvents = (data.results || data || []).filter(
+        (event: any) => !shouldHideEvent(event),
+      );
 
-      setEvents((prev) => (reset ? newEvents : [...prev, ...newEvents]));
+      setEvents((prev: any[]) => {
+        if (reset) return newEvents;
+
+        // Evitar duplicats
+        const map = new Map<number, any>();
+        prev.forEach((evt: any) => map.set(evt.id, evt));
+        newEvents.forEach((evt: any) => map.set(evt.id, evt));
+
+        return Array.from(map.values());
+      });
+
       setOffset(currentOffset + BATCH_SIZE);
 
       if (newEvents.length < BATCH_SIZE) {
@@ -216,7 +245,6 @@ export default function CercaScreen() {
 
   const confirmDate = async () => {
     if (selectedEventForDate) {
-      // Normalitzar la data abans d'enviar-la
       const normalizedDate = normalizeDate(selectedDate);
       await toggleGoing(selectedEventForDate.id, normalizedDate);
     }
@@ -244,7 +272,6 @@ export default function CercaScreen() {
     return { minDate, maxDate };
   };
 
-  // Función para verificar si una fecha es hoy
   const isToday = (date: Date): boolean => {
     const today = new Date();
     const compareDate = new Date(date);
@@ -256,7 +283,6 @@ export default function CercaScreen() {
     );
   };
 
-  // Función para verificar si una fecha es mañana
   const isTomorrow = (date: Date): boolean => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
@@ -269,12 +295,10 @@ export default function CercaScreen() {
     );
   };
 
-  // Función para verificar si la fecha de asistencia ya ha pasado (antes de hoy)
   const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
     const today = new Date();
     const attendance = new Date(attendanceDate);
 
-    // Comparar solo año, mes y día (ignorar horas)
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const attendanceOnlyDate = new Date(
       attendance.getFullYear(),
@@ -282,11 +306,9 @@ export default function CercaScreen() {
       attendance.getDate(),
     );
 
-    // Solo ha pasado si es ANTES de hoy (no incluye hoy)
     return attendanceOnlyDate < todayDate;
   };
 
-  // Función para verificar si el evento ya ha pasado completamente
   const hasEventPassedCompletely = (event: any): boolean => {
     if (!event.data_fi) return false;
 
@@ -332,7 +354,6 @@ export default function CercaScreen() {
 
     const eventHasPassedCompletely = hasEventPassedCompletely(item);
 
-    // Si tiene fecha de asistencia, verificar si esa fecha ya pasó o es hoy
     const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
     const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
     const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
@@ -340,47 +361,36 @@ export default function CercaScreen() {
       attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
 
     const getButtonText = () => {
-      // Prioridad 1: Si la fecha de asistencia del usuario es hoy
       if (userAttendanceIsToday) {
         return t('Today is the event');
-      }
-      // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
-      else if (userAttendancePassed) {
+      } else if (userAttendancePassed) {
         const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
           day: 'numeric',
           month: 'short',
         });
         return t('You attended - ') + formattedDate;
-      }
-      // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
-      else if (eventHasPassedCompletely && !attendanceDate) {
+      } else if (eventHasPassedCompletely && !attendanceDate) {
         return t('No vares assistir');
-      }
-      // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
-      else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
         const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
           day: 'numeric',
           month: 'short',
         });
         return t('I will attend') + ` - ${formattedDate}`;
-      }
-      // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
-      else if (isGoing && !attendanceDate) {
+      } else if (isGoing && !attendanceDate) {
         return t('I will attend');
-      }
-      // Prioridad 6: No está activo
-      else {
+      } else {
         return t('Want to go');
       }
     };
 
     const getButtonColor = () => {
       if (userAttendanceIsToday) {
-        return '#FFA500'; // Naranja/amarillo
+        return '#FFA500';
       } else if (userAttendancePassed || eventHasPassedCompletely) {
-        return '#FF6B6B'; // Rojo
+        return '#FF6B6B';
       } else if (isGoing) {
-        return Colors.going; // Verde
+        return Colors.going;
       } else {
         return Colors.accent;
       }
@@ -396,17 +406,14 @@ export default function CercaScreen() {
     };
 
     const handleButtonPress = () => {
-      // Si la fecha de asistencia del usuario es hoy, no permitir cambios
       if (userAttendanceIsToday) {
         return;
       }
 
-      // Si la fecha de asistencia del usuario ya pasó, no permitir cambios
       if (userAttendancePassed) {
         return;
       }
 
-      // Si ya ha pasado completamente el evento, no permitir cambios
       if (eventHasPassedCompletely) {
         return;
       }
@@ -426,10 +433,8 @@ export default function CercaScreen() {
         const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
         startDate.setHours(0, 0, 0, 0);
 
-        // Siempre empezar desde mañana como mínimo
         let minDate = tomorrow;
 
-        // Si el evento empieza después de mañana, usar esa fecha
         if (startDate > tomorrow) {
           minDate = startDate;
         }
@@ -462,7 +467,6 @@ export default function CercaScreen() {
             {title}
           </Text>
 
-          {/* Message for today's event */}
           {userAttendanceIsToday && (
             <Text style={[styles.messageText, { color: Colors.accent }]}>Recorda assistir-hi</Text>
           )}
@@ -552,14 +556,6 @@ export default function CercaScreen() {
   });
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
-
-  const debounce = (func: (...args: any[]) => void, delay: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), delay);
-    };
-  };
 
   const handleSearch = async (text: string) => {
     const query = text.trim();
@@ -736,7 +732,10 @@ export default function CercaScreen() {
               setLoading(true);
               fetch(url)
                 .then((res) => res.json())
-                .then((data) => setEvents(data))
+                .then((data) => {
+                  const filtered = data.filter((event: any) => !shouldHideEvent(event));
+                  setEvents(filtered);
+                })
                 .catch((err) => console.error(err))
                 .finally(() => setLoading(false));
             }}

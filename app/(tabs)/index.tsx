@@ -576,16 +576,37 @@ export default function Home() {
   };
 
   const shouldHideEvent = (event: Events): boolean => {
-    if (!event.data_inici) return false;
+    // Ocultar esdeveniments amb data específica 2924-06-30
+    if (event.data_inici) {
+      const startDate = new Date(event.data_inici);
+      const targetDate = new Date('2924-06-30');
 
-    const startDate = new Date(event.data_inici);
-    const targetDate = new Date('2924-06-30');
+      if (
+        startDate.getFullYear() === targetDate.getFullYear() &&
+        startDate.getMonth() === targetDate.getMonth() &&
+        startDate.getDate() === targetDate.getDate()
+      ) {
+        return true;
+      }
+    }
 
-    return (
-      startDate.getFullYear() === targetDate.getFullYear() &&
-      startDate.getMonth() === targetDate.getMonth() &&
-      startDate.getDate() === targetDate.getDate()
-    );
+    // Ocultar esdeveniments amb data d'inici > 2030
+    if (event.data_inici) {
+      const startDate = new Date(event.data_inici);
+      if (startDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    // Ocultar esdeveniments amb data de fi > 2030
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      if (endDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    return false;
   };
 
   const fetchEvents = async (reset = false) => {

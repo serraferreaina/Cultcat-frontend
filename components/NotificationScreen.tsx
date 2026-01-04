@@ -1,5 +1,5 @@
 // components/NotificationScreen.tsx
-// Versió amb gestió d'usuaris/esdeveniments eliminats
+// Versió amb push notification quan s'obre la pantalla amb notificacions noves
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -72,10 +72,65 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const [error, setError] = useState<string | null>(null);
   const previousNotificationIdsRef = useRef<Set<number>>(new Set());
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialLoadRef = useRef(true);
 
   // Modal per mostrar detalls de la insígnia
   const [badgeModalVisible, setBadgeModalVisible] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState<BadgeModalData | null>(null);
+
+  // Eliminar notificació
+  const deleteNotification = async (notificationId: number) => {
+    try {
+      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
+      console.log(`✅ Notificació ${notificationId} eliminada`);
+    } catch (err) {
+      console.error('Error deleting notification:', err);
+    }
+  };
+
+  // Verificar si l'usuari existeix
+  const checkUserExists = async (userId: number): Promise<boolean> => {
+    try {
+      const response = await api(`/users/${userId}/`);
+      return !!response;
+    } catch (err: any) {
+      if (err.message?.includes('404') || err.status === 404) {
+        return false;
+      }
+      return true;
+    }
+  };
+
+  // Verificar si l'esdeveniment existeix
+  const checkEventExists = async (eventId: number): Promise<boolean> => {
+    try {
+      const response = await api(`/events/${eventId}/`);
+      return !!response;
+    } catch (err: any) {
+      if (err.message?.includes('404') || err.status === 404) {
+        return false;
+      }
+      return true;
+    }
+  };
+
+  // Verificar i eliminar notificacions d'usuaris eliminats
+  const checkAndCleanupDeletedUsers = async (notificationsList: Notification[]) => {
+    const connectionRequestNotifications = notificationsList.filter(
+      (n) => n.type === 'connection_request_received',
+    );
+
+    for (const notification of connectionRequestNotifications) {
+      const userId = notification.payload.from_user_id;
+      if (userId) {
+        const userExists = await checkUserExists(userId);
+        if (!userExists) {
+          console.log(`🗑️ Netejant notificació de sol·licitud de l'usuari eliminat ${userId}`);
+          await deleteNotification(notification.id);
+        }
+      }
+    }
+  };
 
   // Obtenir notificacions del backend
   const fetchNotifications = async () => {
@@ -84,6 +139,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     try {
       const data = await api('/notifications/');
       setNotifications(data);
+
+      // Netejar notificacions d'usuaris eliminats després de carregar
+      await checkAndCleanupDeletedUsers(data);
     } catch (err: any) {
       setError(err.message || 'Error carregant notificacions');
       console.error('Error fetching notifications:', err);
@@ -92,7 +150,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
-  // Polling per notificacions noves (cada 30 segons quan la modal està oberta)
+  // Polling per notificacions noves
   useEffect(() => {
     if (visible) {
       fetchNotifications();
@@ -114,11 +172,29 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     const checkForNewNotifications = async () => {
       const currentNotificationIds = new Set(notifications.map((n) => n.id));
 
+      // Si és la càrrega inicial i hi ha notificacions, enviar push per cadascuna
+      if (isInitialLoadRef.current && currentNotificationIds.size > 0) {
+        console.log(`📬 Càrrega inicial: ${currentNotificationIds.size} notificacions detectades`);
+
+        for (const notification of notifications) {
+          if (!notification.read) {
+            await sendPushForNotification(notification);
+          }
+        }
+
+        previousNotificationIdsRef.current = currentNotificationIds;
+        isInitialLoadRef.current = false;
+        return;
+      }
+
+      // Detectar notificacions realment noves (en polling)
       const newNotificationIds = Array.from(currentNotificationIds).filter(
         (id) => !previousNotificationIdsRef.current.has(id),
       );
 
       if (newNotificationIds.length > 0 && previousNotificationIdsRef.current.size > 0) {
+        console.log(`🆕 ${newNotificationIds.length} notificacions noves detectades`);
+
         for (const id of newNotificationIds) {
           const notification = notifications.find((n) => n.id === id);
           if (notification) {
@@ -135,22 +211,38 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   }, [notifications]);
 
+  // Reset quan es tanca la modal
+  useEffect(() => {
+    if (!visible) {
+      isInitialLoadRef.current = true;
+      previousNotificationIdsRef.current = new Set();
+    }
+  }, [visible]);
+
   // Enviar push notification
   const sendPushForNotification = async (notification: Notification) => {
     try {
       const notifEnabled = await AsyncStorage.getItem('notificationsEnabled');
-      if (notifEnabled !== 'true') return;
+      if (notifEnabled !== 'true') {
+        console.log('❌ Push notifications disabled');
+        return;
+      }
 
       const { status } = await Notifications.getPermissionsAsync();
-      if (status !== 'granted') return;
+      if (status !== 'granted') {
+        console.log('❌ Push notification permission not granted');
+        return;
+      }
 
       let title = '';
       let body = '';
 
       if (notification.type === 'reward_unlocked') {
         const emoji = getRewardEmoji(notification.payload.reward_name || '');
+        const rewardName = notification.payload.reward_name || 'una nova insígnia';
+        const translatedName = t(rewardName);
         title = `${emoji} Nova insígnia desblocada!`;
-        body = `Felicitats! Has aconseguit: ${notification.payload.reward_name || 'una nova insígnia'}`;
+        body = `Felicitats! Has aconseguit: ${translatedName}`;
       } else if (notification.type === 'connection_request_received') {
         title = '👥 Nova sol·licitud de connexió';
         body = `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
@@ -166,6 +258,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         body = getNotificationText(notification);
       }
 
+      console.log(`📲 Enviant push: ${title} - ${body}`);
+
       await Notifications.scheduleNotificationAsync({
         content: {
           title,
@@ -179,8 +273,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         },
         trigger: null,
       });
+
+      console.log('✅ Push enviada correctament');
     } catch (error) {
-      console.error('Error sending push notification:', error);
+      console.error('❌ Error sending push notification:', error);
     }
   };
 
@@ -220,72 +316,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
-  // Eliminar notificació (quan l'usuari/esdeveniment ja no existeix)
-  const deleteNotification = async (notificationId: number) => {
-    try {
-      // Eliminar del backend si té endpoint per això
-      // await api(`/notifications/${notificationId}/`, { method: 'DELETE' });
-
-      // Eliminar de l'estat local
-      setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-
-      console.log(`✅ Notificació ${notificationId} eliminada`);
-    } catch (err) {
-      console.error('Error deleting notification:', err);
-    }
-  };
-
-  // Verificar si l'usuari existeix
-  const checkUserExists = async (userId: number): Promise<boolean> => {
-    try {
-      const response = await api(`/users/${userId}/`);
-      return !!response;
-    } catch (err: any) {
-      // Si retorna 404, l'usuari no existeix
-      if (err.message?.includes('404') || err.status === 404) {
-        return false;
-      }
-      // Per altres errors, assumim que existeix per no eliminar la notificació per error
-      return true;
-    }
-  };
-
-  const checkAndCleanupDeletedUsers = async () => {
-    const connectionRequestNotifications = notifications.filter(
-      (n) => n.type === 'connection_request_received',
-    );
-
-    for (const notification of connectionRequestNotifications) {
-      const userId = notification.payload.from_user_id;
-      if (userId) {
-        const userExists = await checkUserExists(userId);
-        if (!userExists) {
-          console.log(`🗑️ Netejant notificació de sol·licitud de l'usuari eliminat ${userId}`);
-          await deleteNotification(notification.id);
-        }
-      }
-    }
-  };
-
-  useEffect(() => {
-    if (visible && notifications.length > 0) {
-      checkAndCleanupDeletedUsers();
-    }
-  }, [visible, notifications.length]);
-
-  // Verificar si l'esdeveniment existeix
-  const checkEventExists = async (eventId: number): Promise<boolean> => {
-    try {
-      const response = await api(`/events/${eventId}/`);
-      return !!response;
-    } catch (err: any) {
-      if (err.message?.includes('404') || err.status === 404) {
-        return false;
-      }
-      return true;
-    }
-  };
-
   // Obtenir emoji per rewards
   const getRewardEmoji = (rewardName: string): string => {
     if (rewardName.includes('_3')) return '🏆';
@@ -298,7 +328,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const getNotificationText = (notification: Notification): string => {
     if (notification.type === 'reward_unlocked') {
       const emoji = getRewardEmoji(notification.payload.reward_name || '');
-      return `${emoji} Has aconseguit: ${notification.payload.reward_name || 'nova insígnia'}`;
+      const rewardName = notification.payload.reward_name || 'nova insígnia';
+      const translatedName = t(rewardName);
+      return `${emoji} Has aconseguit: ${translatedName}`;
     }
 
     if (notification.type === 'connection_request_received') {
@@ -378,10 +410,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     await handleMarkAsRead(notification);
 
     if (notification.type === 'reward_unlocked') {
-      // Mostrar modal amb detalls de la insígnia
       await loadBadgeDetails(notification.reference_id);
     } else if (notification.type === 'connection_request_received') {
-      // Verificar que l'usuari existeix
       const userId = notification.payload.from_user_id;
       if (!userId) {
         console.warn('No user ID in notification');
@@ -397,10 +427,22 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         return;
       }
 
-      // Navegar al perfil
       onClose();
       router.push(`/user/${userId}`);
     } else if (notification.type === 'event_soon' || notification.type === 'event_review_pending') {
+      const eventId = notification.reference_id;
+
+      const eventExists = await checkEventExists(eventId);
+
+      if (!eventExists) {
+        console.log(`❌ L'esdeveniment ${eventId} ja no existeix, eliminant notificació`);
+        await deleteNotification(notification.id);
+        return;
+      }
+
+      onClose();
+      router.push(`/events/${eventId}`);
+    } else if (notification.type === 'event' || notification.type === 'event_reminder') {
       const eventId = notification.reference_id;
 
       const eventExists = await checkEventExists(eventId);
@@ -470,7 +512,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             </Text>
             {isReward && item.payload.level && (
               <Text style={[styles.rewardSubtext, { color: Colors.textSecondary }]}>
-                {item.payload.level} • {item.payload.category_name}
+                {item.payload.level} • {t(item.payload.category_name || 'Category')}
               </Text>
             )}
             <Text style={[styles.timeText, { color: Colors.textSecondary }]}>
@@ -563,7 +605,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                     textAlign: 'center',
                   }}
                 >
-                  {selectedBadge.name}
+                  {t(selectedBadge.name)}
                 </Text>
 
                 <Text
@@ -574,7 +616,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                     marginTop: 8,
                   }}
                 >
-                  🏅 {selectedBadge.level_label} · Nivell {selectedBadge.level}
+                  🏅 {selectedBadge.level_label} · {t('Level')} {selectedBadge.level}
                 </Text>
 
                 <Text
@@ -585,7 +627,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                     marginTop: 8,
                   }}
                 >
-                  ⭐ Categoria: {selectedBadge.category}
+                  ⭐ {t('Category')}: {t(selectedBadge.category)}
                 </Text>
 
                 <Text
@@ -596,7 +638,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
                     marginTop: 8,
                   }}
                 >
-                  📅 Obtinguda el: {new Date(selectedBadge.obtained_at).toLocaleDateString('ca-ES')}
+                  📅 {t('Obtained at')}:{' '}
+                  {new Date(selectedBadge.obtained_at).toLocaleDateString('ca-ES')}
                 </Text>
 
                 <TouchableOpacity

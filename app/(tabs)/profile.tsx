@@ -26,15 +26,11 @@ import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
-import { useRewardNotifications } from '../../hooks/useRewardNotifications';
 
 export default function Profile() {
   const { t, i18n } = useTranslation();
   const { theme, toggleTheme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
-
-  // Hook per comprovar noves insígnies
-  useRewardNotifications();
 
   const [showMenu, setShowMenu] = useState(false);
   const [language, setLanguage] = useState(i18n.language);
