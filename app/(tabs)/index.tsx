@@ -12,6 +12,8 @@ import {
   Share,
   Modal,
   Platform,
+  Animated,
+  ScrollView,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
@@ -536,6 +538,7 @@ export default function Home() {
       : feedOptions.find((o) => o.value === selectedFeed)?.label;
 
   const BATCH_SIZE = 25;
+  const INITIAL_BATCH_SIZE = 10;
 
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -618,18 +621,21 @@ export default function Home() {
 
       const currentOffset = reset ? 0 : offset;
 
+      // Use smaller batch size for initial load, larger for subsequent loads
+      const batchSize = currentOffset === 0 ? INITIAL_BATCH_SIZE : BATCH_SIZE;
+
       // Select endpoint based on feed type
       const endpoint =
         selectedFeed === 'siguiendo'
-          ? `http://nattech.fib.upc.edu:40490/recommended/friends/?limit=${BATCH_SIZE}&offset=${currentOffset}`
-          : `http://nattech.fib.upc.edu:40490/recommended/?limit=${BATCH_SIZE}&offset=${currentOffset}`;
+          ? `http://nattech.fib.upc.edu:40490/recommended/friends/?limit=${batchSize}&offset=${currentOffset}`
+          : `http://nattech.fib.upc.edu:40490/recommended/?limit=${batchSize}&offset=${currentOffset}`;
 
       const token = await AsyncStorage.getItem('authToken');
       const headers: HeadersInit = {
         accept: '*/*',
       };
 
-      if (token && selectedFeed === 'siguiendo') {
+      if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
@@ -675,9 +681,9 @@ export default function Home() {
         return Array.from(map.values());
       });
 
-      setOffset(currentOffset + BATCH_SIZE);
+      setOffset(currentOffset + batchSize);
 
-      if (newEvents.length < BATCH_SIZE || data.has_more === false) {
+      if (newEvents.length < batchSize || data.has_more === false) {
         setHasMore(false);
       }
     } catch (err: any) {
@@ -728,15 +734,277 @@ export default function Home() {
     setUnreadNotifications(count);
   };
 
-  if (load)
+  // Skeleton Loader Component
+  const SkeletonLoader = () => {
+    const [rotation] = useState(new Animated.Value(0));
+    const [scale] = useState(new Animated.Value(1));
+    const [shimmer] = useState(new Animated.Value(0));
+    const [glow] = useState(new Animated.Value(0));
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.timing(rotation, {
+          toValue: 1,
+          duration: 3000,
+          useNativeDriver: true,
+          easing: (t) => t, // Linear easing for smooth rotation
+        }),
+      ).start();
+    }, [rotation]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.15,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 1000,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    }, [scale]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(glow, { toValue: 1, duration: 1200, useNativeDriver: true }),
+          Animated.timing(glow, { toValue: 0, duration: 1200, useNativeDriver: true }),
+        ]),
+      ).start();
+    }, [glow]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, { toValue: 1, duration: 1000, useNativeDriver: true }),
+          Animated.timing(shimmer, { toValue: 0, duration: 1000, useNativeDriver: true }),
+        ]),
+      ).start();
+    }, [shimmer]);
+
+    const rotationDegrees = rotation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
+    const opacity = shimmer.interpolate({
+      inputRange: [0, 1],
+      outputRange: [0.3, 0.7],
+    });
+
     return (
-      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <ActivityIndicator size="large" color={Colors.accent} />
-        <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
-          {t('Loading events')}
-        </Text>
+      <View style={[styles.container, { backgroundColor: Colors.background }]}>
+        <View style={styles.header}>
+          <View
+            style={{
+              width: 120,
+              height: 24,
+              borderRadius: 8,
+              backgroundColor: Colors.border,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Background skeleton cards */}
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 100, paddingBottom: 60 }}
+          scrollEnabled={false}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}
+        >
+          {[1, 2].map((i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: Colors.card,
+                  shadowColor: Colors.shadow,
+                  opacity: shimmer.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.08, 0.15],
+                  }),
+                  marginBottom: 20,
+                  borderWidth: 0.5,
+                  borderColor: Colors.border,
+                },
+              ]}
+            >
+              {/* Title Skeleton */}
+              <View style={{ paddingHorizontal: 12, paddingTop: 12, paddingBottom: 8 }}>
+                <View
+                  style={{
+                    height: 16,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    opacity: 0.4,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 16,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    width: '70%',
+                    opacity: 0.4,
+                  }}
+                />
+              </View>
+
+              {/* Image Skeleton */}
+              <View
+                style={{
+                  height: 250,
+                  backgroundColor: Colors.border,
+                  marginVertical: 8,
+                  opacity: 0.3,
+                }}
+              />
+
+              {/* Footer Skeleton */}
+              <View style={{ paddingHorizontal: 12, paddingVertical: 12 }}>
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', gap: 12 }}>
+                    {[1, 2, 3].map((j) => (
+                      <View
+                        key={j}
+                        style={{
+                          width: 24,
+                          height: 24,
+                          borderRadius: 12,
+                          backgroundColor: Colors.border,
+                          opacity: 0.7,
+                        }}
+                      />
+                    ))}
+                  </View>
+                  <View
+                    style={{
+                      width: 100,
+                      height: 32,
+                      borderRadius: 20,
+                      backgroundColor: Colors.border,
+                      opacity: 0.7,
+                    }}
+                  />
+                </View>
+              </View>
+
+              {/* Description Skeleton */}
+              <View style={{ paddingHorizontal: 12, paddingBottom: 12 }}>
+                <View
+                  style={{
+                    height: 14,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    marginBottom: 6,
+                    opacity: 0.3,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 14,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    width: '85%',
+                    opacity: 0.3,
+                  }}
+                />
+              </View>
+            </Animated.View>
+          ))}
+        </ScrollView>
+
+        {/* Foreground: Rotating Logo with Glow */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
+          {/* Main rotating logo with scale + rotation */}
+          <Animated.View
+            style={{
+              transform: [{ rotate: rotationDegrees }, { scale: scale }],
+            }}
+          >
+            <Image
+              source={
+                theme === 'dark'
+                  ? require('../../assets/cultcat-logo_dark.png')
+                  : require('../../assets/cultcat-logo_white.png')
+              }
+              style={{
+                width: 140,
+                height: 140,
+                resizeMode: 'contain',
+              }}
+            />
+          </Animated.View>
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: Colors.text,
+              marginTop: 32,
+              textAlign: 'center',
+            }}
+          >
+            {t('Loading events')}
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 14,
+              color: Colors.textSecondary,
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            {t('Preparing your cultural experience')}
+          </Text>
+        </View>
       </View>
     );
+  };
+
+  if (load) return <SkeletonLoader />;
 
   if (error)
     return (
