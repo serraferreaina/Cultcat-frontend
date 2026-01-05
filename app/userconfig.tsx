@@ -334,12 +334,12 @@ export default function UserConfig() {
           <TouchableOpacity onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={28} color={colors.text} />
           </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>{t('Configuració')}</Text>
+          <Text style={[styles.title, { color: colors.text }]}>{t('Configuration')}</Text>
           <View style={{ width: 28 }} />
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Foto de perfil')}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Profile photo')}</Text>
           <View style={styles.avatarSection}>
             <Image source={{ uri: avatar }} style={styles.avatarLarge} />
             <View style={{ flex: 1, marginLeft: 16 }}>
@@ -421,7 +421,7 @@ export default function UserConfig() {
               ]}
             >
               <Text style={[{ color: colors.text, fontSize: 15 }]}>
-                {email || 'correu@exemple.com'}
+                {email || t('email@example.com')}
               </Text>
             </View>
           </View>
@@ -440,7 +440,7 @@ export default function UserConfig() {
               />
               <View style={{ flex: 1, marginLeft: 12 }}>
                 <Text style={[styles.preferenceText, { color: colors.text }]}>
-                  {t('Location services') || "Serveis d'ubicació"}
+                  {t('Location services')}
                 </Text>
                 <Text style={[styles.preferenceSubtext, { color: colors.textSecondary }]}>
                   {locationStatus}
