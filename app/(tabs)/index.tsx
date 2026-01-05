@@ -532,10 +532,7 @@ export default function Home() {
     { label: t('Following'), value: 'siguiendo' },
   ];
   const availableFeedOptions = feedOptions.filter((o) => o.value !== selectedFeed);
-  const selectedFeedLabel =
-    selectedFeed === 'siguiendo'
-      ? `← ${feedOptions.find((o) => o.value === selectedFeed)?.label}`
-      : feedOptions.find((o) => o.value === selectedFeed)?.label;
+  const selectedFeedLabel = feedOptions.find((o) => o.value === selectedFeed)?.label;
 
   const BATCH_SIZE = 25;
   const INITIAL_BATCH_SIZE = 10;
@@ -707,8 +704,7 @@ export default function Home() {
   }, [selectedFeed]);
 
   const dropdown = () => {
-    if (selectedFeed === 'siguiendo') setSelectedFeed('paraTi');
-    else setIsDropdownVisible(!isDropdownVisible);
+    setIsDropdownVisible(!isDropdownVisible);
   };
 
   const selectFeed = (value: string) => {
@@ -844,7 +840,7 @@ export default function Home() {
                   shadowColor: Colors.shadow,
                   opacity: shimmer.interpolate({
                     inputRange: [0, 1],
-                    outputRange: [0.08, 0.15],
+                    outputRange: [0.5, 0.75],
                   }),
                   marginBottom: 20,
                   borderWidth: 0.5,
@@ -860,7 +856,7 @@ export default function Home() {
                     backgroundColor: Colors.border,
                     borderRadius: 8,
                     marginBottom: 8,
-                    opacity: 0.4,
+                    opacity: 0.8,
                   }}
                 />
                 <View
@@ -869,7 +865,7 @@ export default function Home() {
                     backgroundColor: Colors.border,
                     borderRadius: 8,
                     width: '70%',
-                    opacity: 0.4,
+                    opacity: 0.8,
                   }}
                 />
               </View>
@@ -880,7 +876,7 @@ export default function Home() {
                   height: 250,
                   backgroundColor: Colors.border,
                   marginVertical: 8,
-                  opacity: 0.3,
+                  opacity: 0.7,
                 }}
               />
 
@@ -902,7 +898,7 @@ export default function Home() {
                           height: 24,
                           borderRadius: 12,
                           backgroundColor: Colors.border,
-                          opacity: 0.7,
+                          opacity: 0.8,
                         }}
                       />
                     ))}
@@ -913,7 +909,7 @@ export default function Home() {
                       height: 32,
                       borderRadius: 20,
                       backgroundColor: Colors.border,
-                      opacity: 0.7,
+                      opacity: 0.8,
                     }}
                   />
                 </View>
@@ -927,7 +923,7 @@ export default function Home() {
                     backgroundColor: Colors.border,
                     borderRadius: 8,
                     marginBottom: 6,
-                    opacity: 0.3,
+                    opacity: 0.7,
                   }}
                 />
                 <View
@@ -936,7 +932,7 @@ export default function Home() {
                     backgroundColor: Colors.border,
                     borderRadius: 8,
                     width: '85%',
-                    opacity: 0.3,
+                    opacity: 0.7,
                   }}
                 />
               </View>
@@ -977,28 +973,36 @@ export default function Home() {
             />
           </Animated.View>
 
-          <Text
+          {/* Text container - subtle */}
+          <View
             style={{
-              fontSize: 20,
-              fontWeight: '700',
-              color: Colors.text,
+              paddingHorizontal: 16,
+              paddingVertical: 8,
               marginTop: 32,
-              textAlign: 'center',
             }}
           >
-            {t('Loading events')}
-          </Text>
+            <Text
+              style={{
+                fontSize: 20,
+                fontWeight: '700',
+                color: Colors.text,
+                textAlign: 'center',
+              }}
+            >
+              {t('Loading events')}
+            </Text>
 
-          <Text
-            style={{
-              fontSize: 14,
-              color: Colors.textSecondary,
-              marginTop: 8,
-              textAlign: 'center',
-            }}
-          >
-            {t('Preparing your cultural experience')}
-          </Text>
+            <Text
+              style={{
+                fontSize: 14,
+                color: Colors.textSecondary,
+                marginTop: 8,
+                textAlign: 'center',
+              }}
+            >
+              {t('Preparing your cultural experience')}
+            </Text>
+          </View>
         </View>
       </View>
     );
@@ -1020,13 +1024,11 @@ export default function Home() {
       <View style={styles.header}>
         <TouchableOpacity style={styles.dropdownButton} onPress={dropdown}>
           <Text style={[styles.title, { color: Colors.text }]}>{selectedFeedLabel}</Text>
-          {selectedFeed !== 'siguiendo' && (
-            <Ionicons
-              name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
-              size={20}
-              color={Colors.text}
-            />
-          )}
+          <Ionicons
+            name={isDropdownVisible ? 'chevron-up' : 'chevron-down'}
+            size={20}
+            color={Colors.text}
+          />
         </TouchableOpacity>
 
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
