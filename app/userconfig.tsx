@@ -461,10 +461,12 @@ export default function UserConfig() {
             }
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="document-text-outline" size={22} color={colors.text} />
-              <Text style={[styles.preferenceText, { color: colors.text }]}>
-                {t('Privacy policy')}
-              </Text>
+              <Ionicons name="document-text-outline" size={22} color={colors.accent} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: colors.text }]}>
+                  {t('Privacy policy')}
+                </Text>
+              </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -476,10 +478,12 @@ export default function UserConfig() {
             onPress={() => router.push('/SetupScreen')}
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="heart-outline" size={22} color={colors.text} />
-              <Text style={[styles.preferenceText, { color: colors.text }]}>
-                {t('Config preferences')}
-              </Text>
+              <Ionicons name="heart-outline" size={22} color={colors.accent} />
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: colors.text }]}>
+                  {t('Config preferences')}
+                </Text>
+              </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -494,9 +498,11 @@ export default function UserConfig() {
           >
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="key-outline" size={22} color={colors.text} />
-              <Text style={[styles.preferenceText, { color: colors.text }]}>
-                {t('Change password')}
-              </Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: colors.text }]}>
+                  {t('Change password')}
+                </Text>
+              </View>
             </View>
             <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
           </TouchableOpacity>
@@ -506,7 +512,9 @@ export default function UserConfig() {
           <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="log-out-outline" size={22} color={RED} />
-              <Text style={[styles.preferenceText, { color: RED }]}>{t('Close session')}</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: RED }]}>{t('Close session')}</Text>
+              </View>
             </View>
           </TouchableOpacity>
 
@@ -515,7 +523,9 @@ export default function UserConfig() {
           <TouchableOpacity style={styles.preferenceItem} onPress={handleDeleteAcc}>
             <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
               <Ionicons name="trash-outline" size={22} color={RED} />
-              <Text style={[styles.preferenceText, { color: RED }]}>{t('Delete account')}</Text>
+              <View style={{ flex: 1, marginLeft: 12 }}>
+                <Text style={[styles.preferenceText, { color: RED }]}>{t('Delete account')}</Text>
+              </View>
             </View>
           </TouchableOpacity>
         </View>
