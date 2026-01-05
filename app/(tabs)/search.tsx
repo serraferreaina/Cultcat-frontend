@@ -15,12 +15,13 @@ import {
   Alert,
   Share,
   Platform,
+  Animated,
 } from 'react-native';
 import SearchBar from '../../components/SearchBar';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { MapPin, Bookmark, Star, SlidersHorizontal, X } from 'lucide-react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
 import { useRouter } from 'expo-router';
@@ -644,16 +645,238 @@ export default function CercaScreen() {
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
+  // Skeleton Loader Component
+  const SkeletonLoader = () => {
+    const rotation = useRef(new Animated.Value(0)).current;
+    const scale = useRef(new Animated.Value(1)).current;
+    const shimmer = useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.timing(rotation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+          easing: (t) => t,
+        }),
+      ).start();
+    }, [rotation]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.15,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    }, [scale]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(shimmer, { toValue: 0, duration: 600, useNativeDriver: true }),
+        ]),
+      ).start();
+    }, [shimmer]);
+
+    const rotationDegrees = rotation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
+    return (
+      <View style={[styles.screen, { backgroundColor: Colors.background }]}>
+        <View style={styles.header}>
+          <View
+            style={{
+              width: 120,
+              height: 24,
+              borderRadius: 8,
+              backgroundColor: Colors.border,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Background skeleton cards */}
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 100, paddingBottom: 60 }}
+          scrollEnabled={false}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}
+        >
+          {[1, 2].map((i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.eventRow,
+                {
+                  backgroundColor: Colors.card,
+                  opacity: shimmer.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.35, 0.55],
+                  }),
+                  marginBottom: 20,
+                  borderWidth: 0.5,
+                  borderColor: Colors.border,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 100,
+                  height: 100,
+                  backgroundColor: Colors.border,
+                  borderRadius: 8,
+                  opacity: 0.6,
+                }}
+              />
+              <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 8 }}>
+                {/* Title lines */}
+                <View
+                  style={{
+                    height: 16,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    opacity: 0.7,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 14,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    width: '75%',
+                    marginBottom: 10,
+                    opacity: 0.6,
+                  }}
+                />
+                {/* Labels/tags */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                  <View
+                    style={{
+                      height: 20,
+                      width: 45,
+                      backgroundColor: Colors.border,
+                      borderRadius: 10,
+                      opacity: 0.5,
+                    }}
+                  />
+                  <View
+                    style={{
+                      height: 20,
+                      width: 40,
+                      backgroundColor: Colors.border,
+                      borderRadius: 10,
+                      opacity: 0.5,
+                    }}
+                  />
+                </View>
+                {/* Button area */}
+                <View
+                  style={{
+                    height: 32,
+                    backgroundColor: Colors.border,
+                    borderRadius: 16,
+                    width: '55%',
+                    opacity: 0.6,
+                  }}
+                />
+              </View>
+            </Animated.View>
+          ))}
+        </ScrollView>
+
+        {/* Foreground: Rotating Logo */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
+          <Animated.View
+            style={{
+              transform: [{ rotate: rotationDegrees }, { scale: scale }],
+            }}
+          >
+            <Image
+              source={
+                theme === 'dark'
+                  ? require('../../assets/cultcat-logo_dark.png')
+                  : require('../../assets/cultcat-logo_white.png')
+              }
+              style={{
+                width: 140,
+                height: 140,
+                resizeMode: 'contain',
+              }}
+            />
+          </Animated.View>
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: Colors.text,
+              marginTop: 32,
+              textAlign: 'center',
+            }}
+          >
+            {t('Loading events')}
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 14,
+              color: Colors.textSecondary,
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            {t('Preparing your cultural experience')}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
   if (load) {
     return (
       <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
         <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-        <View style={[styles.screen, { justifyContent: 'center', alignItems: 'center' }]}>
-          <ActivityIndicator size="large" color={Colors.accent} />
-          <Text style={{ color: Colors.text, marginTop: 16, fontSize: 16, fontWeight: '500' }}>
-            {t('Loading events')}
-          </Text>
-        </View>
+        <SkeletonLoader />
       </SafeAreaView>
     );
   }
@@ -1079,6 +1302,14 @@ export default function CercaScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
+  },
+  header: {
+    marginTop: 60,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   content: {
     paddingTop: 8,
