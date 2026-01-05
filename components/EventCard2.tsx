@@ -102,11 +102,7 @@ const normalizeDate = (date: Date): Date => {
 };
 
 export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
-  const {
-    goingEvents,
-    attendanceDates,
-    toggleGoing,
-  } = useEventStatus();
+  const { goingEvents, attendanceDates, toggleGoing } = useEventStatus();
 
   const { t } = useTranslation();
   const [isUnsaving, setIsUnsaving] = useState(false);

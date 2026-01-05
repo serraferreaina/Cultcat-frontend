@@ -265,7 +265,7 @@ export default function EventDetail() {
     checkSaved();
   }, [event]);
 
-const handleToggleSave = async () => {
+  const handleToggleSave = async () => {
     if (!event) return;
 
     const wasSaved = isSaved;

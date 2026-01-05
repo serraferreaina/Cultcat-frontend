@@ -31,7 +31,6 @@ import { ShareEventModal } from '../../components/ShareEventModal';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 
-
 interface Events {
   id: number;
   titol: string;

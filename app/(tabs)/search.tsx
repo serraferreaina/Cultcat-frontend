@@ -34,7 +34,6 @@ import { ShareEventModal } from '../../components/ShareEventModal';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
 
-
 export default function CercaScreen() {
   const { t, i18n } = useTranslation();
   const { theme } = useTheme();
@@ -50,7 +49,14 @@ export default function CercaScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { goingEvents, toggleGoing, attendanceDates, savedEvents, toggleSaved, refreshSavedEvents } = useEventStatus();
+  const {
+    goingEvents,
+    toggleGoing,
+    attendanceDates,
+    savedEvents,
+    toggleSaved,
+    refreshSavedEvents,
+  } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -189,10 +195,10 @@ export default function CercaScreen() {
   }, []);
 
   useFocusEffect(
-      useCallback(() => {
-        refreshSavedEvents();
-      }, []),
-    );
+    useCallback(() => {
+      refreshSavedEvents();
+    }, []),
+  );
 
   const handleSearchByMunicipi = async (municipi: string) => {
     setSelectedMunicipi(municipi);
