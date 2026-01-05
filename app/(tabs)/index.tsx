@@ -28,6 +28,8 @@ import { api } from '../../api';
 import NotificationsScreen from '../../components/NotificationScreen';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 interface Events {
   id: number;
@@ -557,7 +559,6 @@ export default function Home() {
 
   const handleToggleSave = async (eventId: number) => {
     const isSaved = savedEvents[eventId] || false;
-
     setSavedEvents((prev) => ({ ...prev, [eventId]: !isSaved }));
 
     try {
@@ -566,12 +567,32 @@ export default function Home() {
           method: 'DELETE',
         });
       } else {
+        // Troba l'esdeveniment per obtenir les dates
+        const event = events.find((e) => e.id === eventId);
+
+        // Para wishlist (bookmark), siempre usar la fecha de fin del evento
+        // Si no hay fecha de fin, usar la fecha de inicio
+        let attendanceDate: string;
+
+        if (event?.data_fi) {
+          attendanceDate = new Date(event.data_fi).toISOString().split('T')[0];
+        } else if (event?.data_inici) {
+          attendanceDate = new Date(event.data_inici).toISOString().split('T')[0];
+        } else {
+          // Fallback: usa la data d'avui
+          attendanceDate = new Date().toISOString().split('T')[0];
+        }
+
         await api(`/save/${eventId}/`, {
           method: 'POST',
-          body: JSON.stringify({ state: 'wishlist' }),
+          body: JSON.stringify({
+            state: 'wishlist',
+            attendance_date: attendanceDate,
+          }),
         });
       }
     } catch (err: any) {
+      console.error('Error toggling save:', err);
       setSavedEvents((prev) => ({ ...prev, [eventId]: isSaved }));
     }
   };
@@ -702,6 +723,12 @@ export default function Home() {
     setNoConnections(false);
     fetchEvents(true);
   }, [selectedFeed]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadSavedEvents();
+    }, []),
+  );
 
   const dropdown = () => {
     setIsDropdownVisible(!isDropdownVisible);

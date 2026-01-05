@@ -22,6 +22,7 @@ import ReviewSection from '../../components/ReviewSection';
 import WeatherIcon from '../../components/WeatherIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
+import { api } from '../../api';
 
 interface EventData {
   id: number;
@@ -58,7 +59,7 @@ export default function EventDetail() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const { savedEvents, toggleSaved } = useEventStatus();
+  //const { savedEvents, toggleSaved } = useEventStatus();
 
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
@@ -70,6 +71,7 @@ export default function EventDetail() {
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [reviews, setReviews] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
 
   // IMPORTANT: Cridem useEventLogic ABANS dels useEffect (amb fallback per evitar null)
   const eventLogic = useEventLogic(
@@ -246,6 +248,61 @@ export default function EventDetail() {
 
     fetchReviews();
   }, [eventId, reviewVisible]);
+
+  useEffect(() => {
+    if (!event) return;
+
+    const checkSaved = async () => {
+      try {
+        const data = await api('/saved-events/?state=wishlist');
+        const saved = data.some((e: any) => parseInt(e.event_id) === event.id);
+        setIsSaved(saved);
+      } catch (err) {
+        console.error('Error checking saved status:', err);
+      }
+    };
+
+    checkSaved();
+  }, [event]);
+
+  const handleToggleSave = async () => {
+    if (!event) return;
+
+    const wasSaved = isSaved;
+    setIsSaved(!wasSaved);
+
+    try {
+      if (wasSaved) {
+        await api(`/save/${event.id}/`, {
+          method: 'DELETE',
+        });
+      } else {
+        // Para wishlist (bookmark), siempre usar la fecha de fin del evento
+        // Si no hay fecha de fin, usar la fecha de inicio
+        let attendanceDate: string;
+
+        if (event.data_fi) {
+          attendanceDate = new Date(event.data_fi).toISOString().split('T')[0];
+        } else if (event.data_inici) {
+          attendanceDate = new Date(event.data_inici).toISOString().split('T')[0];
+        } else {
+          // Si no hay ninguna fecha, usar hoy
+          attendanceDate = new Date().toISOString().split('T')[0];
+        }
+
+        await api(`/save/${event.id}/`, {
+          method: 'POST',
+          body: JSON.stringify({
+            state: 'wishlist',
+            attendance_date: attendanceDate,
+          }),
+        });
+      }
+    } catch (err: any) {
+      console.error('Error toggling save:', err);
+      setIsSaved(wasSaved);
+    }
+  };
 
   // Determinar si es pot escriure una review (després dels useEffect)
   // NOMÉS es pot fer review si vas marcar que aniràs i la data d'assistència ja ha passat
@@ -437,7 +494,7 @@ export default function EventDetail() {
     );
   };
 
-  const isSaved = !!savedEvents[event.id];
+  //const isSaved = !!savedEvents[event.id];
 
   const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
   const imageUri = event.imgApp
@@ -508,7 +565,7 @@ export default function EventDetail() {
         <LogicWrapper />
 
         <View style={styles.iconsRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={() => toggleSaved(event.id)}>
+          <TouchableOpacity style={styles.iconButton} onPress={handleToggleSave}>
             <Ionicons
               name={isSaved ? 'bookmark' : 'bookmark-outline'}
               size={20}

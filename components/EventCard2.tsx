@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useEventStatus } from '../context/EventStatus';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from './ShareEventModal';
+import { api } from '../api';
 
 interface Event {
   id: number;
@@ -101,25 +102,16 @@ const normalizeDate = (date: Date): Date => {
 };
 
 export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
-  const {
-    goingEvents,
-    savedEvents,
-    assistedEvents,
-    attendanceDates,
-    toggleGoing,
-    toggleSaved,
-    toggleAssisted,
-  } = useEventStatus();
+  const { goingEvents, attendanceDates, toggleGoing } = useEventStatus();
 
   const { t } = useTranslation();
   const [isUnsaving, setIsUnsaving] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [isSaved, setIsSaved] = useState(false);
 
   const isGoing = !!goingEvents[item.id];
-  const isSaved = !!savedEvents[item.id];
-  const isAssisted = !!assistedEvents[item.id];
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
 
@@ -147,6 +139,21 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
   const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
   const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
   const userAttendanceIsFuture = attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
+
+  // Comprovar l'estat de guardat quan es munta el component
+  useEffect(() => {
+    const checkSaved = async () => {
+      try {
+        const data = await api('/saved-events/?state=wishlist');
+        const saved = data.some((e: any) => parseInt(e.event_id) === item.id);
+        setIsSaved(saved);
+      } catch (err) {
+        console.error('Error checking saved status:', err);
+      }
+    };
+
+    checkSaved();
+  }, [item.id]);
 
   // Calcular fechas mínima y máxima para el selector
   const getMinMaxDates = () => {
@@ -177,14 +184,44 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
 
     setIsUnsaving(true);
 
-    try {
-      await toggleSaved(item.id);
+    const wasSaved = isSaved;
+    setIsSaved(!wasSaved);
 
-      if (isSaved && onUnsaved) {
-        onUnsaved(item.id);
+    try {
+      if (wasSaved) {
+        await api(`/save/${item.id}/`, {
+          method: 'DELETE',
+        });
+
+        if (onUnsaved) {
+          onUnsaved(item.id);
+        }
+      } else {
+        // Para wishlist (bookmark), siempre usar la fecha de fin del evento
+        // Si no hay fecha de fin, usar la fecha de inicio
+        let attendanceDate: string;
+
+        if (item.data_fi) {
+          attendanceDate = new Date(item.data_fi).toISOString().split('T')[0];
+        } else if (item.data_inici) {
+          attendanceDate = new Date(item.data_inici).toISOString().split('T')[0];
+        } else {
+          // Si no hay ninguna fecha, usar hoy
+          attendanceDate = new Date().toISOString().split('T')[0];
+        }
+
+        await api(`/save/${item.id}/`, {
+          method: 'POST',
+          body: JSON.stringify({
+            state: 'wishlist',
+            attendance_date: attendanceDate,
+          }),
+        });
       }
     } catch (err: any) {
       console.error('❌ Error toggling saved:', err);
+      // Revertir l'estat en cas d'error
+      setIsSaved(wasSaved);
     } finally {
       setIsUnsaving(false);
     }

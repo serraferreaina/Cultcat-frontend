@@ -9,7 +9,7 @@ interface EventStatusContextProps {
   assistedEvents: Record<number, boolean>;
   attendanceDates: Record<number, string>;
   toggleGoing: (eventId: number, date?: Date) => Promise<void>;
-  toggleSaved: (eventId: number) => Promise<void>;
+  toggleSaved: (eventId: number, event?: any) => Promise<void>;
   toggleAssisted: (eventId: number, date?: Date) => Promise<void>;
   refreshSavedEvents: () => Promise<void>;
   loadInitialData: () => Promise<void>;
@@ -251,18 +251,38 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
     );
   };
 
-  const toggleSaved = async (eventId: number) => {
+  const toggleSaved = async (eventId: number, event?: any) => {
     const isCurrentlySaved = savedEvents[eventId] || false;
 
     const updated = { ...savedEvents, [eventId]: !isCurrentlySaved };
     setSavedEvents(updated);
     await persistSaved(updated);
 
-    await handleApiToggle(eventId, isCurrentlySaved, 'wishlist', async () => {
-      const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
-      setSavedEvents(reverted);
-      await persistSaved(reverted);
-    });
+    // Si estamos guardando (no eliminando), necesitamos una fecha válida
+    let dateToSend: Date | undefined = undefined;
+
+    if (!isCurrentlySaved && event) {
+      // Para wishlist (bookmark), usar la fecha de fin del evento
+      if (event.data_fi) {
+        dateToSend = new Date(event.data_fi);
+      } else if (event.data_inici) {
+        dateToSend = new Date(event.data_inici);
+      } else {
+        dateToSend = new Date();
+      }
+    }
+
+    await handleApiToggle(
+      eventId,
+      isCurrentlySaved,
+      'wishlist',
+      async () => {
+        const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
+        setSavedEvents(reverted);
+        await persistSaved(reverted);
+      },
+      dateToSend,
+    );
   };
 
   return (

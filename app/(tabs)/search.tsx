@@ -13,7 +13,6 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  Share,
   Platform,
   Animated,
 } from 'react-native';
@@ -22,8 +21,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { MapPin, Bookmark, Star, SlidersHorizontal, X } from 'lucide-react-native';
-import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import { MapPin, Star, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
@@ -33,6 +31,8 @@ import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 export default function CercaScreen() {
   const { t, i18n } = useTranslation();
@@ -49,7 +49,14 @@ export default function CercaScreen() {
   const [events, setEvents] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { goingEvents, savedEvents, toggleGoing, toggleSaved, attendanceDates } = useEventStatus();
+  const {
+    goingEvents,
+    toggleGoing,
+    attendanceDates,
+    savedEvents,
+    toggleSaved,
+    refreshSavedEvents,
+  } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
@@ -105,7 +112,6 @@ export default function CercaScreen() {
   };
 
   const shouldHideEvent = (event: any): boolean => {
-    // Ocultar esdeveniments amb data específica 2924-06-30
     if (event.data_fi) {
       const endDate = new Date(event.data_fi);
       const targetDate = new Date('2924-06-30');
@@ -119,7 +125,6 @@ export default function CercaScreen() {
       }
     }
 
-    // Ocultar esdeveniments amb data d'inici > 2030
     if (event.data_inici) {
       const startDate = new Date(event.data_inici);
       if (startDate.getFullYear() > 2030) {
@@ -127,7 +132,6 @@ export default function CercaScreen() {
       }
     }
 
-    // Ocultar esdeveniments amb data de fi > 2030
     if (event.data_fi) {
       const endDate = new Date(event.data_fi);
       if (endDate.getFullYear() > 2030) {
@@ -166,7 +170,6 @@ export default function CercaScreen() {
       setEvents((prev: any[]) => {
         if (reset) return newEvents;
 
-        // Evitar duplicats
         const map = new Map<number, any>();
         prev.forEach((evt: any) => map.set(evt.id, evt));
         newEvents.forEach((evt: any) => map.set(evt.id, evt));
@@ -190,6 +193,12 @@ export default function CercaScreen() {
   useEffect(() => {
     fetchEvents(true);
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSavedEvents();
+    }, []),
+  );
 
   const handleSearchByMunicipi = async (municipi: string) => {
     setSelectedMunicipi(municipi);
@@ -322,7 +331,7 @@ export default function CercaScreen() {
     return endDate < today;
   };
 
-  const EventCard = React.memo(({ item }: { item: any }) => {
+  const EventCard = ({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
 
     const attendanceDate = attendanceDates[item.id]
@@ -383,6 +392,10 @@ export default function CercaScreen() {
       } else {
         return t('Want to go');
       }
+    };
+
+    const handleToggleSave = async () => {
+      await toggleSaved(item.id, item);
     };
 
     const getButtonColor = () => {
@@ -516,7 +529,7 @@ export default function CercaScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={[styles.iconButton, { marginRight: 12 }]}
-                onPress={() => toggleSaved(item.id)}
+                onPress={handleToggleSave}
               >
                 <Ionicons
                   name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -554,7 +567,7 @@ export default function CercaScreen() {
         </View>
       </TouchableOpacity>
     );
-  });
+  };
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
