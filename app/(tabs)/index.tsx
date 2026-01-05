@@ -540,6 +540,7 @@ export default function Home() {
   const [offset, setOffset] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
+  const [noConnections, setNoConnections] = useState(false);
 
   const loadSavedEvents = async () => {
     try {
@@ -617,18 +618,55 @@ export default function Home() {
 
       const currentOffset = reset ? 0 : offset;
 
-      const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/recommended/?limit=${BATCH_SIZE}&offset=${currentOffset}`,
-      );
+      // Select endpoint based on feed type
+      const endpoint =
+        selectedFeed === 'siguiendo'
+          ? `http://nattech.fib.upc.edu:40490/recommended/friends/?limit=${BATCH_SIZE}&offset=${currentOffset}`
+          : `http://nattech.fib.upc.edu:40490/recommended/?limit=${BATCH_SIZE}&offset=${currentOffset}`;
+
+      const token = await AsyncStorage.getItem('authToken');
+      const headers: HeadersInit = {
+        accept: '*/*',
+      };
+
+      if (token && selectedFeed === 'siguiendo') {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const res = await fetch(endpoint, { headers });
 
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const data = await res.json();
-      const allEvents = data.results || data || [];
+
+      // Check if user has no connections
+      if (
+        selectedFeed === 'siguiendo' &&
+        data.detail === 'No está disponible esta funcionalidad.'
+      ) {
+        setNoConnections(true);
+        setEvents([]);
+        setHasMore(false);
+        return;
+      }
+
+      setNoConnections(false);
+
+      // Handle different response formats
+      let allEvents: Events[] = [];
+      if (selectedFeed === 'siguiendo') {
+        // Friends endpoint returns: { event: {...}, recommended_by: "username", score: 0.42 }
+        allEvents = (data.results || []).map((item: any) => item.event);
+      } else {
+        allEvents = data.results || data || [];
+      }
 
       const newEvents = allEvents.filter((event: Events) => !shouldHideEvent(event));
 
       setEvents((prev: Events[]) => {
+        if (reset) {
+          return newEvents;
+        }
         const map = new Map<number, Events>();
 
         prev.forEach((e: Events) => map.set(e.id, e));
@@ -639,7 +677,7 @@ export default function Home() {
 
       setOffset(currentOffset + BATCH_SIZE);
 
-      if (newEvents.length < BATCH_SIZE) {
+      if (newEvents.length < BATCH_SIZE || data.has_more === false) {
         setHasMore(false);
       }
     } catch (err: any) {
@@ -654,6 +692,13 @@ export default function Home() {
     fetchEvents(true);
     loadSavedEvents();
   }, []);
+
+  useEffect(() => {
+    setOffset(0);
+    setHasMore(true);
+    setNoConnections(false);
+    fetchEvents(true);
+  }, [selectedFeed]);
 
   const dropdown = () => {
     if (selectedFeed === 'siguiendo') setSelectedFeed('paraTi');
@@ -757,34 +802,49 @@ export default function Home() {
         </View>
       )}
 
+      {/* NO CONNECTIONS MESSAGE */}
+      {noConnections && selectedFeed === 'siguiendo' && (
+        <View style={[styles.noConnectionsContainer, { backgroundColor: Colors.background }]}>
+          <Ionicons name="people-outline" size={80} color={Colors.textSecondary} />
+          <Text style={[styles.noConnectionsTitle, { color: Colors.text }]}>
+            {t('No connections yet')}
+          </Text>
+          <Text style={[styles.noConnectionsText, { color: Colors.textSecondary }]}>
+            {t('Connect with other users to see events they are interested in')}
+          </Text>
+        </View>
+      )}
+
       {/* LIST OF FEED CARDS */}
-      <FlatList
-        data={events}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={({ item }) => (
-          <FeedCard
-            item={item}
-            onOpenComments={handleOpenComments}
-            onOpenReviews={handleOpenReviews}
-            savedEvents={savedEvents}
-            onToggleSave={handleToggleSave}
-          />
-        )}
-        contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
-        onEndReached={() => {
-          if (hasMore && !loadingMore) {
-            fetchEvents();
+      {!noConnections && (
+        <FlatList
+          data={events}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={({ item }) => (
+            <FeedCard
+              item={item}
+              onOpenComments={handleOpenComments}
+              onOpenReviews={handleOpenReviews}
+              savedEvents={savedEvents}
+              onToggleSave={handleToggleSave}
+            />
+          )}
+          contentContainerStyle={{ paddingBottom: 60, marginTop: 20 }}
+          onEndReached={() => {
+            if (hasMore && !loadingMore) {
+              fetchEvents();
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <View style={{ paddingVertical: 20 }}>
+                <ActivityIndicator size="small" color={Colors.accent} />
+              </View>
+            ) : null
           }
-        }}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={{ paddingVertical: 20 }}>
-              <ActivityIndicator size="small" color={Colors.accent} />
-            </View>
-          ) : null
-        }
-      />
+        />
+      )}
 
       <CommentSection
         eventId={activeEventId ?? 0}
@@ -963,5 +1023,24 @@ const styles = StyleSheet.create({
   confirmButtonText: {
     fontWeight: '700',
     fontSize: 16,
+  },
+  noConnectionsContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 100,
+  },
+  noConnectionsTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    marginTop: 20,
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  noConnectionsText: {
+    fontSize: 16,
+    textAlign: 'center',
+    lineHeight: 24,
   },
 });
