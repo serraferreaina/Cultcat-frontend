@@ -375,7 +375,7 @@ export default function Profile() {
               </Text>
 
               <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
-                {user?.profile_description || t('Encara no has afegit una descripció.')}
+                {user?.profile_description || t('No description added yet')}
               </Text>
 
               <Text style={[styles.points, { color: Colors.text }]}></Text>
