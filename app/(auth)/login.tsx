@@ -56,6 +56,19 @@ const Login: React.FC = () => {
   // Estado para notificación de eliminación de cuenta
   const [showDeletedNotification, setShowDeletedNotification] = useState(false);
 
+  // Estado para modal de error de login
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorTitle, setErrorTitle] = useState('');
+
+  // Estado para modal de error de registro
+  const [showRegistrationErrorModal, setShowRegistrationErrorModal] = useState(false);
+  const [registrationErrorMessage, setRegistrationErrorMessage] = useState('');
+  const [registrationErrorTitle, setRegistrationErrorTitle] = useState('');
+  const [registrationErrorField, setRegistrationErrorField] = useState<
+    'username' | 'email' | 'password' | 'general' | null
+  >(null);
+
   // Check for logout notification
   useEffect(() => {
     const checkLogoutStatus = async () => {
@@ -208,11 +221,21 @@ const Login: React.FC = () => {
           router.replace('/SetupScreen');
         }
       } else {
-        Alert.alert(t('Error'), data.message || data.detail || t('Invalid credentials'));
+        let title = t('Login Failed');
+        let message = t('Invalid credentials');
+        if (data.detail === 'invalid username/email or password') {
+          title = t('Invalid Credentials');
+          message = t('InvalidPasswordMessage');
+        }
+        setErrorTitle(title);
+        setErrorMessage(message);
+        setShowErrorModal(true);
       }
     } catch (error) {
       console.error('Login error:', error);
-      Alert.alert(t('Error'), t('An error occurred during login'));
+      setErrorTitle(t('Error'));
+      setErrorMessage(t('An error occurred during login'));
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -220,12 +243,18 @@ const Login: React.FC = () => {
 
   const handleManualRegister = async () => {
     if (!username || !email || !password) {
-      Alert.alert(t('Error'), t('Please fill in all fields'));
+      setRegistrationErrorTitle(t('Missing Fields'));
+      setRegistrationErrorMessage(t('Please fill in all fields'));
+      setRegistrationErrorField('general');
+      setShowRegistrationErrorModal(true);
       return;
     }
 
     if (password.length < 8) {
-      Alert.alert(t('Error'), t('Password must be at least 8 characters long'));
+      setRegistrationErrorTitle(t('Weak Password'));
+      setRegistrationErrorMessage(t('PasswordTooShortMessage'));
+      setRegistrationErrorField('password');
+      setShowRegistrationErrorModal(true);
       return;
     }
 
@@ -265,18 +294,73 @@ const Login: React.FC = () => {
         // Registro siempre va a configuración inicial
         router.replace('/SetupScreen');
       } else {
-        const errorMsg =
-          data.username?.[0] ||
-          data.email?.[0] ||
-          data.password?.[0] ||
-          data.message ||
-          data.detail ||
-          t('Registration failed');
-        Alert.alert(t('Error'), errorMsg);
+        // Handle specific error messages
+        let title = t('Registration failed');
+        let message = t('Registration failed');
+        let field: 'username' | 'email' | 'password' | 'general' | null = 'general';
+
+        if (data.username?.[0]) {
+          title = t('Username Taken');
+          message = t('UsernameAlreadyTakenMessage');
+          field = 'username';
+        } else if (data.email?.[0]) {
+          const emailError = data.email[0].toLowerCase();
+          if (
+            emailError.includes('valid email') ||
+            emailError.includes('correo válido') ||
+            emailError.includes('adreça de correu')
+          ) {
+            title = t('Invalid Email');
+            message = t('InvalidEmailMessage');
+            field = 'email';
+          } else {
+            title = t('Email Already Used');
+            message = t('EmailAlreadyInUseMessage');
+            field = 'email';
+          }
+        } else if (data.password?.[0]) {
+          const passwordError = data.password[0].toLowerCase();
+          title = t('Weak Password');
+          if (
+            passwordError.includes('8') ||
+            passwordError.includes('ocho') ||
+            passwordError.includes('vuit')
+          ) {
+            message = t('PasswordTooShortMessage');
+          } else if (
+            passwordError.includes('uppercase') ||
+            passwordError.includes('mayúscula') ||
+            passwordError.includes('majúscula')
+          ) {
+            message = t('PasswordNeedsUppercase');
+          } else if (passwordError.includes('lowercase') || passwordError.includes('minúscula')) {
+            message = t('PasswordNeedsLowercase');
+          } else if (
+            passwordError.includes('digit') ||
+            passwordError.includes('número') ||
+            passwordError.includes('número')
+          ) {
+            message = t('PasswordNeedsNumber');
+          } else {
+            message = t('PasswordTooShortMessage');
+          }
+          field = 'password';
+        } else {
+          title = t('Registration failed');
+          message = t('Registration failed');
+        }
+
+        setRegistrationErrorTitle(title);
+        setRegistrationErrorMessage(message);
+        setRegistrationErrorField(field);
+        setShowRegistrationErrorModal(true);
       }
     } catch (error) {
       console.error('Register error:', error);
-      Alert.alert(t('Error'), t('An error occurred during registration'));
+      setRegistrationErrorTitle(t('Error'));
+      setRegistrationErrorMessage(t('An error occurred during registration'));
+      setRegistrationErrorField('general');
+      setShowRegistrationErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -424,17 +508,6 @@ const Login: React.FC = () => {
                   </TouchableOpacity>
                 </View>
 
-                {!isRegisterMode && (
-                  <TouchableOpacity
-                    style={styles.forgotPassword}
-                    onPress={() => router.push('/changePassword')}
-                  >
-                    <Text style={[styles.forgotPasswordText, { color: colors.accent }]}>
-                      {t('Change password')}
-                    </Text>
-                  </TouchableOpacity>
-                )}
-
                 <TouchableOpacity
                   style={[
                     dynamicStyles.loginButton,
@@ -568,6 +641,157 @@ const Login: React.FC = () => {
               <Text style={[styles.modalSecondaryButtonText, { color: colors.accent }]}>
                 {t("Didn't receive the email? Check spam folder")}
               </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal visible={showErrorModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            {/* Error Icon */}
+            <View
+              style={[
+                {
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: `${colors.accent}20`,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              <Ionicons name="alert-circle-outline" size={32} color={colors.accent} />
+            </View>
+
+            {/* Error Title */}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{errorTitle}</Text>
+
+            {/* Error Message */}
+            <Text style={[styles.modalMessage, { color: colors.textSecondary, marginBottom: 24 }]}>
+              {errorMessage}
+            </Text>
+
+            {/* Helpful Tips */}
+            <View
+              style={[
+                styles.modalInfoBox,
+                { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+              ]}
+            >
+              <Ionicons name="help-circle-outline" size={18} color={colors.accent} />
+              <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                {t('Make sure your email or username is correct and your password is accurate.')}
+              </Text>
+            </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={() => setShowErrorModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>{t('Try Again')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Registration Error Modal */}
+      <Modal visible={showRegistrationErrorModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            {/* Error Icon */}
+            <View
+              style={[
+                {
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: `${colors.accent}20`,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              <Ionicons name="alert-circle-outline" size={32} color={colors.accent} />
+            </View>
+
+            {/* Error Title */}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {registrationErrorTitle}
+            </Text>
+
+            {/* Error Message */}
+            <Text style={[styles.modalMessage, { color: colors.textSecondary, marginBottom: 24 }]}>
+              {registrationErrorMessage}
+            </Text>
+
+            {/* Helpful Tips based on field */}
+            {registrationErrorField === 'password' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Use at least 8 characters with a mix of uppercase, lowercase, and numbers.')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'email' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="mail-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Make sure to enter a valid email address (e.g., user@example.com)')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'username' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="person-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Try choosing a different username or check the requirements.')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'general' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="help-circle-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Please review your information and try again.')}
+                </Text>
+              </View>
+            )}
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={() => setShowRegistrationErrorModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>{t('Try Again')}</Text>
             </TouchableOpacity>
           </View>
         </View>
