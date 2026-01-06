@@ -39,35 +39,64 @@ export default function PreviousEventsScreen() {
       setError(null);
       setLoading(true);
 
-      // Fetch attended saved events
-      const savedEvents: SavedEvent[] = await getSavedEvents('attended');
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
 
-      // Fetch full event details in parallel
-      const detailedEvents = (
+      // Fetch attended and wantToGo saved events
+      const [attended, wantToGo] = await Promise.all([
+        getSavedEvents('attended'),
+        getSavedEvents('wantToGo'),
+      ]);
+
+      // Filter wantToGo with attendance_date before today
+      const expiredWantToGo = (wantToGo || []).filter((e) => {
+        if (!e.attendance_date) return false;
+        const d = new Date(e.attendance_date);
+        d.setHours(0, 0, 0, 0);
+        return d < today;
+      });
+
+      // Combine both sets with a type marker
+      const combined = [
+        ...((attended || []).map((e) => ({ type: 'attended' as const, meta: e }))),
+        ...expiredWantToGo.map((e) => ({ type: 'expired_wantToGo' as const, meta: e })),
+      ];
+
+      // Fetch full event details
+      const detailed = (
         await Promise.all(
-          (savedEvents || []).map(async (e) => {
+          combined.map(async (entry) => {
             try {
-              const ev = await getEventById(e.event_id);
-              return { ev, meta: e };
-            } catch (err) {
-              return null; // Skip if not found
+              const ev = await getEventById(entry.meta.event_id);
+              return { ev, meta: entry.meta, type: entry.type };
+            } catch {
+              return null;
             }
           }),
         )
-      ).filter(Boolean) as { ev: any; meta: SavedEvent }[];
+      ).filter(Boolean) as { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }[];
 
-      // Sort by when it was marked attended (created_at desc)
-      detailedEvents.sort((a, b) => {
-        const da = new Date(a.meta.created_at).getTime();
-        const db = new Date(b.meta.created_at).getTime();
+      // Deduplicate by event id in case of overlaps
+      const byId = new Map<number, { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }>();
+      detailed.forEach((d) => {
+        if (!byId.has(d.ev.id)) byId.set(d.ev.id, d);
+      });
+
+      const unique = Array.from(byId.values());
+
+      // Sort by effective date: attendance_date if present, else created_at
+      unique.sort((a, b) => {
+        const daStr = a.meta.attendance_date || a.meta.created_at;
+        const dbStr = b.meta.attendance_date || b.meta.created_at;
+        const da = new Date(daStr).getTime();
+        const db = new Date(dbStr).getTime();
         return db - da;
       });
 
-      // Keep only event objects for rendering
-      setEvents(detailedEvents.map((d) => d.ev));
+      setEvents(unique.map((u) => u.ev));
     } catch (error) {
       console.error('❌ Error loading previous events:', error);
-      setError(t('Failed to load attended events'));
+      setError(t('There was a problem fetching events'));
     } finally {
       setLoading(false);
     }
