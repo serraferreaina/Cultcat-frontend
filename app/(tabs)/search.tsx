@@ -386,15 +386,23 @@ export default function CercaScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
     const startDate = selectedEventForDate.data_inici
       ? new Date(selectedEventForDate.data_inici)
       : new Date();
     startDate.setHours(0, 0, 0, 0);
 
-    const minDate = startDate < today ? today : startDate;
+    let minDate = tomorrow;
+    if (startDate > tomorrow) {
+      minDate = startDate;
+    }
+
     const maxDate = selectedEventForDate.data_fi
       ? new Date(selectedEventForDate.data_fi)
       : new Date();
+    maxDate.setHours(0, 0, 0, 0);
 
     return { minDate, maxDate };
   };
@@ -565,7 +573,6 @@ export default function CercaScreen() {
         startDate.setHours(0, 0, 0, 0);
 
         let minDate = tomorrow;
-
         if (startDate > tomorrow) {
           minDate = startDate;
         }
