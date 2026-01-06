@@ -25,6 +25,7 @@ import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../api';
+import { getUsers } from '../../api/users';
 import NotificationsScreen from '../../components/NotificationScreen';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
@@ -47,6 +48,10 @@ interface Events {
   infoHorari?: string | null;
   telefon?: string | null;
   email?: string | null;
+  // Friends feed metadata
+  recommended_by?: Array<{ username: string; profile_picture?: string }>;
+  recommended_by_count?: number;
+  score?: number | null;
 }
 
 interface PointsImages {
@@ -322,6 +327,97 @@ const FeedCard: React.FC<FeedCardProps> = ({
   return (
     <>
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
+        {/* Recommendation Badge - Before Event */}
+        {item.recommended_by && item.recommended_by.length > 0 && (
+          <View
+            style={[
+              styles.recommendationRow,
+              {
+                borderColor: Colors.accent + '20',
+                backgroundColor: Colors.accent + '05',
+              },
+            ]}
+          >
+            <View style={styles.recommendationLeft}>
+              <View style={styles.avatarsStack}>
+                {item.recommended_by
+                  .slice(0, 3)
+                  .filter((user) => user && user.username)
+                  .map((user, index) => (
+                    <View
+                      key={user.username}
+                      style={[
+                        styles.avatarContainer,
+                        {
+                          zIndex: 3 - index,
+                          marginLeft: index > 0 ? -10 : 0,
+                          borderColor: Colors.card,
+                        },
+                      ]}
+                    >
+                      {user.profile_picture ? (
+                        <Image source={{ uri: user.profile_picture }} style={styles.avatar} />
+                      ) : (
+                        <View style={[styles.avatar, { backgroundColor: Colors.accent }]}>
+                          <Text style={[styles.avatarText, { color: Colors.card }]}>
+                            {user.username?.charAt(0).toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+              </View>
+              <View style={styles.recommendationContent}>
+                <Text
+                  style={[styles.recommendationUsers, { color: Colors.text }]}
+                  numberOfLines={1}
+                >
+                  {item.recommended_by.length === 1 ? (
+                    <>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
+                        {t('Recommended by')}{' '}
+                      </Text>
+                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                        {item.recommended_by[0]?.username || 'Unknown'}
+                      </Text>
+                    </>
+                  ) : item.recommended_by.length === 2 ? (
+                    <>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
+                        {t('Recommended by')}{' '}
+                      </Text>
+                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                        {item.recommended_by[0]?.username || 'Unknown'}
+                      </Text>
+                      <Text> & </Text>
+                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                        {item.recommended_by[1]?.username || 'Unknown'}
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
+                        {t('Recommended by')}{' '}
+                      </Text>
+                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                        {item.recommended_by[0]?.username || 'Unknown'}
+                      </Text>
+                      <Text>, </Text>
+                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
+                        {item.recommended_by[1]?.username || 'Unknown'}
+                      </Text>
+                      <Text style={{ color: Colors.accent, fontWeight: '700' }}>
+                        {' '}
+                        +{item.recommended_by.length - 2}
+                      </Text>
+                    </>
+                  )}
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
+
         {/* Header */}
         <View style={styles.cardHeader}>
           <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)} style={{ flex: 1 }}>
@@ -514,7 +610,7 @@ export default function Home() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  const [selectedFeed, setSelectedFeed] = useState('paraTi');
+  const [selectedFeed, setSelectedFeed] = useState('siguiendo');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [events, setEvents] = useState<Events[]>([]);
@@ -679,8 +775,32 @@ export default function Home() {
       // Handle different response formats
       let allEvents: Events[] = [];
       if (selectedFeed === 'siguiendo') {
-        // Friends endpoint returns: { event: {...}, recommended_by: "username", score: 0.42 }
-        allEvents = (data.results || []).map((item: any) => item.event);
+        // Friends endpoint returns: { event: {...}, recommended_by: [{username, profile_picture}], recommended_by_count: 1, score: 0.42 }
+        // Fetch all users to get profile pictures
+        const allUsers = await getUsers();
+
+        allEvents = (data.results || []).map((item: any) => {
+          const recommendedByWithPics = Array.isArray(item.recommended_by)
+            ? item.recommended_by.map((user: any) => {
+                const username = typeof user === 'string' ? user : user.username || user;
+                // Find user in allUsers list by exact username match
+                const userDetails = allUsers.find((u: any) => u.username === username);
+                return {
+                  username: username,
+                  profile_picture: userDetails?.profilePic || undefined,
+                };
+              })
+            : [];
+
+          return {
+            ...item.event,
+            recommended_by: recommendedByWithPics,
+            recommended_by_count:
+              item.recommended_by_count ??
+              (Array.isArray(item.recommended_by) ? item.recommended_by.length : 0),
+            score: item.score ?? null,
+          };
+        });
       } else {
         allEvents = data.results || data || [];
       }
@@ -1245,6 +1365,51 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 8,
+  },
+  recommendationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginHorizontal: 12,
+    marginTop: 10,
+    marginBottom: 6,
+    borderWidth: 0.5,
+    borderRadius: 12,
+  },
+  recommendationLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+  },
+  avatarsStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  avatarContainer: {
+    borderWidth: 2,
+    borderRadius: 14,
+  },
+  avatar: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  recommendationContent: {
+    flex: 1,
+  },
+  recommendationUsers: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   dateModalOverlay: {
     flex: 1,
