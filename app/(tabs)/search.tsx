@@ -71,6 +71,8 @@ export default function CercaScreen() {
 
   // Ref to control list scrolling
   const flatListRef = useRef<FlatList<any>>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedSearchRef = useRef(false);
 
   const normalizeDate = (date: Date): Date => {
     const normalized = new Date(date);
@@ -692,20 +694,24 @@ export default function CercaScreen() {
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
-  const handleSearch = async (text: string) => {
-    const query = text.trim();
-    setSearchQuery(query);
-    if (searchType === 'users') {
-      await fetchUsers(true);
-    } else {
-      await fetchEventsWithFilters(true);
-    }
+  const handleSearch = (text: string) => {
+    // Let the debounced effect trigger the fetch so typing stays responsive
+    setSearchQuery(text.trim());
   };
 
   // Event search using current filters + q
-  const fetchEventsWithFilters = async (reset = false, extraParams: string[] = []) => {
+  const fetchEventsWithFilters = async (
+    reset = false,
+    extraParams: string[] = [],
+    showOverlay = true,
+  ) => {
     if (reset) {
-      setLoading(true);
+      if (showOverlay) {
+        setLoading(true);
+      } else {
+        setLoading(false);
+        setLoadingMore(true);
+      }
       setNoEventsMessage(null);
       setEvents([]);
       setOffset(0);
@@ -866,8 +872,47 @@ export default function CercaScreen() {
     }
   };
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    // Only auto-trigger when query has at least 3 characters (unless empty)
+    if (trimmed.length > 0 && trimmed.length < 3) {
+      return () => {
+        if (searchDebounceRef.current) {
+          clearTimeout(searchDebounceRef.current);
+        }
+      };
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      if (!hasMountedSearchRef.current) {
+        hasMountedSearchRef.current = true;
+        // Avoid double initial fetch when events tab starts empty
+        if (searchType === 'events' && !trimmed) {
+          return;
+        }
+      }
+
+      if (searchType === 'users') {
+        fetchUsers(true);
+      } else {
+        fetchEventsWithFilters(true, [], false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, searchType]);
+
   const handleLoadMoreUsers = () => {
-    if (!loadingMoreUsers && hasMoreUsers && searchQuery) {
+    if (!loadingMoreUsers && hasMoreUsers) {
       fetchUsers(false);
     }
   };
