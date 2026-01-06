@@ -412,7 +412,7 @@ export default function Profile() {
                 onPress={() => router.push('/previous_events')}
               >
                 <Text style={[styles.pastBtnText, { color: Colors.accent }]}>
-                  {t('Previus events')}
+                  {t('Previous events')}
                 </Text>
               </TouchableOpacity>
             </View>
