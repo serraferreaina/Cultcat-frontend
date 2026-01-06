@@ -71,6 +71,8 @@ export default function CercaScreen() {
 
   // Ref to control list scrolling
   const flatListRef = useRef<FlatList<any>>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedSearchRef = useRef(false);
 
   const normalizeDate = (date: Date): Date => {
     const normalized = new Date(date);
@@ -122,6 +124,11 @@ export default function CercaScreen() {
   };
 
   const shouldHideEvent = (event: any): boolean => {
+    // Hide events with null/undefined municipi when municipi filter is active
+    if (selectedMunicipi && (!event.municipi || event.municipi === null)) {
+      return true;
+    }
+
     if (event.data_fi) {
       const endDate = new Date(event.data_fi);
       const targetDate = new Date('2924-06-30');
@@ -289,20 +296,18 @@ export default function CercaScreen() {
   );
 
   const handleSearchByMunicipi = async (municipi: string) => {
-    setSelectedMunicipi(municipi);
     setIsMunicipiModalVisible(false);
     setLoading(true);
     setOffset(0);
     setHasMore(true);
 
+    // Set selectedMunicipi BEFORE buildQuery so it's included in the query
+    setSelectedMunicipi(municipi);
+
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([
-        `from_date=${today}`,
-        'order_by_date=asc',
-        `batch_size=${BATCH_SIZE}`,
-        'offset=0',
-      ]);
+      // Wait a moment for state to update, or pass municipi directly
+      const query = `?municipi=${encodeURIComponent(municipi)}&from_date=${today}&order_by_date=asc&batch_size=${BATCH_SIZE}&offset=0`;
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -345,12 +350,6 @@ export default function CercaScreen() {
       }
 
       setIsFiltered(true);
-
-      if (filteredData.length === 0) {
-        Alert.alert(t('Cap esdeveniment'), t('No hi ha esdeveniments a ') + `${municipi}`, [
-          { text: "D'acord" },
-        ]);
-      }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
@@ -695,20 +694,24 @@ export default function CercaScreen() {
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
-  const handleSearch = async (text: string) => {
-    const query = text.trim();
-    setSearchQuery(query);
-    if (searchType === 'users') {
-      await fetchUsers(true);
-    } else {
-      await fetchEventsWithFilters(true);
-    }
+  const handleSearch = (text: string) => {
+    // Let the debounced effect trigger the fetch so typing stays responsive
+    setSearchQuery(text.trim());
   };
 
   // Event search using current filters + q
-  const fetchEventsWithFilters = async (reset = false, extraParams: string[] = []) => {
+  const fetchEventsWithFilters = async (
+    reset = false,
+    extraParams: string[] = [],
+    showOverlay = true,
+  ) => {
     if (reset) {
-      setLoading(true);
+      if (showOverlay) {
+        setLoading(true);
+      } else {
+        setLoading(false);
+        setLoadingMore(true);
+      }
       setNoEventsMessage(null);
       setEvents([]);
       setOffset(0);
@@ -811,11 +814,6 @@ export default function CercaScreen() {
   // Users search with pagination and dedup
   const fetchUsers = async (reset = false) => {
     const query = searchQuery.trim();
-    if (!query) {
-      setUsers([]);
-      setHasMoreUsers(false);
-      return;
-    }
 
     if (reset) {
       setLoading(true);
@@ -829,7 +827,11 @@ export default function CercaScreen() {
 
     try {
       const currentOffset = reset ? 0 : userOffset;
-      const url = `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+      // If query is empty, fetch all users; otherwise filter by username
+      const url = query
+        ? `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`
+        : `http://nattech.fib.upc.edu:40490/users?batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
@@ -870,8 +872,47 @@ export default function CercaScreen() {
     }
   };
 
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    // Only auto-trigger when query has at least 3 characters (unless empty)
+    if (trimmed.length > 0 && trimmed.length < 3) {
+      return () => {
+        if (searchDebounceRef.current) {
+          clearTimeout(searchDebounceRef.current);
+        }
+      };
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      if (!hasMountedSearchRef.current) {
+        hasMountedSearchRef.current = true;
+        // Avoid double initial fetch when events tab starts empty
+        if (searchType === 'events' && !trimmed) {
+          return;
+        }
+      }
+
+      if (searchType === 'users') {
+        fetchUsers(true);
+      } else {
+        fetchEventsWithFilters(true, [], false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, searchType]);
+
   const handleLoadMoreUsers = () => {
-    if (!loadingMoreUsers && hasMoreUsers && searchQuery) {
+    if (!loadingMoreUsers && hasMoreUsers) {
       fetchUsers(false);
     }
   };

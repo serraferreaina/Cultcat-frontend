@@ -12,7 +12,11 @@ import {
   Animated,
   TouchableWithoutFeedback,
   Modal,
+  ActivityIndicator,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -21,6 +25,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
 import { getProfile, getUserBadges } from '../../api';
+import { getConnections } from '../../api/connections';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +45,10 @@ export default function Profile() {
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
+
+  const [connectionsModalVisible, setConnectionsModalVisible] = useState(false);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
 
   type Badge = {
     reward_id: number;
@@ -65,6 +74,24 @@ export default function Profile() {
   const closeBadgeModal = () => {
     setSelectedBadge(null);
     setModalVisible(false);
+  };
+
+  const fetchConnections = async () => {
+    setLoadingConnections(true);
+    try {
+      const data = await getConnections();
+      setConnections(data || []);
+    } catch (err) {
+      console.error('Error fetching connections:', err);
+      setConnections([]);
+    } finally {
+      setLoadingConnections(false);
+    }
+  };
+
+  const openConnectionsModal = async () => {
+    await fetchConnections();
+    setConnectionsModalVisible(true);
   };
 
   const router = useRouter();
@@ -397,18 +424,19 @@ export default function Profile() {
               style={[styles.actionBtn, { backgroundColor: Colors.background }]}
               onPress={() => router.push('/userconfig')}
             >
-              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Edit')}</Text>
+              <Ionicons name="pencil-outline" size={16} color={Colors.text} />
+              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
+                {t('Edit')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[
-                styles.actionBtn,
-                { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-              ]}
-              onPress={() => {
-                setShareModalVisible(true);
-              }}
+              style={[styles.actionBtn, { backgroundColor: Colors.background }]}
+              onPress={openConnectionsModal}
             >
-              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
+              <Ionicons name="people-outline" size={16} color={Colors.text} />
+              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
+                {t('Connections')}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -515,17 +543,90 @@ export default function Profile() {
         </View>
       </Modal>
       {user && (
-        <ShareProfileModal
-          visible={shareModalVisible}
-          onClose={() => setShareModalVisible(false)}
-          profile={{
-            id: user.id,
-            username: user.username,
-            profile_picture: user.profile_picture || DEFAULT_AVATAR,
-            profile_description: user.profile_description,
-          }}
-          Colors={Colors}
-        />
+        <>
+          <ShareProfileModal
+            visible={shareModalVisible}
+            onClose={() => setShareModalVisible(false)}
+            profile={{
+              id: user.id,
+              username: user.username,
+              profile_picture: user.profile_picture || DEFAULT_AVATAR,
+              profile_description: user.profile_description,
+            }}
+            Colors={Colors}
+          />
+
+          {/* Connections Modal */}
+          <Modal
+            visible={connectionsModalVisible}
+            animationType="slide"
+            presentationStyle="pageSheet"
+            onRequestClose={() => setConnectionsModalVisible(false)}
+          >
+            <SafeAreaView style={[styles.modalScreen, { backgroundColor: Colors.background }]}>
+              <View style={styles.connectionsHeader}>
+                <TouchableOpacity onPress={() => setConnectionsModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+                <Text style={[styles.connectionsTitle, { color: Colors.text }]}>
+                  {t('Connections')}
+                </Text>
+                <Text style={[styles.connectionsCount, { color: Colors.muted }]}>
+                  {connections.length}
+                </Text>
+              </View>
+
+              {loadingConnections ? (
+                <View style={styles.connectionsCenterContent}>
+                  <ActivityIndicator size="large" color={Colors.accent} />
+                </View>
+              ) : connections.length === 0 ? (
+                <View style={styles.connectionsCenterContent}>
+                  <Ionicons name="people-outline" size={48} color={Colors.muted} />
+                  <Text style={[styles.connectionsEmptyText, { color: Colors.muted }]}>
+                    {t('No connections yet')}
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView contentContainerStyle={styles.connectionsList}>
+                  {connections.map((connection, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.connectionItem,
+                        {
+                          backgroundColor: Colors.card,
+                        },
+                      ]}
+                      onPress={() => {
+                        setConnectionsModalVisible(false);
+                        router.push({
+                          pathname: '/user/[id]',
+                          params: { id: connection.user_id },
+                        });
+                      }}
+                    >
+                      <Image
+                        source={{
+                          uri: DEFAULT_AVATAR,
+                        }}
+                        style={styles.connectionAvatar}
+                      />
+                      <View style={styles.connectionItemContent}>
+                        <Text style={[styles.connectionUsername, { color: Colors.text }]}>
+                          {connection.username}
+                        </Text>
+                      </View>
+                      <View style={styles.connectionChevron}>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.accent} />
+                      </View>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </SafeAreaView>
+          </Modal>
+        </>
       )}
     </SafeAreaView>
   );
@@ -561,7 +662,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     position: 'absolute',
-    right: 16,
+    right: SCREEN_WIDTH * 0.04,
     top: 50,
     padding: 14,
     borderRadius: 14,
@@ -571,18 +672,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
     zIndex: 1000,
-    minWidth: 220,
+    minWidth: SCREEN_WIDTH * 0.55,
   },
   menuTitle: {
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     marginBottom: 8,
   },
   menuItem: {
     paddingVertical: 12,
   },
   menuItemText: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     fontWeight: '500',
   },
   menuDivider: {
@@ -591,7 +692,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -604,18 +705,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: 40,
+    width: SCREEN_WIDTH * 0.2,
+    height: SCREEN_WIDTH * 0.2,
+    borderRadius: SCREEN_WIDTH * 0.1,
     backgroundColor: '#DDD',
   },
   addPhoto: {
     position: 'absolute',
     right: -2,
     bottom: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: SCREEN_WIDTH * 0.062,
+    height: SCREEN_WIDTH * 0.062,
+    borderRadius: SCREEN_WIDTH * 0.031,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -645,13 +746,14 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
   },
   actionText: {
     fontWeight: '700',
   },
   section: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -661,7 +763,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     marginBottom: 10,
   },
   emptyBox: {
@@ -676,10 +778,10 @@ const styles = StyleSheet.create({
   notification: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.04,
     paddingVertical: 12,
     marginTop: 8,
-    marginHorizontal: 16,
+    marginHorizontal: SCREEN_WIDTH * 0.04,
     borderRadius: 10,
     gap: 10,
     zIndex: 1001,
@@ -687,7 +789,7 @@ const styles = StyleSheet.create({
   notificationText: {
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: SCREEN_WIDTH * 0.037,
     flex: 1,
   },
   badgesGrid: {
@@ -718,5 +820,81 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     backgroundColor: '#6C5CE7',
+  },
+  modalScreen: {
+    flex: 1,
+  },
+  connectionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: SCREEN_WIDTH * 0.04,
+    paddingTop: SCREEN_WIDTH * 0.04,
+    paddingBottom: SCREEN_WIDTH * 0.04,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E1DA',
+  },
+  connectionsTitle: {
+    fontSize: SCREEN_WIDTH * 0.047,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  connectionsCount: {
+    fontSize: SCREEN_WIDTH * 0.037,
+    fontWeight: '600',
+    minWidth: 30,
+    textAlign: 'right',
+  },
+  connectionsCenterContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  connectionsEmptyText: {
+    fontSize: SCREEN_WIDTH * 0.042,
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  connectionsList: {
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  connectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
+    paddingVertical: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  connectionAvatar: {
+    width: SCREEN_WIDTH * 0.13,
+    height: SCREEN_WIDTH * 0.13,
+    borderRadius: SCREEN_WIDTH * 0.065,
+    marginRight: SCREEN_WIDTH * 0.03,
+    backgroundColor: '#DDD',
+  },
+  connectionItemContent: {
+    flex: 1,
+  },
+  connectionChevron: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+  },
+  connectionUsername: {
+    fontSize: SCREEN_WIDTH * 0.04,
+    fontWeight: '600',
+  },
+  connectionChatName: {
+    fontSize: SCREEN_WIDTH * 0.035,
+    fontWeight: '400',
   },
 });
