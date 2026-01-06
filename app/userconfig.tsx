@@ -492,21 +492,6 @@ export default function UserConfig() {
         <View style={[styles.card, { backgroundColor: colors.card }]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('Account')}</Text>
 
-          <TouchableOpacity
-            style={styles.preferenceItem}
-            onPress={() => router.push('/changePassword')}
-          >
-            <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-              <Ionicons name="key-outline" size={22} color={colors.text} />
-              <View style={{ flex: 1, marginLeft: 12 }}>
-                <Text style={[styles.preferenceText, { color: colors.text }]}>
-                  {t('Change password')}
-                </Text>
-              </View>
-            </View>
-            <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-          </TouchableOpacity>
-
           <View style={[styles.dividerLine, { backgroundColor: colors.border }]} />
 
           <TouchableOpacity style={styles.preferenceItem} onPress={handleLogout}>
