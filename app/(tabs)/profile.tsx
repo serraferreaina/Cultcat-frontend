@@ -617,7 +617,9 @@ export default function Profile() {
                           {connection.username}
                         </Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={20} color={Colors.accent} />
+                      <View style={styles.connectionChevron}>
+                        <Ionicons name="chevron-forward" size={20} color={Colors.accent} />
+                      </View>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
@@ -880,6 +882,11 @@ const styles = StyleSheet.create({
   },
   connectionItemContent: {
     flex: 1,
+  },
+  connectionChevron: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
   },
   connectionUsername: {
     fontSize: SCREEN_WIDTH * 0.04,
