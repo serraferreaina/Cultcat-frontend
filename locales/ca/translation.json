@@ -404,5 +404,7 @@
     "gegants": "Gegants",
     "sardanes": "Sardanes",
     "nadal": "Nadal"
-  }
+  },
+  "has_accepted_your_request": "ha acceptat la teva sol·licitud de connexió",
+  "connection_accepted": "Connexió acceptada"
 }

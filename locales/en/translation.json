@@ -403,5 +403,7 @@
     "gegants": "Giants",
     "sardanes": "Sardanes",
     "nadal": "Christmas"
-  }
+  },
+  "has_accepted_your_request": "has accepted your connection request",
+  "connection_accepted": "Connection accepted"
 }
