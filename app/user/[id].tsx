@@ -19,6 +19,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
 import { useTranslation } from 'react-i18next';
 import { sendConnectionRequest, getUserBadgesByUserId } from '../../api';
+import { getConnections } from '../../api/connections';
 
 export default function PublicProfile() {
   const { id } = useLocalSearchParams();
@@ -78,6 +79,18 @@ export default function PublicProfile() {
 
       setUser(normalized);
       setConnectionStatus(normalized.connection_status);
+
+      // Check if already connected
+      try {
+        const connections = await getConnections();
+        const isConnected = connections.some((conn: any) => conn.user_id === data.id);
+
+        if (isConnected) {
+          setConnectionStatus('Connected');
+        }
+      } catch (err) {
+        console.error('Error checking connections:', err);
+      }
     } catch (err) {
       console.error('Error cargando usuario:', err);
       setUser(null);
@@ -113,8 +126,7 @@ export default function PublicProfile() {
   };
 
   const getButtonText = () => {
-    if (connectionStatus === 'Pending') return t('Requested');
-    if (connectionStatus === 'Following') return t('Following');
+    if (connectionStatus === 'Connected') return t('Connected');
     return t('Connect');
   };
 
@@ -167,17 +179,13 @@ export default function PublicProfile() {
               {/* Botón Solicitud de Amistad */}
               <View style={{ marginTop: 20 }}>
                 <TouchableOpacity
-                  disabled={connectionStatus === 'Pending' || connectionStatus === 'Following'}
+                  disabled={connectionStatus === 'Connected'}
                   onPress={handleSendRequest}
                   style={[
                     styles.actionBtn,
                     {
                       backgroundColor:
-                        connectionStatus === 'Following'
-                          ? Colors.going
-                          : connectionStatus === 'Pending'
-                            ? Colors.muted
-                            : Colors.accent,
+                        connectionStatus === 'Connected' ? Colors.going : Colors.accent,
                     },
                   ]}
                 >

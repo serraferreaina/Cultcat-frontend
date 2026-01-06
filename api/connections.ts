@@ -1,11 +1,14 @@
-import { authFetch } from './http';
+import { api } from '../api';
 
 export async function getConnections() {
-  const res = await authFetch('http://nattech.fib.upc.edu:40490/connections/');
+  return api('/connections/');
+}
 
-  if (!res.ok) {
-    throw new Error('Error loading connections');
+export async function checkIfConnected(userId: string) {
+  try {
+    const connections = await getConnections();
+    return connections.some((conn: any) => conn.user_id === parseInt(userId));
+  } catch (error) {
+    return false;
   }
-
-  return res.json();
 }
