@@ -12,6 +12,7 @@ import {
   Animated,
   TouchableWithoutFeedback,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,6 +22,7 @@ import { LightColors, DarkColors } from '../../theme/colors';
 import { LanguageSelector } from '../../components/LanguageSelector';
 import { useRouter } from 'expo-router';
 import { getProfile, getUserBadges } from '../../api';
+import { getConnections } from '../../api/connections';
 import { ThemeToggle } from '../../components/ThemeToggle';
 import { useFocusEffect } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
@@ -40,6 +42,10 @@ export default function Profile() {
   const fadeAnim = useState(new Animated.Value(0))[0];
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
+
+  const [connectionsModalVisible, setConnectionsModalVisible] = useState(false);
+  const [connections, setConnections] = useState<any[]>([]);
+  const [loadingConnections, setLoadingConnections] = useState(false);
 
   type Badge = {
     reward_id: number;
@@ -65,6 +71,24 @@ export default function Profile() {
   const closeBadgeModal = () => {
     setSelectedBadge(null);
     setModalVisible(false);
+  };
+
+  const fetchConnections = async () => {
+    setLoadingConnections(true);
+    try {
+      const data = await getConnections();
+      setConnections(data || []);
+    } catch (err) {
+      console.error('Error fetching connections:', err);
+      setConnections([]);
+    } finally {
+      setLoadingConnections(false);
+    }
+  };
+
+  const openConnectionsModal = async () => {
+    await fetchConnections();
+    setConnectionsModalVisible(true);
   };
 
   const router = useRouter();
@@ -410,6 +434,15 @@ export default function Profile() {
             >
               <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
             </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.actionBtn, { backgroundColor: Colors.background }]}
+              onPress={openConnectionsModal}
+            >
+              <Ionicons name="people-outline" size={16} color={Colors.text} />
+              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
+                {t('Connections')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -515,17 +548,88 @@ export default function Profile() {
         </View>
       </Modal>
       {user && (
-        <ShareProfileModal
-          visible={shareModalVisible}
-          onClose={() => setShareModalVisible(false)}
-          profile={{
-            id: user.id,
-            username: user.username,
-            profile_picture: user.profile_picture || DEFAULT_AVATAR,
-            profile_description: user.profile_description,
-          }}
-          Colors={Colors}
-        />
+        <>
+          <ShareProfileModal
+            visible={shareModalVisible}
+            onClose={() => setShareModalVisible(false)}
+            profile={{
+              id: user.id,
+              username: user.username,
+              profile_picture: user.profile_picture || DEFAULT_AVATAR,
+              profile_description: user.profile_description,
+            }}
+            Colors={Colors}
+          />
+
+          {/* Connections Modal */}
+          <Modal
+            visible={connectionsModalVisible}
+            transparent
+            animationType="slide"
+            onRequestClose={() => setConnectionsModalVisible(false)}
+          >
+            <SafeAreaView style={[styles.modalScreen, { backgroundColor: Colors.background }]}>
+              <View style={styles.connectionsHeader}>
+                <TouchableOpacity onPress={() => setConnectionsModalVisible(false)}>
+                  <Ionicons name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+                <Text style={[styles.connectionsTitle, { color: Colors.text }]}>
+                  {t('Connections')}
+                </Text>
+                <Text style={[styles.connectionsCount, { color: Colors.muted }]}>
+                  {connections.length}
+                </Text>
+              </View>
+
+              {loadingConnections ? (
+                <View style={styles.connectionsCenterContent}>
+                  <ActivityIndicator size="large" color={Colors.accent} />
+                </View>
+              ) : connections.length === 0 ? (
+                <View style={styles.connectionsCenterContent}>
+                  <Ionicons name="people-outline" size={48} color={Colors.muted} />
+                  <Text style={[styles.connectionsEmptyText, { color: Colors.muted }]}>
+                    {t('No connections yet')}
+                  </Text>
+                </View>
+              ) : (
+                <ScrollView contentContainerStyle={styles.connectionsList}>
+                  {connections.map((connection, index) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={[
+                        styles.connectionItem,
+                        {
+                          backgroundColor: Colors.card,
+                        },
+                      ]}
+                      onPress={() => {
+                        setConnectionsModalVisible(false);
+                        router.push({
+                          pathname: '/user/[id]',
+                          params: { id: connection.user_id },
+                        });
+                      }}
+                    >
+                      <Image
+                        source={{
+                          uri: DEFAULT_AVATAR,
+                        }}
+                        style={styles.connectionAvatar}
+                      />
+                      <View style={styles.connectionItemContent}>
+                        <Text style={[styles.connectionUsername, { color: Colors.text }]}>
+                          {connection.username}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color={Colors.accent} />
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              )}
+            </SafeAreaView>
+          </Modal>
+        </>
       )}
     </SafeAreaView>
   );
@@ -645,6 +749,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    flexDirection: 'row',
   },
   actionText: {
     fontWeight: '700',
@@ -718,5 +823,75 @@ const styles = StyleSheet.create({
     padding: 12,
     borderRadius: 10,
     backgroundColor: '#6C5CE7',
+  },
+  modalScreen: {
+    flex: 1,
+  },
+  connectionsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E1DA',
+  },
+  connectionsTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    flex: 1,
+    textAlign: 'center',
+  },
+  connectionsCount: {
+    fontSize: 14,
+    fontWeight: '600',
+    minWidth: 30,
+    textAlign: 'right',
+  },
+  connectionsCenterContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  connectionsEmptyText: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginTop: 12,
+  },
+  connectionsList: {
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 24,
+  },
+  connectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    marginBottom: 8,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.05,
+    shadowOffset: { width: 0, height: 1 },
+    shadowRadius: 3,
+    elevation: 1,
+  },
+  connectionAvatar: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    marginRight: 12,
+    backgroundColor: '#DDD',
+  },
+  connectionItemContent: {
+    flex: 1,
+  },
+  connectionUsername: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  connectionChatName: {
+    fontSize: 13,
+    fontWeight: '400',
   },
 });
