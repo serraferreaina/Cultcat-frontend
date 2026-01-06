@@ -13,7 +13,10 @@ import {
   TouchableWithoutFeedback,
   Modal,
   ActivityIndicator,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -657,7 +660,7 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     position: 'absolute',
-    right: 16,
+    right: SCREEN_WIDTH * 0.04,
     top: 50,
     padding: 14,
     borderRadius: 14,
@@ -667,18 +670,18 @@ const styles = StyleSheet.create({
     shadowRadius: 10,
     elevation: 6,
     zIndex: 1000,
-    minWidth: 220,
+    minWidth: SCREEN_WIDTH * 0.55,
   },
   menuTitle: {
     fontWeight: '700',
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     marginBottom: 8,
   },
   menuItem: {
     paddingVertical: 12,
   },
   menuItemText: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     fontWeight: '500',
   },
   menuDivider: {
@@ -687,7 +690,7 @@ const styles = StyleSheet.create({
   },
   card: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -700,18 +703,18 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: 40,
+    width: SCREEN_WIDTH * 0.2,
+    height: SCREEN_WIDTH * 0.2,
+    borderRadius: SCREEN_WIDTH * 0.1,
     backgroundColor: '#DDD',
   },
   addPhoto: {
     position: 'absolute',
     right: -2,
     bottom: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: SCREEN_WIDTH * 0.062,
+    height: SCREEN_WIDTH * 0.062,
+    borderRadius: SCREEN_WIDTH * 0.031,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
@@ -748,7 +751,7 @@ const styles = StyleSheet.create({
   },
   section: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -758,7 +761,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     marginBottom: 10,
   },
   emptyBox: {
@@ -773,10 +776,10 @@ const styles = StyleSheet.create({
   notification: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.04,
     paddingVertical: 12,
     marginTop: 8,
-    marginHorizontal: 16,
+    marginHorizontal: SCREEN_WIDTH * 0.04,
     borderRadius: 10,
     gap: 10,
     zIndex: 1001,
@@ -784,7 +787,7 @@ const styles = StyleSheet.create({
   notificationText: {
     color: '#FFFFFF',
     fontWeight: '600',
-    fontSize: 14,
+    fontSize: SCREEN_WIDTH * 0.037,
     flex: 1,
   },
   badgesGrid: {
@@ -823,19 +826,19 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.04,
     paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E1DA',
   },
   connectionsTitle: {
-    fontSize: 18,
+    fontSize: SCREEN_WIDTH * 0.047,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
   },
   connectionsCount: {
-    fontSize: 14,
+    fontSize: SCREEN_WIDTH * 0.037,
     fontWeight: '600',
     minWidth: 30,
     textAlign: 'right',
@@ -846,19 +849,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   connectionsEmptyText: {
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     fontWeight: '500',
     marginTop: 12,
   },
   connectionsList: {
-    paddingHorizontal: 12,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
     paddingTop: 12,
     paddingBottom: 24,
   },
   connectionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
     paddingVertical: 12,
     marginBottom: 8,
     borderRadius: 12,
@@ -869,21 +872,21 @@ const styles = StyleSheet.create({
     elevation: 1,
   },
   connectionAvatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    marginRight: 12,
+    width: SCREEN_WIDTH * 0.13,
+    height: SCREEN_WIDTH * 0.13,
+    borderRadius: SCREEN_WIDTH * 0.065,
+    marginRight: SCREEN_WIDTH * 0.03,
     backgroundColor: '#DDD',
   },
   connectionItemContent: {
     flex: 1,
   },
   connectionUsername: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     fontWeight: '600',
   },
   connectionChatName: {
-    fontSize: 13,
+    fontSize: SCREEN_WIDTH * 0.035,
     fontWeight: '400',
   },
 });

@@ -11,7 +11,10 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  Dimensions,
 } from 'react-native';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -489,7 +492,7 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
-  content: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 },
+  content: { paddingHorizontal: SCREEN_WIDTH * 0.04, paddingTop: 8, paddingBottom: 24 },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -500,12 +503,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   username: {
-    fontSize: 22,
+    fontSize: SCREEN_WIDTH * 0.057,
     fontWeight: '700',
   },
   card: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -518,9 +521,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   avatar: {
-    width: 78,
-    height: 78,
-    borderRadius: 40,
+    width: SCREEN_WIDTH * 0.2,
+    height: SCREEN_WIDTH * 0.2,
+    borderRadius: SCREEN_WIDTH * 0.1,
     backgroundColor: '#DDD',
   },
   progressBg: {
@@ -532,7 +535,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   progressHint: {
-    fontSize: 12,
+    fontSize: SCREEN_WIDTH * 0.032,
     marginTop: 6,
     textAlign: 'right',
   },
@@ -546,12 +549,12 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   shareButtonText: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     fontWeight: '600',
   },
   section: {
     borderRadius: 16,
-    padding: 16,
+    padding: SCREEN_WIDTH * 0.04,
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowOffset: { width: 0, height: 2 },
@@ -561,7 +564,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontWeight: '800',
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     marginBottom: 10,
   },
   emptyBox: {
@@ -587,7 +590,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
     borderRadius: 12,
     borderWidth: 1,
   },
@@ -601,17 +604,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 10,
-    paddingHorizontal: 12,
+    paddingHorizontal: SCREEN_WIDTH * 0.03,
   },
   // Toast styles similar to profile screen
   toast: {
     position: 'absolute',
     top: 8,
-    left: 16,
-    right: 16,
+    left: SCREEN_WIDTH * 0.04,
+    right: SCREEN_WIDTH * 0.04,
     borderRadius: 10,
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: SCREEN_WIDTH * 0.04,
     zIndex: 1000,
     flexDirection: 'row',
     alignItems: 'center',
