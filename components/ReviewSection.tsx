@@ -12,6 +12,7 @@ import {
   Image,
   ScrollView,
   Alert,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
@@ -20,6 +21,9 @@ import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
@@ -63,7 +67,7 @@ interface Props {
   eventId: number;
   visible: boolean;
   onClose: () => void;
-  readOnly?: boolean; // Nou paràmetre per mode només lectura
+  readOnly?: boolean;
 }
 
 export default function ReviewSection({ eventId, visible, onClose, readOnly = false }: Props) {
@@ -71,6 +75,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
   const { theme } = useTheme();
   const insets = useSafeAreaInsets();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
 
   const [currentUser, setCurrentUser] = useState<{
     id: number;
@@ -95,6 +100,21 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
   const [editedComment, setEditedComment] = useState('');
   const [editedImages, setEditedImages] = useState<any[]>([]);
   const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
+
+  // ---------------------------
+  // NAVEGAR AL PERFIL
+  // ---------------------------
+
+  const openProfile = async (userId: number) => {
+    try {
+      // Tanquem el modal de reviews i naveguem al perfil
+      onClose();
+      router.push(`/user/${userId}`);
+    } catch (e) {
+      console.error('Error navegant al perfil:', e);
+      Alert.alert('Error', "No s'ha pogut obrir el perfil");
+    }
+  };
 
   // ---------------------------
   // LOAD CURRENT USER
@@ -133,7 +153,6 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
               userData = await res.json();
               workingEndpoint = endpoint;
               break;
-            } else {
             }
           } catch (err) {
             continue;
@@ -479,7 +498,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
         >
           {/* HEADER */}
           <View style={styles.header}>
-            <Text style={[styles.title, { color: Colors.text }]}>Reviews</Text>
+            <Text style={[styles.title, { color: Colors.text }]}>{t('Reviews')}</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
@@ -518,8 +537,11 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
 
               return (
                 <View style={styles.reviewRow}>
-                  {/* USER PIC */}
-                  <View style={styles.userSection}>
+                  {/* USER PIC - CLICKABLE */}
+                  <TouchableOpacity
+                    style={styles.userSection}
+                    onPress={() => openProfile(item.user.id)}
+                  >
                     {item.user.profilePic ? (
                       <Image source={{ uri: item.user.profilePic }} style={styles.profilePic} />
                     ) : (
@@ -529,13 +551,15 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
                         <Ionicons name="person" size={24} color={Colors.text} />
                       </View>
                     )}
-                  </View>
+                  </TouchableOpacity>
 
                   <View style={{ flex: 1 }}>
-                    {/* USERNAME */}
-                    <Text style={[styles.username, { color: Colors.text }]}>
-                      {item.user.username}
-                    </Text>
+                    {/* USERNAME - CLICKABLE */}
+                    <TouchableOpacity onPress={() => openProfile(item.user.id)}>
+                      <Text style={[styles.username, { color: Colors.accent }]}>
+                        @{item.user.username}
+                      </Text>
+                    </TouchableOpacity>
 
                     {/* STARS */}
                     <View style={styles.starsRow}>
@@ -621,7 +645,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
               <TextInput
                 value={newComment}
                 onChangeText={setNewComment}
-                placeholder="Write a review…"
+                placeholder={t('Write a review…')}
                 placeholderTextColor={Colors.textSecondary}
                 style={[styles.input, { color: Colors.text, borderColor: Colors.border }]}
                 multiline
@@ -663,10 +687,10 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
                   style={{
                     color: Colors.card,
                     fontWeight: '700',
-                    fontSize: 16,
+                    fontSize: SCREEN_WIDTH * 0.04,
                   }}
                 >
-                  Publish
+                  {t('Publish')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -679,7 +703,7 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
         <Modal visible transparent animationType="fade">
           <View style={styles.editBackdrop}>
             <View style={[styles.editBox, { backgroundColor: Colors.card }]}>
-              <Text style={[styles.title, { color: Colors.text }]}>Edit review</Text>
+              <Text style={[styles.title, { color: Colors.text }]}>{t('Edit review')}</Text>
 
               {/* STARS */}
               <View style={styles.starsInputRow}>
@@ -765,11 +789,21 @@ export default function ReviewSection({ eventId, visible, onClose, readOnly = fa
               {/* ACTIONS */}
               <View style={styles.editActions}>
                 <TouchableOpacity onPress={() => setEditingReview(null)}>
-                  <Text style={{ color: Colors.textSecondary }}>Cancel</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: SCREEN_WIDTH * 0.04 }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={submitEdit}>
-                  <Text style={{ color: Colors.accent, fontWeight: '700' }}>Save</Text>
+                  <Text
+                    style={{
+                      color: Colors.accent,
+                      fontWeight: '700',
+                      fontSize: SCREEN_WIDTH * 0.04,
+                    }}
+                  >
+                    Save
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -791,8 +825,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    height: '80%',
-    padding: 16,
+    height: SCREEN_HEIGHT * 0.8,
+    padding: SCREEN_WIDTH * 0.04,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -802,7 +836,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: SCREEN_WIDTH * 0.048,
     fontWeight: '700',
   },
   errorBanner: {
@@ -815,7 +849,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: SCREEN_WIDTH * 0.034,
   },
   reviewRow: {
     flexDirection: 'row',
@@ -842,7 +876,7 @@ const styles = StyleSheet.create({
   },
   username: {
     fontWeight: '600',
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     marginBottom: 4,
   },
   starsRow: {
@@ -850,8 +884,8 @@ const styles = StyleSheet.create({
     marginVertical: 4,
   },
   reviewText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: SCREEN_WIDTH * 0.037,
+    lineHeight: SCREEN_WIDTH * 0.053,
     marginTop: 6,
   },
   imagesScroll: {
@@ -871,7 +905,7 @@ const styles = StyleSheet.create({
   },
   votesCount: {
     marginLeft: 6,
-    fontSize: 14,
+    fontSize: SCREEN_WIDTH * 0.037,
     fontWeight: '500',
   },
   actionsColumn: {
@@ -900,6 +934,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: 'top',
     marginVertical: 10,
+    fontSize: SCREEN_WIDTH * 0.038,
   },
   sendBtn: {
     paddingVertical: 10,

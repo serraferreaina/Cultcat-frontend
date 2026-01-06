@@ -18,8 +18,6 @@ export const syncPreferencesFromBackend = async (
   setTheme?: (theme: 'light' | 'dark') => void,
 ): Promise<boolean> => {
   try {
-    console.log('🔄 Syncing preferences from backend...');
-
     const response = await fetch(`${API_BASE_URL}/preferences/`, {
       method: 'GET',
       headers: {
@@ -29,12 +27,10 @@ export const syncPreferencesFromBackend = async (
     });
 
     if (!response.ok) {
-      console.log('⚠️ Failed to load preferences from backend');
       return false;
     }
 
     const prefs: UserPreferences = await response.json();
-    console.log('✅ Preferences loaded:', prefs);
 
     // Guardar preferències ORIGINALS del backend
     await AsyncStorage.multiSet([
@@ -63,7 +59,6 @@ export const syncPreferencesFromBackend = async (
       setTheme(prefs.dark_mode ? 'dark' : 'light');
     }
 
-    console.log('✅ Preferences synced successfully');
     return true;
   } catch (error) {
     console.error('❌ Error syncing preferences:', error);
@@ -81,8 +76,6 @@ export const restoreBackendPreferences = async (
   try {
     const token = await AsyncStorage.getItem('authToken');
     if (!token) return;
-
-    console.log('🔄 Restoring backend preferences...');
 
     // 🗑️ Eliminar tema temporal
     await AsyncStorage.removeItem('sessionTheme');
@@ -123,8 +116,6 @@ export const restoreBackendPreferences = async (
     if (updates.length > 0) {
       await AsyncStorage.multiSet(updates);
     }
-
-    console.log('✅ Backend preferences restored');
   } catch (error) {
     console.error('❌ Error restoring backend preferences:', error);
   }
@@ -147,8 +138,6 @@ export const clearSessionPreferences = async (): Promise<void> => {
       'language_backend',
       'allowNotifications_backend',
     ]);
-
-    console.log('✅ Session preferences cleared');
   } catch (error) {
     console.error('❌ Error clearing session preferences:', error);
   }
@@ -167,15 +156,9 @@ export const savePreferencesToBackend = async (preferences: {
   try {
     const token = await AsyncStorage.getItem('authToken');
     if (!token) {
-      console.log('❌ No token found, skipping backend save');
       return false;
     }
 
-    console.log('🔑 Token found:', token.substring(0, 20) + '...');
-    console.log('📤 Preferences to save:', preferences);
-
-    // Carregar preferències actuals
-    console.log('📥 Fetching current preferences...');
     const currentRes = await fetch(`${API_BASE_URL}/preferences/`, {
       method: 'GET',
       headers: {
@@ -193,9 +176,7 @@ export const savePreferencesToBackend = async (preferences: {
 
     if (currentRes.ok) {
       currentPrefs = await currentRes.json();
-      console.log('✅ Current preferences loaded:', currentPrefs);
     } else {
-      console.log('⚠️ Could not load current preferences, using defaults');
     }
 
     // Merge amb noves preferències
@@ -203,9 +184,6 @@ export const savePreferencesToBackend = async (preferences: {
       ...currentPrefs,
       ...preferences,
     };
-
-    console.log('💾 Saving preferences to backend:', updatedPrefs);
-    console.log('🌐 Request URL:', `${API_BASE_URL}/preferences/`);
 
     // Guardar al backend
     const response = await fetch(`${API_BASE_URL}/preferences/`, {
@@ -216,8 +194,6 @@ export const savePreferencesToBackend = async (preferences: {
       },
       body: JSON.stringify(updatedPrefs),
     });
-
-    console.log('📡 Response status:', response.status);
 
     if (!response.ok) {
       let errorText = 'Unknown error';
@@ -270,7 +246,6 @@ export const savePreferencesToBackend = async (preferences: {
     // 🗑️ Eliminar tema temporal quan es guarda permanentment
     await AsyncStorage.removeItem('sessionTheme');
 
-    console.log('✅ Preferences saved to backend successfully');
     return true;
   } catch (error) {
     console.error('❌ Error saving preferences to backend:', error);

@@ -217,7 +217,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
         day: 'numeric',
         month: 'short',
       });
-      return t('You attended - ') + formattedDate;
+      return t('You attended');
     } else if (eventHasPassedCompletely && !attendanceDate) {
       return t('No vares assistir');
     } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {

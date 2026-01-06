@@ -104,7 +104,7 @@ const normalizeDate = (date: Date): Date => {
 export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUnsaved }) => {
   const { goingEvents, attendanceDates, toggleGoing } = useEventStatus();
 
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const [isUnsaving, setIsUnsaving] = useState(false);
   const [showDateModal, setShowDateModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -280,39 +280,27 @@ export const EventCard: React.FC<EventCardProps> = ({ item, router, Colors, onUn
     setShowDateModal(false);
   };
 
-  // Determinar texto del botón con la nueva lógica
   const getButtonText = () => {
-    // Prioridad 1: Si la fecha de asistencia del usuario es hoy
     if (userAttendanceIsToday) {
-      return "Avui és l'esdeveniment";
-    }
-    // Prioridad 2: Si la fecha de asistencia del usuario ya pasó (ayer o antes)
-    else if (userAttendancePassed) {
-      const formattedDate = attendanceDate!.toLocaleDateString('ca-ES', {
+      return t('Today is the event');
+    } else if (userAttendancePassed) {
+      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      return `Vares assistir - ${formattedDate}`;
-    }
-    // Prioridad 3: Si el evento ya pasó completamente pero NO tiene fecha de asistencia
-    else if (eventHasPassedCompletely && !attendanceDate) {
-      return 'No vares assistir';
-    }
-    // Prioridad 4: Si tiene fecha de asistencia futura (incluye mañana)
-    else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
-      const formattedDate = attendanceDate.toLocaleDateString('ca-ES', {
+      return t('You attended');
+    } else if (eventHasPassedCompletely && !attendanceDate) {
+      return t('No vares assistir');
+    } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+      const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
         day: 'numeric',
         month: 'short',
       });
-      return `Assistiré - ${formattedDate}`;
-    }
-    // Prioridad 5: Tiene isGoing pero no tiene attendanceDate
-    else if (isGoing && !attendanceDate) {
-      return t('Assistiré');
-    }
-    // Prioridad 6: No está activo
-    else {
-      return t('Vull assistir');
+      return t('I will attend') + ` - ${formattedDate}`;
+    } else if (isGoing && !attendanceDate) {
+      return t('I will attend');
+    } else {
+      return t('Want to go');
     }
   };
 

@@ -10,7 +10,9 @@ import {
   ActivityIndicator,
   Modal,
   Platform,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
@@ -23,6 +25,8 @@ import WeatherIcon from '../../components/WeatherIcon';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
 import { api } from '../../api';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface EventData {
   id: number;
@@ -59,8 +63,6 @@ export default function EventDetail() {
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  //const { savedEvents, toggleSaved } = useEventStatus();
-
   const [modalOpen, setModalOpen] = useState(false);
   const [reviewVisible, setReviewVisible] = useState(false);
 
@@ -73,7 +75,6 @@ export default function EventDetail() {
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [isSaved, setIsSaved] = useState(false);
 
-  // IMPORTANT: Cridem useEventLogic ABANS dels useEffect (amb fallback per evitar null)
   const eventLogic = useEventLogic(
     event || {
       id: 0,
@@ -107,10 +108,8 @@ export default function EventDetail() {
 
   const shouldHideEvent = (event: EventData): boolean => {
     if (!event.data_fi) return false;
-
     const endDate = new Date(event.data_fi);
     const targetDate = new Date('2924-06-30');
-
     return (
       endDate.getFullYear() === targetDate.getFullYear() &&
       endDate.getMonth() === targetDate.getMonth() &&
@@ -127,69 +126,54 @@ export default function EventDetail() {
   const isToday = (date: Date): boolean => {
     const today = new Date();
     const compareDate = new Date(date);
-
-    const result =
+    return (
       today.getDate() === compareDate.getDate() &&
       today.getMonth() === compareDate.getMonth() &&
-      today.getFullYear() === compareDate.getFullYear();
-
-    return result;
+      today.getFullYear() === compareDate.getFullYear()
+    );
   };
 
   const isTomorrow = (date: Date): boolean => {
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
     const compareDate = new Date(date);
-
-    const result =
+    return (
       tomorrow.getDate() === compareDate.getDate() &&
       tomorrow.getMonth() === compareDate.getMonth() &&
-      tomorrow.getFullYear() === compareDate.getFullYear();
-
-    return result;
+      tomorrow.getFullYear() === compareDate.getFullYear()
+    );
   };
 
   const isEventToday = (event: EventData): boolean => {
     if (!event.data_inici || !event.data_fi) return false;
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const startDate = new Date(event.data_inici);
     startDate.setHours(0, 0, 0, 0);
-
     const endDate = new Date(event.data_fi);
     endDate.setHours(0, 0, 0, 0);
-
     return today >= startDate && today <= endDate;
   };
 
   const hasEventPassedCompletely = (event: EventData): boolean => {
     if (!event.data_fi) return false;
-
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const endDate = new Date(event.data_fi);
     endDate.setHours(0, 0, 0, 0);
-
     return endDate < today;
   };
 
   const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
     const today = new Date();
     const attendance = new Date(attendanceDate);
-
     const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
     const attendanceOnlyDate = new Date(
       attendance.getFullYear(),
       attendance.getMonth(),
       attendance.getDate(),
     );
-
-    const hasPassed = attendanceOnlyDate < todayDate;
-
-    return hasPassed;
+    return attendanceOnlyDate < todayDate;
   };
 
   useEffect(() => {
@@ -208,7 +192,6 @@ export default function EventDetail() {
         }
 
         setEvent(data);
-
         if (data.data_inici) {
           setSelectedDate(new Date(data.data_inici));
         }
@@ -222,7 +205,6 @@ export default function EventDetail() {
     fetchEventDetail();
   }, [eventId]);
 
-  // Fetch reviews
   useEffect(() => {
     if (!eventId) return;
 
@@ -233,7 +215,6 @@ export default function EventDetail() {
         const data = await res.json();
         setReviews(data);
 
-        // Calcular mitjana
         if (data.length > 0) {
           const total = data.reduce((sum: number, review: any) => sum + review.rating, 0);
           const avg = total / data.length;
@@ -277,8 +258,6 @@ export default function EventDetail() {
           method: 'DELETE',
         });
       } else {
-        // Para wishlist (bookmark), siempre usar la fecha de fin del evento
-        // Si no hay fecha de fin, usar la fecha de inicio
         let attendanceDate: string;
 
         if (event.data_fi) {
@@ -286,7 +265,6 @@ export default function EventDetail() {
         } else if (event.data_inici) {
           attendanceDate = new Date(event.data_inici).toISOString().split('T')[0];
         } else {
-          // Si no hay ninguna fecha, usar hoy
           attendanceDate = new Date().toISOString().split('T')[0];
         }
 
@@ -304,8 +282,6 @@ export default function EventDetail() {
     }
   };
 
-  // Determinar si es pot escriure una review (després dels useEffect)
-  // NOMÉS es pot fer review si vas marcar que aniràs i la data d'assistència ja ha passat
   const canWriteReview =
     event && userAttendanceDate ? hasAttendanceDatePassed(userAttendanceDate) : false;
 
@@ -337,7 +313,6 @@ export default function EventDetail() {
     if (Platform.OS === 'android') {
       setShowDatePicker(false);
     }
-
     if (date) {
       setSelectedDate(date);
     }
@@ -351,30 +326,27 @@ export default function EventDetail() {
 
   if (load) {
     return (
-      <View style={[styles.center, { backgroundColor: Colors.background }]}>
+      <SafeAreaView style={[styles.center, { backgroundColor: Colors.background }]} edges={['top']}>
         <ActivityIndicator size="large" color={Colors.accent} />
-      </View>
+      </SafeAreaView>
     );
   }
 
   if (error || !event) {
     return (
-      <View style={[styles.center, { backgroundColor: Colors.background }]}>
+      <SafeAreaView style={[styles.center, { backgroundColor: Colors.background }]} edges={['top']}>
         <Text style={{ color: Colors.text }}>{t('Error loading event')}</Text>
         <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 20 }}>
           <Text style={{ color: Colors.accent }}>Go Back</Text>
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
-  // Cridem useEventLogic només una vegada aquí
   const LogicWrapper = () => {
     const attendanceDate = userAttendanceDate;
-
     const eventIsToday = isEventToday(event);
     const eventHasPassedCompletely = hasEventPassedCompletely(event);
-
     const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
     const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
     const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
@@ -383,7 +355,6 @@ export default function EventDetail() {
 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -391,7 +362,6 @@ export default function EventDetail() {
     startDate.setHours(0, 0, 0, 0);
 
     let minDate = tomorrow;
-
     if (startDate > tomorrow) {
       minDate = startDate;
     }
@@ -402,15 +372,7 @@ export default function EventDetail() {
     const isSingleDay = minDate.getTime() === maxDate.getTime();
 
     const handleWantToGo = () => {
-      if (userAttendanceIsToday) {
-        return;
-      }
-
-      if (userAttendancePassed) {
-        return;
-      }
-
-      if (eventHasPassedCompletely) {
+      if (userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely) {
         return;
       }
 
@@ -453,11 +415,7 @@ export default function EventDetail() {
     } else if (userAttendancePassed) {
       buttonColor = '#FF6B6B';
       isDisabled = true;
-      const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
-        day: 'numeric',
-        month: 'short',
-      });
-      buttonText = t('You attended - ') + formattedDate;
+      buttonText = t('You attended');
     } else if (eventHasPassedCompletely && !attendanceDate) {
       isDisabled = true;
       buttonColor = '#FF6B6B';
@@ -494,8 +452,6 @@ export default function EventDetail() {
     );
   };
 
-  //const isSaved = !!savedEvents[event.id];
-
   const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
   const imageUri = event.imgApp
     ? `https://agenda.cultura.gencat.cat${event.imgApp}`
@@ -505,7 +461,6 @@ export default function EventDetail() {
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
@@ -520,146 +475,146 @@ export default function EventDetail() {
   const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: Colors.background, paddingTop: 50 }]}>
-      <View style={styles.headerRow}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Text style={[styles.title, { color: Colors.text }]}>←</Text>
-        </TouchableOpacity>
-        <Text
-          style={[styles.title, { color: Colors.text, marginLeft: 10, flex: 1 }]}
-          numberOfLines={1}
-        >
-          {event.titol}
-        </Text>
-      </View>
+    <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top']}>
+      <ScrollView
+        style={[styles.container, { backgroundColor: Colors.background }]}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()}>
+            <Text style={[styles.title, { color: Colors.text }]}>←</Text>
+          </TouchableOpacity>
+          <Text
+            style={[styles.title, { color: Colors.text, marginLeft: 10, flex: 1 }]}
+            numberOfLines={1}
+          >
+            {event.titol}
+          </Text>
+        </View>
 
-      {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
+        {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
 
-      {(() => {
-        if (
-          event.latitud !== null &&
-          event.longitud !== null &&
-          !isNaN(event.latitud) &&
-          !isNaN(event.longitud)
-        ) {
-          return <WeatherIcon latitude={event.latitud} longitude={event.longitud} />;
-        }
+        {(() => {
+          if (
+            event.latitud !== null &&
+            event.longitud !== null &&
+            !isNaN(event.latitud) &&
+            !isNaN(event.longitud)
+          ) {
+            return <WeatherIcon latitude={event.latitud} longitude={event.longitud} />;
+          }
 
-        if (event.georeferencia) {
-          const coords = event.georeferencia.split(',');
-
-          if (coords.length === 2) {
-            const lat = parseFloat(coords[0].trim());
-            const lon = parseFloat(coords[1].trim());
-
-            if (!isNaN(lat) && !isNaN(lon)) {
-              return <WeatherIcon latitude={lat} longitude={lon} />;
+          if (event.georeferencia) {
+            const coords = event.georeferencia.split(',');
+            if (coords.length === 2) {
+              const lat = parseFloat(coords[0].trim());
+              const lon = parseFloat(coords[1].trim());
+              if (!isNaN(lat) && !isNaN(lon)) {
+                return <WeatherIcon latitude={lat} longitude={lon} />;
+              }
             }
           }
-        }
+          return null;
+        })()}
 
-        return null;
-      })()}
+        <View style={styles.topButtons}>
+          <LogicWrapper />
 
-      <View style={styles.topButtons}>
-        <LogicWrapper />
+          <View style={styles.iconsRow}>
+            <TouchableOpacity style={styles.iconButton} onPress={handleToggleSave}>
+              <Ionicons
+                name={isSaved ? 'bookmark' : 'bookmark-outline'}
+                size={20}
+                color={Colors.text}
+              />
+            </TouchableOpacity>
 
-        <View style={styles.iconsRow}>
-          <TouchableOpacity style={styles.iconButton} onPress={handleToggleSave}>
-            <Ionicons
-              name={isSaved ? 'bookmark' : 'bookmark-outline'}
-              size={20}
-              color={Colors.text}
-            />
-          </TouchableOpacity>
+            <TouchableOpacity style={styles.iconButton} onPress={() => setModalOpen(true)}>
+              <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
+            </TouchableOpacity>
 
-          <TouchableOpacity style={styles.iconButton} onPress={() => setModalOpen(true)}>
-            <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.iconButton} onPress={() => setShareModalVisible(true)}>
-            <Ionicons name="share-social-outline" size={20} color={Colors.text} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      <View style={styles.dateContainer}>
-        <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
-        <Text style={[styles.eventDate, { color: Colors.text }]}>
-          {formatEventDate(event.data_inici, event.data_fi)}
-        </Text>
-      </View>
-
-      <Text style={[styles.description, { color: Colors.text }]}>
-        {event.descripcio?.trim() || t('No description available')}
-      </Text>
-
-      {event.espai && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
-        </Text>
-      )}
-      {event.direccio && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
-        </Text>
-      )}
-      {event.localitat && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
-        </Text>
-      )}
-      {event.modalitat && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
-        </Text>
-      )}
-      {event.infoHorari && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
-        </Text>
-      )}
-      {event.infoEntrades && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
-        </Text>
-      )}
-      {event.telefon && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
-        </Text>
-      )}
-      {event.email && (
-        <Text style={[styles.detail, { color: Colors.text }]}>
-          📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
-        </Text>
-      )}
-
-      {typeof Link === 'string' && Link.trim() !== '' && (
-        <TouchableOpacity onPress={() => Linking.openURL(Link)}>
-          <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Secció de Reviews - SEMPRE VISIBLE */}
-      <View style={styles.reviewsSection}>
-        <View style={styles.reviewsHeader}>
-          <Text style={[styles.reviewsSectionTitle, { color: Colors.text }]}>{t('Reviews')}</Text>
-          {averageRating !== null && (
-            <View style={styles.averageRatingContainer}>
-              <Ionicons name="star" size={20} color="#FFD700" />
-              <Text style={[styles.averageRatingText, { color: Colors.text }]}>
-                {averageRating.toFixed(1)}/5
-              </Text>
-              <Text style={[styles.reviewCount, { color: Colors.textSecondary }]}>
-                ({reviews.length})
-              </Text>
-            </View>
-          )}
+            <TouchableOpacity style={styles.iconButton} onPress={() => setShareModalVisible(true)}>
+              <Ionicons name="share-social-outline" size={20} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
         </View>
 
-        {reviews.length > 0 ? (
-          <>
+        <View style={styles.dateContainer}>
+          <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
+          <Text style={[styles.eventDate, { color: Colors.text }]}>
+            {formatEventDate(event.data_inici, event.data_fi)}
+          </Text>
+        </View>
+
+        <Text style={[styles.description, { color: Colors.text }]}>
+          {event.descripcio?.trim() || t('No description available')}
+        </Text>
+
+        {event.espai && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
+          </Text>
+        )}
+        {event.direccio && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
+          </Text>
+        )}
+        {event.localitat && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
+          </Text>
+        )}
+        {event.modalitat && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
+          </Text>
+        )}
+        {event.infoHorari && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
+          </Text>
+        )}
+        {event.infoEntrades && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
+          </Text>
+        )}
+        {event.telefon && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
+          </Text>
+        )}
+        {event.email && (
+          <Text style={[styles.detail, { color: Colors.text }]}>
+            📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
+          </Text>
+        )}
+
+        {typeof Link === 'string' && Link.trim() !== '' && (
+          <TouchableOpacity onPress={() => Linking.openURL(Link)}>
+            <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.reviewsSection}>
+          <View style={styles.reviewsHeader}>
+            <Text style={[styles.reviewsSectionTitle, { color: Colors.text }]}>{t('Reviews')}</Text>
+            {averageRating !== null && (
+              <View style={styles.averageRatingContainer}>
+                <Ionicons name="star" size={20} color="#FFD700" />
+                <Text style={[styles.averageRatingText, { color: Colors.text }]}>
+                  {averageRating.toFixed(1)}/5
+                </Text>
+                <Text style={[styles.reviewCount, { color: Colors.textSecondary }]}>
+                  ({reviews.length})
+                </Text>
+              </View>
+            )}
+          </View>
+
+          {reviews.length > 0 ? (
             <TouchableOpacity
               style={[styles.viewAllReviewsButton, { backgroundColor: Colors.background }]}
               onPress={() => setReviewVisible(true)}
@@ -669,33 +624,35 @@ export default function EventDetail() {
               </Text>
               <Ionicons name="chevron-forward" size={18} color={Colors.accent} />
             </TouchableOpacity>
-          </>
-        ) : (
-          <Text style={[styles.noReviewsText, { color: Colors.textSecondary }]}>
-            {t('No reviews yet')}
-          </Text>
-        )}
-      </View>
-
-      {/* El botó de review apareix si l'esdeveniment ha passat O si la data d'assistència ha passat */}
-      {canWriteReview && (
-        <View style={{ alignItems: 'flex-end' }}>
-          <TouchableOpacity
-            style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
-            onPress={() => setReviewVisible(true)}
-          >
-            <Ionicons
-              name="create-outline"
-              size={14}
-              color={Colors.card}
-              style={{ marginRight: 4 }}
-            />
-            <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
-              {t('Write review')}
+          ) : (
+            <Text style={[styles.noReviewsText, { color: Colors.textSecondary }]}>
+              {t('No reviews yet')}
             </Text>
-          </TouchableOpacity>
+          )}
         </View>
-      )}
+
+        {canWriteReview && (
+          <View style={styles.writeReviewContainer}>
+            <TouchableOpacity
+              style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+              onPress={() => setReviewVisible(true)}
+            >
+              <Ionicons
+                name="create-outline"
+                size={14}
+                color={Colors.card}
+                style={{ marginRight: 4 }}
+              />
+              <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
+                {t('Write review')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Padding inferior per assegurar que tot el contingut és visible */}
+        <View style={{ height: 40 }} />
+      </ScrollView>
 
       <Modal
         visible={showDateModal}
@@ -799,45 +756,58 @@ export default function EventDetail() {
         event={event}
         Colors={Colors}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  image: { width: '100%', height: 250, marginTop: 15 },
+  container: {
+    flex: 1,
+  },
+  scrollContent: {
+    paddingBottom: 20,
+  },
+  image: {
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.3, // 30% de l'altura de la pantalla
+    marginTop: 15,
+    resizeMode: 'cover',
+  },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: SCREEN_WIDTH * 0.05, // 5% dels marges
     marginBottom: 8,
+    marginTop: 10,
   },
-  title: { fontSize: 14, fontWeight: '700' },
+  title: {
+    fontSize: SCREEN_WIDTH * 0.037, // Font escalable
+    fontWeight: '700',
+  },
   dateContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 20,
+    marginHorizontal: SCREEN_WIDTH * 0.05,
     marginTop: 12,
     gap: 8,
   },
   eventDate: {
-    fontSize: 15,
+    fontSize: SCREEN_WIDTH * 0.04,
     fontWeight: '700',
     flex: 1,
   },
   description: {
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: SCREEN_WIDTH * 0.042,
+    lineHeight: SCREEN_WIDTH * 0.058,
     marginBottom: 20,
-    marginLeft: 10,
-    marginRight: 10,
+    marginHorizontal: SCREEN_WIDTH * 0.05,
     marginTop: 20,
   },
   link: {
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     textDecorationLine: 'underline',
     marginTop: 20,
-    marginLeft: 10,
+    marginHorizontal: SCREEN_WIDTH * 0.05,
   },
   detail: {
     fontSize: 15,
@@ -894,6 +864,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 20,
     marginRight: 20,
+    minHeight: SCREEN_WIDTH * 0.1,
   },
   reviewButtonText: {
     fontSize: 12,
@@ -1022,6 +993,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
+  },
+  writeReviewContainer: {
+    alignItems: 'flex-end',
+    marginHorizontal: SCREEN_WIDTH * 0.05,
+    marginTop: 10,
+    marginBottom: 10,
   },
   reviewsModalContainer: {
     borderTopLeftRadius: 24,

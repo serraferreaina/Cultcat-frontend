@@ -109,9 +109,7 @@ export default function PublicProfile() {
     try {
       await sendConnectionRequest(String(id));
       setConnectionStatus('Pending');
-    } catch (e) {
-      console.log(' Error:', e);
-    }
+    } catch (e) {}
   };
 
   const getButtonText = () => {

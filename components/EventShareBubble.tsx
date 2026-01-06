@@ -53,7 +53,6 @@ export default function EventShareBubble({ eventData, isMine, senderName }: Even
   };
 
   const handlePress = () => {
-    console.log('🔍 Navigating to event:', eventData.eventId);
     router.push(`/events/${eventData.eventId}`);
   };
 
@@ -79,12 +78,9 @@ export default function EventShareBubble({ eventData, isMine, senderName }: Even
               style={[styles.image, { opacity: imageLoaded ? 1 : 0 }]}
               resizeMode="cover"
               onError={(e) => {
-                console.log('❌ Image failed to load:', eventData.image);
-                console.log('❌ Error details:', e.nativeEvent);
                 setImageError(true);
               }}
               onLoad={() => {
-                console.log('✅ Image loaded successfully:', eventData.image);
                 setImageLoaded(true);
               }}
             />

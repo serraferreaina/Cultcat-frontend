@@ -195,9 +195,7 @@ export function ShareEventModal({ visible, onClose, event, Colors }: ShareEventM
 
       if (result.action === Share.sharedAction) {
         if (result.activityType) {
-          console.log('Shared via:', result.activityType);
         } else {
-          console.log('Shared successfully');
         }
       }
     } catch (error) {
