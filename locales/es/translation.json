@@ -407,5 +407,7 @@
     "gegants": "Gigantes",
     "sardanes": "Sardanas",
     "nadal": "Navidad"
-  }
+  },
+  "has_accepted_your_request": "ha aceptado tu solicitud de conexión",
+  "connection_accepted": "Conexión aceptada"
 }
