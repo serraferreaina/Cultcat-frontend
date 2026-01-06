@@ -1567,40 +1567,102 @@ export default function CercaScreen() {
       </View>
 
       {searchType === 'events' ? (
-        <FlatList
-          ref={flatListRef}
-          data={events}
-          keyExtractor={(item) => item.id.toString()}
-          renderItem={renderEvent}
-          onEndReached={loadMoreEvents}
-          onEndReachedThreshold={0.5}
-          ListFooterComponent={
-            loadingMore ? (
-              <ActivityIndicator size="small" color={Colors.accent} />
-            ) : !hasMore && events.length > 0 ? (
-              <View style={styles.endOfListContainer}>
-                <Text
-                  style={{
-                    fontSize: 14,
-                    fontWeight: '500',
-                    textAlign: 'center',
-                    color: Colors.textSecondary,
-                  }}
-                >
-                  {t('No more events to show')}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
-                  onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
-                >
-                  <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
-                    {t('Back to top')}
+        !load && events.length === 0 ? (
+          <View style={styles.endOfListContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={42}
+              color={Colors.textSecondary}
+              style={{ marginBottom: 10 }}
+            />
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '700',
+                textAlign: 'center',
+                color: Colors.text,
+              }}
+            >
+              {t('No events found. Explore a new date or category!')}
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 14,
+                textAlign: 'center',
+                color: Colors.textSecondary,
+              }}
+            >
+              {t('Tip: tweak dates, categories, or keywords to uncover more events.')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={events}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEvent}
+            onEndReached={loadMoreEvents}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : !hasMore && events.length > 0 ? (
+                <View style={styles.endOfListContainer}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      textAlign: 'center',
+                      color: Colors.textSecondary,
+                    }}
+                  >
+                    {t('No more events to show')}
                   </Text>
-                </TouchableOpacity>
-              </View>
-            ) : null
-          }
-        />
+                  <TouchableOpacity
+                    style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
+                    onPress={() =>
+                      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+                    }
+                  >
+                    <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
+                      {t('Back to top')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
+          />
+        )
+      ) : !load && users.length === 0 ? (
+        <View style={styles.endOfListContainer}>
+          <Ionicons
+            name="people-outline"
+            size={42}
+            color={Colors.textSecondary}
+            style={{ marginBottom: 10 }}
+          />
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '700',
+              textAlign: 'center',
+              color: Colors.text,
+            }}
+          >
+            {t('No users with this name')}
+          </Text>
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 14,
+              textAlign: 'center',
+              color: Colors.textSecondary,
+            }}
+          >
+            {t('Try a shorter name or similar spelling.')}
+          </Text>
+        </View>
       ) : (
         <FlatList
           ref={flatListRef}
@@ -1626,14 +1688,6 @@ export default function CercaScreen() {
                 >
                   {t('No more users to show')}
                 </Text>
-                <TouchableOpacity
-                  style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
-                  onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
-                >
-                  <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
-                    {t('Back to top')}
-                  </Text>
-                </TouchableOpacity>
               </View>
             ) : null
           }
