@@ -474,6 +474,15 @@ export default function EventDetail() {
 
   const maxDate = event.data_fi ? new Date(event.data_fi) : new Date();
 
+  const DetailRow = ({ icon, label, value }: { icon: any; label: string; value: string }) => (
+    <View style={styles.detailRow}>
+      <Ionicons name={icon} size={18} color={Colors.accent} style={styles.detailIcon} />
+      <Text style={[styles.detailText, { color: Colors.text }]}>
+        <Text style={styles.detailLabel}>{label}</Text> {value}
+      </Text>
+    </View>
+  );
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: Colors.background }} edges={['top']}>
       <ScrollView
@@ -482,8 +491,8 @@ export default function EventDetail() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()}>
-            <Text style={[styles.title, { color: Colors.text }]}>←</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={28} color={Colors.text} />
           </TouchableOpacity>
           <Text
             style={[styles.title, { color: Colors.text, marginLeft: 10, flex: 1 }]}
@@ -552,58 +561,49 @@ export default function EventDetail() {
         </Text>
 
         {event.espai && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🏛️ <Text style={styles.detailLabel}>{t('Space')}</Text> {event.espai}
-          </Text>
+          <DetailRow icon="business-outline" label={t('Space')} value={event.espai} />
         )}
         {event.direccio && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            📍 <Text style={styles.detailLabel}>{t('Address')}</Text> {event.direccio}
-          </Text>
+          <DetailRow icon="location-outline" label={t('Address')} value={event.direccio} />
         )}
         {event.localitat && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🏙️ <Text style={styles.detailLabel}>{t('Location')}</Text> {event.localitat}
-          </Text>
+          <DetailRow icon="map-outline" label={t('Location')} value={event.localitat} />
         )}
         {event.modalitat && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            💡 <Text style={styles.detailLabel}>{t('Modality')}</Text> {event.modalitat}
-          </Text>
+          <DetailRow icon="bulb-outline" label={t('Modality')} value={event.modalitat} />
         )}
         {event.infoHorari && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            ⏰ <Text style={styles.detailLabel}>{t('Schedule')}</Text> {event.infoHorari}
-          </Text>
+          <DetailRow icon="time-outline" label={t('Schedule')} value={event.infoHorari} />
         )}
         {event.infoEntrades && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            🎟️ <Text style={styles.detailLabel}>{t('Tickets')}</Text> {event.infoEntrades}
-          </Text>
+          <DetailRow icon="pricetag-outline" label={t('Tickets')} value={event.infoEntrades} />
         )}
         {event.telefon && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            ☎️ <Text style={styles.detailLabel}>{t('Telephone')}</Text> {event.telefon}
-          </Text>
+          <DetailRow icon="call-outline" label={t('Telephone')} value={event.telefon} />
         )}
-        {event.email && (
-          <Text style={[styles.detail, { color: Colors.text }]}>
-            📧 <Text style={styles.detailLabel}>{t('Email')}</Text> {event.email}
-          </Text>
-        )}
+        {event.email && <DetailRow icon="mail-outline" label={t('Email')} value={event.email} />}
 
         {typeof Link === 'string' && Link.trim() !== '' && (
-          <TouchableOpacity onPress={() => Linking.openURL(Link)}>
+          <TouchableOpacity onPress={() => Linking.openURL(Link)} style={styles.moreInfoRow}>
+            <Ionicons name="link-outline" size={18} color={Colors.accent} />
             <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
           </TouchableOpacity>
         )}
 
-        <View style={styles.reviewsSection}>
+        <View
+          style={[
+            styles.reviewsSection,
+            {
+              backgroundColor: Colors.card,
+              borderColor: Colors.border,
+            },
+          ]}
+        >
           <View style={styles.reviewsHeader}>
             <Text style={[styles.reviewsSectionTitle, { color: Colors.text }]}>{t('Reviews')}</Text>
             {averageRating !== null && (
               <View style={styles.averageRatingContainer}>
-                <Ionicons name="star" size={20} color="#FFD700" />
+                <Ionicons name="star" size={22} color={Colors.accent} />
                 <Text style={[styles.averageRatingText, { color: Colors.text }]}>
                   {averageRating.toFixed(1)}/5
                 </Text>
@@ -616,7 +616,13 @@ export default function EventDetail() {
 
           {reviews.length > 0 ? (
             <TouchableOpacity
-              style={[styles.viewAllReviewsButton, { backgroundColor: Colors.background }]}
+              style={[
+                styles.viewAllReviewsButton,
+                {
+                  backgroundColor: Colors.background,
+                  borderColor: Colors.border,
+                },
+              ]}
               onPress={() => setReviewVisible(true)}
             >
               <Text style={[styles.viewAllReviewsText, { color: Colors.accent }]}>
@@ -629,26 +635,30 @@ export default function EventDetail() {
               {t('No reviews yet')}
             </Text>
           )}
-        </View>
 
-        {canWriteReview && (
-          <View style={styles.writeReviewContainer}>
+          {canWriteReview && (
             <TouchableOpacity
-              style={[styles.reviewButton, { backgroundColor: Colors.accent }]}
+              style={[
+                styles.writeReviewButton,
+                {
+                  backgroundColor: Colors.accent,
+                  marginTop: reviews.length > 0 ? 12 : 8,
+                },
+              ]}
               onPress={() => setReviewVisible(true)}
             >
               <Ionicons
                 name="create-outline"
-                size={14}
+                size={16}
                 color={Colors.card}
-                style={{ marginRight: 4 }}
+                style={{ marginRight: 6 }}
               />
-              <Text style={[styles.reviewButtonText, { color: Colors.card }]}>
+              <Text style={[styles.writeReviewButtonText, { color: Colors.card }]}>
                 {t('Write review')}
               </Text>
             </TouchableOpacity>
-          </View>
-        )}
+          )}
+        </View>
 
         {/* Padding inferior per assegurar que tot el contingut és visible */}
         <View style={{ height: 40 }} />
@@ -780,6 +790,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     marginTop: 10,
   },
+  backButton: {
+    padding: 6,
+    borderRadius: 8,
+  },
   title: {
     fontSize: SCREEN_WIDTH * 0.037, // Font escalable
     fontWeight: '700',
@@ -809,11 +823,25 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginHorizontal: SCREEN_WIDTH * 0.05,
   },
-  detail: {
+  moreInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginHorizontal: SCREEN_WIDTH * 0.05,
+    marginTop: 20,
+  },
+  detailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: SCREEN_WIDTH * 0.05,
+    marginBottom: 8,
+  },
+  detailIcon: {
+    marginRight: 8,
+  },
+  detailText: {
     fontSize: 15,
-    marginBottom: 5,
-    marginLeft: 10,
-    marginRight: 10,
+    flex: 1,
   },
   detailLabel: {
     fontWeight: '600',
@@ -855,19 +883,16 @@ const styles = StyleSheet.create({
   iconButton: {
     padding: 6,
   },
-  reviewButton: {
-    marginTop: 20,
+  writeReviewButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 16,
-    marginBottom: 20,
-    marginRight: 20,
-    minHeight: SCREEN_WIDTH * 0.1,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 12,
   },
-  reviewButtonText: {
-    fontSize: 12,
+  writeReviewButtonText: {
+    fontSize: 14,
     fontWeight: '600',
   },
   modalOverlay: {
@@ -950,12 +975,20 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     marginTop: 20,
     marginBottom: 10,
+    padding: 16,
+    borderRadius: 16,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   reviewsHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 16,
   },
   reviewsSectionTitle: {
     fontSize: 18,
@@ -980,6 +1013,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 16,
     borderRadius: 12,
+    borderWidth: 1,
   },
   viewAllReviewsText: {
     fontSize: 15,
@@ -997,12 +1031,6 @@ const styles = StyleSheet.create({
   writeReviewContainer: {
     alignItems: 'flex-end',
     marginHorizontal: SCREEN_WIDTH * 0.05,
-    marginTop: 10,
-    marginBottom: 10,
-  },
-  reviewsModalContainer: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
     height: '80%',
   },
   reviewsModalHeader: {

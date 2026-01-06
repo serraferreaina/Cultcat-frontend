@@ -58,7 +58,7 @@ export default function PreviousEventsScreen() {
 
       // Combine both sets with a type marker
       const combined = [
-        ...((attended || []).map((e) => ({ type: 'attended' as const, meta: e }))),
+        ...(attended || []).map((e) => ({ type: 'attended' as const, meta: e })),
         ...expiredWantToGo.map((e) => ({ type: 'expired_wantToGo' as const, meta: e })),
       ];
 
@@ -77,7 +77,10 @@ export default function PreviousEventsScreen() {
       ).filter(Boolean) as { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }[];
 
       // Deduplicate by event id in case of overlaps
-      const byId = new Map<number, { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }>();
+      const byId = new Map<
+        number,
+        { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }
+      >();
       detailed.forEach((d) => {
         if (!byId.has(d.ev.id)) byId.set(d.ev.id, d);
       });
@@ -157,7 +160,11 @@ export default function PreviousEventsScreen() {
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={Colors.accent} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.accent}
+            />
           }
           contentContainerStyle={{ paddingBottom: 20 }}
         />
