@@ -559,8 +559,8 @@ export default function Profile() {
           {/* Connections Modal */}
           <Modal
             visible={connectionsModalVisible}
-            transparent
             animationType="slide"
+            presentationStyle="pageSheet"
             onRequestClose={() => setConnectionsModalVisible(false)}
           >
             <SafeAreaView style={[styles.modalScreen, { backgroundColor: Colors.background }]}>
@@ -829,8 +829,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: SCREEN_WIDTH * 0.04,
-    paddingTop: 16,
-    paddingBottom: 12,
+    paddingTop: SCREEN_WIDTH * 0.04,
+    paddingBottom: SCREEN_WIDTH * 0.04,
     borderBottomWidth: 1,
     borderBottomColor: '#E5E1DA',
   },

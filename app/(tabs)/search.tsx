@@ -808,11 +808,6 @@ export default function CercaScreen() {
   // Users search with pagination and dedup
   const fetchUsers = async (reset = false) => {
     const query = searchQuery.trim();
-    if (!query) {
-      setUsers([]);
-      setHasMoreUsers(false);
-      return;
-    }
 
     if (reset) {
       setLoading(true);
@@ -826,7 +821,11 @@ export default function CercaScreen() {
 
     try {
       const currentOffset = reset ? 0 : userOffset;
-      const url = `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+      // If query is empty, fetch all users; otherwise filter by username
+      const url = query
+        ? `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`
+        : `http://nattech.fib.upc.edu:40490/users?batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
