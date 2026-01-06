@@ -251,9 +251,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         body =
           notification.payload.message ||
           `${t('what_did_you_think')} '${notification.payload.title}'?`;
-      } else {
-        title = `🔔 ${t('new_notification')}`;
-        body = getNotificationText(notification);
       }
 
       await Notifications.scheduleNotificationAsync({
