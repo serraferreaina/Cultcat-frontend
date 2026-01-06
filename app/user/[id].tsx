@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   TouchableOpacity,
   Modal,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,7 +19,13 @@ import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
 import { ShareProfileModal } from '../../components/ShareProfileModal';
 import { useTranslation } from 'react-i18next';
-import { sendConnectionRequest, getUserBadgesByUserId } from '../../api';
+import {
+  sendConnectionRequest,
+  getUserBadgesByUserId,
+  getNotifications,
+  acceptConnection,
+  deleteConnection,
+} from '../../api';
 import { getConnections } from '../../api/connections';
 
 export default function PublicProfile() {
@@ -49,6 +56,30 @@ export default function PublicProfile() {
   const [badges, setBadges] = useState<Badge[]>([]);
   const [selectedBadge, setSelectedBadge] = useState<Badge | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [pendingRequestId, setPendingRequestId] = useState<number | null>(null);
+  const [isSending, setIsSending] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<{
+    connection_id: number;
+    chat_id?: number;
+  } | null>(null);
+  const [showConnectedMenu, setShowConnectedMenu] = useState(false);
+
+  // Toast state
+  const [showToast, setShowToast] = useState(false);
+  const [toastText, setToastText] = useState('');
+  const fadeAnim = useState(new Animated.Value(0))[0];
+
+  const showToastMessage = (message: string) => {
+    setToastText(message);
+    setShowToast(true);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 250, useNativeDriver: true }).start(() => {
+      setTimeout(() => {
+        Animated.timing(fadeAnim, { toValue: 0, duration: 250, useNativeDriver: true }).start(() =>
+          setShowToast(false),
+        );
+      }, 2000);
+    });
+  };
 
   const openBadgeModal = (badge: Badge) => {
     setSelectedBadge(badge);
@@ -64,6 +95,7 @@ export default function PublicProfile() {
     'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png';
 
   const fetchUser = async () => {
+    setLoading(true);
     try {
       const res = await fetch(`http://nattech.fib.upc.edu:40490/users/${id}`);
       const data = await res.json();
@@ -83,10 +115,32 @@ export default function PublicProfile() {
       // Check if already connected
       try {
         const connections = await getConnections();
-        const isConnected = connections.some((conn: any) => conn.user_id === data.id);
+        const match = connections.find((conn: any) => conn.user_id === data.id);
+        const isConnected = !!match;
 
         if (isConnected) {
           setConnectionStatus('Connected');
+          setActiveConnection({ connection_id: match.connection_id, chat_id: match.chat_id });
+          setPendingRequestId(null);
+        } else {
+          // If not connected, check if there is a pending request received from this user
+          try {
+            const notifications = await getNotifications();
+            const pending = (notifications || []).find(
+              (n: any) =>
+                n.type === 'connection_request_received' && n.payload?.from_user_id === data.id,
+            );
+            if (pending) {
+              setPendingRequestId(pending.reference_id);
+              setActiveConnection(null);
+            } else {
+              setPendingRequestId(null);
+              setActiveConnection(null);
+            }
+          } catch (e) {
+            setPendingRequestId(null);
+            setActiveConnection(null);
+          }
         }
       } catch (err) {
         console.error('Error checking connections:', err);
@@ -120,13 +174,48 @@ export default function PublicProfile() {
   const handleSendRequest = async () => {
     if (!id) return;
     try {
+      setIsSending(true);
       await sendConnectionRequest(String(id));
-      setConnectionStatus('Pending');
+      showToastMessage(t('Connection request sent'));
+    } catch (e) {
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleApproveRequest = async () => {
+    if (!pendingRequestId) return;
+    try {
+      await acceptConnection(pendingRequestId);
+      setConnectionStatus('Connected');
+      setPendingRequestId(null);
+      showToastMessage(t('Connection accepted'));
+      // Refresh connections to capture ids
+      try {
+        const connections = await getConnections();
+        const match = connections.find((c: any) => c.user_id === Number(id));
+        if (match)
+          setActiveConnection({ connection_id: match.connection_id, chat_id: match.chat_id });
+      } catch {}
+    } catch (e) {}
+  };
+
+  const handleDeleteConnection = async () => {
+    if (!activeConnection) return;
+    try {
+      await deleteConnection(activeConnection.connection_id);
+      setActiveConnection(null);
+      setConnectionStatus(null);
+      setShowConnectedMenu(false);
+      showToastMessage(t('Connection deleted'));
+      // Refresh full user and connections state after deletion
+      await fetchUser();
     } catch (e) {}
   };
 
   const getButtonText = () => {
     if (connectionStatus === 'Connected') return t('Connected');
+    if (pendingRequestId) return t('Approve connection');
     return t('Connect');
   };
 
@@ -135,6 +224,14 @@ export default function PublicProfile() {
       style={[styles.screen, { backgroundColor: Colors.background }]}
       edges={['top', 'left', 'right']}
     >
+      {showToast && (
+        <Animated.View
+          style={[styles.toast, { backgroundColor: Colors.accent, opacity: fadeAnim }]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={{ color: '#FFFFFF', fontWeight: '600', fontSize: 14 }}>{toastText}</Text>
+        </Animated.View>
+      )}
       <ScrollView contentContainerStyle={styles.content}>
         {/* Header amb botó de tornar */}
         <View style={styles.headerRow}>
@@ -176,21 +273,77 @@ export default function PublicProfile() {
                 <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
               </View>
 
-              {/* Botón Solicitud de Amistad */}
+              {/* Connection actions */}
               <View style={{ marginTop: 20 }}>
-                <TouchableOpacity
-                  disabled={connectionStatus === 'Connected'}
-                  onPress={handleSendRequest}
-                  style={[
-                    styles.actionBtn,
-                    {
-                      backgroundColor:
-                        connectionStatus === 'Connected' ? Colors.going : Colors.accent,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.actionText, { color: Colors.card }]}>{getButtonText()}</Text>
-                </TouchableOpacity>
+                {connectionStatus === 'Connected' ? (
+                  <View>
+                    <TouchableOpacity
+                      onPress={() => setShowConnectedMenu((v) => !v)}
+                      style={[styles.connectedRow, { borderColor: Colors.border }]}
+                    >
+                      <Ionicons name="checkmark-circle" size={18} color={Colors.going} />
+                      <Text style={{ color: Colors.text, fontWeight: '700', marginLeft: 8 }}>
+                        {t('Connected')}
+                      </Text>
+                      <View style={{ flex: 1 }} />
+                      <Ionicons
+                        name={showConnectedMenu ? 'chevron-up' : 'chevron-down'}
+                        size={18}
+                        color={Colors.text}
+                      />
+                    </TouchableOpacity>
+                    {showConnectedMenu && (
+                      <View
+                        style={[
+                          styles.connectedMenu,
+                          { backgroundColor: Colors.card, borderColor: Colors.border },
+                        ]}
+                      >
+                        <TouchableOpacity
+                          style={styles.connectedMenuItem}
+                          onPress={() => {
+                            setShowConnectedMenu(false);
+                            if (activeConnection?.chat_id) {
+                              router.push({
+                                pathname: '/xat/[id]',
+                                params: { id: String(activeConnection.chat_id) },
+                              });
+                            }
+                          }}
+                        >
+                          <Ionicons name="chatbubbles-outline" size={16} color={Colors.text} />
+                          <Text style={{ color: Colors.text, marginLeft: 8 }}>
+                            {t('Send message')}
+                          </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.connectedMenuItem}
+                          onPress={handleDeleteConnection}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={Colors.attending} />
+                          <Text style={{ color: Colors.attending, marginLeft: 8 }}>
+                            {t('Delete connection')}
+                          </Text>
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    disabled={isSending}
+                    onPress={pendingRequestId ? handleApproveRequest : handleSendRequest}
+                    style={[
+                      styles.actionBtn,
+                      {
+                        backgroundColor: pendingRequestId ? Colors.going : Colors.accent,
+                      },
+                    ]}
+                  >
+                    <Text style={[styles.actionText, { color: Colors.card }]}>
+                      {getButtonText()}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             </View>
           </View>
@@ -362,7 +515,7 @@ const styles = StyleSheet.create({
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
   },
   avatar: {
     width: 78,
@@ -429,6 +582,40 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  connectedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  connectedMenu: {
+    marginTop: 8,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: 'hidden',
+  },
+  connectedMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+  },
+  // Toast styles similar to profile screen
+  toast: {
+    position: 'absolute',
+    top: 8,
+    left: 16,
+    right: 16,
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   badgesGrid: {
     flexDirection: 'row',

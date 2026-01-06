@@ -152,3 +152,20 @@ export function sendConnectionRequest(userId: string) {
     body: JSON.stringify({ to_user_id: userId }),
   });
 }
+
+// Notifications and connections helpers
+export function getNotifications() {
+  return api('/notifications/');
+}
+
+export function acceptConnection(requestId: number | string) {
+  return api(`/connection/accept/${requestId}/`, {
+    method: 'POST',
+  });
+}
+
+export function deleteConnection(connectionId: number | string) {
+  return api(`/connection/delete/${connectionId}/`, {
+    method: 'DELETE',
+  });
+}
