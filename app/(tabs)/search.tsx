@@ -143,8 +143,79 @@ export default function CercaScreen() {
   };
 
   const loadMoreEvents = () => {
-    if (!hasMore || loadingMore || isFiltered) return;
-    fetchEvents();
+    if (!hasMore || loadingMore) return;
+
+    if (isFiltered) {
+      // If filtered, load more with existing filters
+      loadMoreFiltered();
+    } else {
+      // Otherwise load more from default API
+      fetchEvents();
+    }
+  };
+
+  const loadMoreFiltered = async () => {
+    setLoadingMore(true);
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        `offset=${offset}`,
+      ]);
+      const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+      const res = await fetch(url);
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+
+      let data = [];
+      try {
+        data = textData.trim() ? JSON.parse(textData) : [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
+        data = [];
+      }
+
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      setEvents((prev) => {
+        const map = new Map<number, any>();
+        prev.forEach((evt: any) => map.set(evt.id, evt));
+        filteredData.forEach((evt: any) => map.set(evt.id, evt));
+        return Array.from(map.values());
+      });
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(offset + BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const fetchEvents = async (reset = false) => {
@@ -177,10 +248,17 @@ export default function CercaScreen() {
         return Array.from(map.values());
       });
 
-      setOffset(currentOffset + BATCH_SIZE);
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(currentOffset + BATCH_SIZE);
+      }
 
-      if (newEvents.length < BATCH_SIZE) {
-        setHasMore(false);
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(newEvents.length >= BATCH_SIZE);
       }
     } catch (err: any) {
       setError(err.message);
@@ -204,10 +282,17 @@ export default function CercaScreen() {
     setSelectedMunicipi(municipi);
     setIsMunicipiModalVisible(false);
     setLoading(true);
+    setOffset(0);
+    setHasMore(true);
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -224,9 +309,31 @@ export default function CercaScreen() {
         data = [];
       }
 
-      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
 
       setEvents(filteredData);
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+
       setIsFiltered(true);
 
       if (filteredData.length === 0) {
@@ -576,13 +683,19 @@ export default function CercaScreen() {
     if (!query) return;
 
     try {
+      const today = new Date().toISOString().split('T')[0];
       const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&order_by_date=asc`,
+        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&from_date=${today}&order_by_date=asc&batch_size=${BATCH_SIZE}&offset=0`,
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : [];
+
+      // Handle both array and object with results property
+      if (data.results) {
+        data = data.results;
+      }
 
       if (!Array.isArray(data) || data.length === 0) {
         Alert.alert(t('No events found'), t('No events match', { query }));
@@ -624,19 +737,34 @@ export default function CercaScreen() {
     setLoading(true);
     setNoEventsMessage(null);
     setEvents([]);
+    setOffset(0);
+    setHasMore(true);
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : [];
 
-      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
 
       if (filteredData.length === 0) {
         setEvents([]);
@@ -644,6 +772,19 @@ export default function CercaScreen() {
       } else {
         setEvents(filteredData);
         setNoEventsMessage(null);
+      }
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
       }
 
       setIsFiltered(true);
