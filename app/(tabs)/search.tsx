@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import { UserCard } from '../../components/UserCard';
 import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -47,6 +48,7 @@ export default function CercaScreen() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const [events, setEvents] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const {
@@ -58,6 +60,7 @@ export default function CercaScreen() {
     refreshSavedEvents,
   } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
+  const [searchType, setSearchType] = useState<'events' | 'users'>('events');
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
@@ -65,6 +68,9 @@ export default function CercaScreen() {
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedEventForShare, setSelectedEventForShare] = useState<any | null>(null);
+
+  // Ref to control list scrolling
+  const flatListRef = useRef<FlatList<any>>(null);
 
   const normalizeDate = (date: Date): Date => {
     const normalized = new Date(date);
@@ -90,6 +96,9 @@ export default function CercaScreen() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [userOffset, setUserOffset] = useState(0);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -682,20 +691,33 @@ export default function CercaScreen() {
   const handleSearch = async (text: string) => {
     const query = text.trim();
     setSearchQuery(query);
+    if (searchType === 'users') {
+      await fetchUsers(true);
+    } else {
+      await fetchEventsWithFilters(true);
+    }
+  };
 
-    setLoading(true);
-    setNoEventsMessage(null);
-    setEvents([]);
-    setOffset(0);
-    setHasMore(true);
+  // Event search using current filters + q
+  const fetchEventsWithFilters = async (reset = false) => {
+    if (reset) {
+      setLoading(true);
+      setNoEventsMessage(null);
+      setEvents([]);
+      setOffset(0);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
 
     try {
       const today = new Date().toISOString().split('T')[0];
+      const currentOffset = reset ? 0 : offset;
       const queryParams = buildQuery([
         `from_date=${today}`,
         'order_by_date=asc',
         `batch_size=${BATCH_SIZE}`,
-        'offset=0',
+        `offset=${currentOffset}`,
       ]);
       const url = `http://nattech.fib.upc.edu:40490/events${queryParams}`;
 
@@ -704,27 +726,35 @@ export default function CercaScreen() {
 
       const textData = await res.text();
       let data = textData ? JSON.parse(textData) : {};
-
-      // Handle both array and object with results property
       let eventData = data.results || data || [];
 
       const filteredData = Array.isArray(eventData)
         ? eventData.filter((event: any) => !shouldHideEvent(event))
         : [];
 
-      if (filteredData.length === 0) {
-        setEvents([]);
-        setNoEventsMessage(query ? t('No events found') : t('No events for selected categories'));
+      if (reset) {
+        if (filteredData.length === 0) {
+          setEvents([]);
+          setNoEventsMessage(
+            searchQuery ? t('No events found') : t('No events for selected categories'),
+          );
+        } else {
+          setEvents(filteredData);
+          setNoEventsMessage(null);
+        }
       } else {
-        setEvents(filteredData);
-        setNoEventsMessage(null);
+        setEvents((prev) => {
+          const map = new Map<number, any>();
+          prev.forEach((evt: any) => map.set(evt.id, evt));
+          filteredData.forEach((evt: any) => map.set(evt.id, evt));
+          return Array.from(map.values());
+        });
       }
 
-      // Use API's pagination metadata
       if (data.next_offset !== undefined) {
         setOffset(data.next_offset);
       } else {
-        setOffset(BATCH_SIZE);
+        setOffset(currentOffset + BATCH_SIZE);
       }
 
       if (data.has_more !== undefined) {
@@ -739,6 +769,7 @@ export default function CercaScreen() {
       Alert.alert('Error', t('There was a problem fetching events.'));
     } finally {
       setLoading(false);
+      setLoadingMore(false);
     }
   };
 
@@ -760,6 +791,74 @@ export default function CercaScreen() {
     params.push(...extraParams);
 
     return params.length > 0 ? `?${params.join('&')}` : '';
+  };
+
+  // Users search with pagination and dedup
+  const fetchUsers = async (reset = false) => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setUsers([]);
+      setHasMoreUsers(false);
+      return;
+    }
+
+    if (reset) {
+      setLoading(true);
+      setUserOffset(0);
+      setHasMoreUsers(true);
+      setUsers([]);
+    } else {
+      if (loadingMoreUsers || !hasMoreUsers) return;
+      setLoadingMoreUsers(true);
+    }
+
+    try {
+      const currentOffset = reset ? 0 : userOffset;
+      const url = `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+      const responseData = textData ? JSON.parse(textData) : {};
+      let data = responseData.results || responseData || [];
+      const userData = Array.isArray(data) ? data : [];
+
+      if (reset) {
+        setUsers(userData);
+      } else {
+        setUsers((prev) => {
+          const map = new Map<string, any>();
+          prev.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          userData.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          return Array.from(map.values());
+        });
+      }
+
+      if (responseData.next_offset !== undefined) {
+        setUserOffset(responseData.next_offset);
+      } else {
+        setUserOffset(currentOffset + BATCH_SIZE);
+      }
+
+      if (responseData.has_more !== undefined) {
+        setHasMoreUsers(responseData.has_more);
+      } else {
+        setHasMoreUsers(userData.length >= BATCH_SIZE);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', t('There was a problem fetching users'));
+      if (reset) setUsers([]);
+    } finally {
+      setLoading(false);
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  const handleLoadMoreUsers = () => {
+    if (!loadingMoreUsers && hasMoreUsers && searchQuery) {
+      fetchUsers(false);
+    }
   };
 
   const handleSearchByTopics = async () => {
@@ -1421,16 +1520,125 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      <FlatList
-        data={events}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderEvent}
-        onEndReached={loadMoreEvents}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
-        }
-      />
+      {/* Tab selector */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'events' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('events');
+            // Refresh events based on current filters + query
+            fetchEventsWithFilters(true);
+          }}
+        >
+          <Text
+            style={{
+              color: searchType === 'events' ? Colors.card : Colors.text,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {t('Events')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'users' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('users');
+            fetchUsers(true);
+          }}
+        >
+          <Text
+            style={{
+              color: searchType === 'users' ? Colors.card : Colors.text,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {t('Users')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {searchType === 'events' ? (
+        <FlatList
+          ref={flatListRef}
+          data={events}
+          keyExtractor={(item) => item.id.toString()}
+          renderItem={renderEvent}
+          onEndReached={loadMoreEvents}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : !hasMore && events.length > 0 ? (
+              <View style={styles.endOfListContainer}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                  }}
+                >
+                  {t('No more events to show')}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
+                  onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                >
+                  <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
+                    {t('Back to top')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          }
+        />
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={users}
+          keyExtractor={(item) => String(item.id ?? item.username)}
+          renderItem={({ item }) => (
+            <UserCard user={item} onPress={() => router.push(`/user/${item.id}`)} />
+          )}
+          onEndReached={handleLoadMoreUsers}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMoreUsers ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : !hasMoreUsers && users.length > 0 ? (
+              <View style={styles.endOfListContainer}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                  }}
+                >
+                  {t('No more users to show')}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
+                  onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+                >
+                  <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
+                    {t('Back to top')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* COMMENTS */}
       {selectedEventId !== null && (
@@ -1778,5 +1986,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginBottom: 4,
+  },
+  endOfListContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  endOfListButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginBottom: 6,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
