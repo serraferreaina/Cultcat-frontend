@@ -122,6 +122,11 @@ export default function CercaScreen() {
   };
 
   const shouldHideEvent = (event: any): boolean => {
+    // Hide events with null/undefined municipi when municipi filter is active
+    if (selectedMunicipi && (!event.municipi || event.municipi === null)) {
+      return true;
+    }
+
     if (event.data_fi) {
       const endDate = new Date(event.data_fi);
       const targetDate = new Date('2924-06-30');
@@ -289,20 +294,18 @@ export default function CercaScreen() {
   );
 
   const handleSearchByMunicipi = async (municipi: string) => {
-    setSelectedMunicipi(municipi);
     setIsMunicipiModalVisible(false);
     setLoading(true);
     setOffset(0);
     setHasMore(true);
 
+    // Set selectedMunicipi BEFORE buildQuery so it's included in the query
+    setSelectedMunicipi(municipi);
+
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([
-        `from_date=${today}`,
-        'order_by_date=asc',
-        `batch_size=${BATCH_SIZE}`,
-        'offset=0',
-      ]);
+      // Wait a moment for state to update, or pass municipi directly
+      const query = `?municipi=${encodeURIComponent(municipi)}&from_date=${today}&order_by_date=asc&batch_size=${BATCH_SIZE}&offset=0`;
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -345,12 +348,6 @@ export default function CercaScreen() {
       }
 
       setIsFiltered(true);
-
-      if (filteredData.length === 0) {
-        Alert.alert(t('Cap esdeveniment'), t('No hi ha esdeveniments a ') + `${municipi}`, [
-          { text: "D'acord" },
-        ]);
-      }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
