@@ -27,6 +27,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
+import { UserCard } from '../../components/UserCard';
 import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -47,6 +48,7 @@ export default function CercaScreen() {
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const [events, setEvents] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const {
@@ -58,6 +60,7 @@ export default function CercaScreen() {
     refreshSavedEvents,
   } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
+  const [searchType, setSearchType] = useState<'events' | 'users'>('events');
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
@@ -65,6 +68,9 @@ export default function CercaScreen() {
 
   const [shareModalVisible, setShareModalVisible] = useState(false);
   const [selectedEventForShare, setSelectedEventForShare] = useState<any | null>(null);
+
+  // Ref to control list scrolling
+  const flatListRef = useRef<FlatList<any>>(null);
 
   const normalizeDate = (date: Date): Date => {
     const normalized = new Date(date);
@@ -90,6 +96,9 @@ export default function CercaScreen() {
   const [offset, setOffset] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [userOffset, setUserOffset] = useState(0);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -98,6 +107,7 @@ export default function CercaScreen() {
   };
 
   const clearFilters = () => {
+    setSearchQuery('');
     setSelectedMunicipi(null);
     setSelectedTopics([]);
     setHasDateFilter(false);
@@ -143,8 +153,79 @@ export default function CercaScreen() {
   };
 
   const loadMoreEvents = () => {
-    if (!hasMore || loadingMore || isFiltered) return;
-    fetchEvents();
+    if (!hasMore || loadingMore) return;
+
+    if (isFiltered) {
+      // If filtered, load more with existing filters
+      loadMoreFiltered();
+    } else {
+      // Otherwise load more from default API
+      fetchEvents();
+    }
+  };
+
+  const loadMoreFiltered = async () => {
+    setLoadingMore(true);
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        `offset=${offset}`,
+      ]);
+      const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+      const res = await fetch(url);
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+
+      let data = [];
+      try {
+        data = textData.trim() ? JSON.parse(textData) : [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
+        data = [];
+      }
+
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      setEvents((prev) => {
+        const map = new Map<number, any>();
+        prev.forEach((evt: any) => map.set(evt.id, evt));
+        filteredData.forEach((evt: any) => map.set(evt.id, evt));
+        return Array.from(map.values());
+      });
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(offset + BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const fetchEvents = async (reset = false) => {
@@ -177,10 +258,17 @@ export default function CercaScreen() {
         return Array.from(map.values());
       });
 
-      setOffset(currentOffset + BATCH_SIZE);
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(currentOffset + BATCH_SIZE);
+      }
 
-      if (newEvents.length < BATCH_SIZE) {
-        setHasMore(false);
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(newEvents.length >= BATCH_SIZE);
       }
     } catch (err: any) {
       setError(err.message);
@@ -204,10 +292,17 @@ export default function CercaScreen() {
     setSelectedMunicipi(municipi);
     setIsMunicipiModalVisible(false);
     setLoading(true);
+    setOffset(0);
+    setHasMore(true);
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -224,9 +319,31 @@ export default function CercaScreen() {
         data = [];
       }
 
-      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
 
       setEvents(filteredData);
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+
       setIsFiltered(true);
 
       if (filteredData.length === 0) {
@@ -573,38 +690,103 @@ export default function CercaScreen() {
 
   const handleSearch = async (text: string) => {
     const query = text.trim();
-    if (!query) return;
+    setSearchQuery(query);
+    if (searchType === 'users') {
+      await fetchUsers(true);
+    } else {
+      await fetchEventsWithFilters(true);
+    }
+  };
+
+  // Event search using current filters + q
+  const fetchEventsWithFilters = async (reset = false, extraParams: string[] = []) => {
+    if (reset) {
+      setLoading(true);
+      setNoEventsMessage(null);
+      setEvents([]);
+      setOffset(0);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
 
     try {
-      const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&order_by_date=asc`,
+      const today = new Date().toISOString().split('T')[0];
+      const currentOffset = reset ? 0 : offset;
+      const hasExplicitDate = extraParams.some(
+        (p) =>
+          p.startsWith('date=') ||
+          p.startsWith('date1=') ||
+          p.startsWith('date2=') ||
+          p.startsWith('from_date='),
       );
+      const queryParams = buildQuery([
+        ...(!hasExplicitDate ? [`from_date=${today}`] : []),
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        `offset=${currentOffset}`,
+        ...extraParams,
+      ]);
+      const url = `http://nattech.fib.upc.edu:40490/events${queryParams}`;
+
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : {};
+      let eventData = data.results || data || [];
 
-      if (!Array.isArray(data) || data.length === 0) {
-        Alert.alert(t('No events found'), t('No events match', { query }));
-        return;
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      if (reset) {
+        if (filteredData.length === 0) {
+          setEvents([]);
+          setNoEventsMessage(
+            searchQuery ? t('No events found') : t('No events for selected categories'),
+          );
+        } else {
+          setEvents(filteredData);
+          setNoEventsMessage(null);
+        }
+      } else {
+        setEvents((prev) => {
+          const map = new Map<number, any>();
+          prev.forEach((evt: any) => map.set(evt.id, evt));
+          filteredData.forEach((evt: any) => map.set(evt.id, evt));
+          return Array.from(map.values());
+        });
       }
 
-      router.push({
-        pathname: '/searchResults',
-        params: { query },
-      });
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(currentOffset + BATCH_SIZE);
+      }
 
-      setTimeout(() => {
-        setSearchQuery('');
-      }, 50);
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+
+      setIsFiltered(true);
     } catch (err) {
       console.error(err);
       Alert.alert('Error', t('There was a problem fetching events.'));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const buildQuery = (extraParams: string[] = []) => {
     const params: string[] = [];
+
+    if (searchQuery.trim()) {
+      params.push(`q=${encodeURIComponent(searchQuery.trim())}`);
+    }
 
     if (selectedTopics.length > 0) {
       params.push(...selectedTopics.map((topic) => `categoria=${encodeURIComponent(topic)}`));
@@ -619,24 +801,107 @@ export default function CercaScreen() {
     return params.length > 0 ? `?${params.join('&')}` : '';
   };
 
+  // Users search with pagination and dedup
+  const fetchUsers = async (reset = false) => {
+    const query = searchQuery.trim();
+    if (!query) {
+      setUsers([]);
+      setHasMoreUsers(false);
+      return;
+    }
+
+    if (reset) {
+      setLoading(true);
+      setUserOffset(0);
+      setHasMoreUsers(true);
+      setUsers([]);
+    } else {
+      if (loadingMoreUsers || !hasMoreUsers) return;
+      setLoadingMoreUsers(true);
+    }
+
+    try {
+      const currentOffset = reset ? 0 : userOffset;
+      const url = `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+      const responseData = textData ? JSON.parse(textData) : {};
+      let data = responseData.results || responseData || [];
+      const userData = Array.isArray(data) ? data : [];
+
+      if (reset) {
+        setUsers(userData);
+      } else {
+        setUsers((prev) => {
+          const map = new Map<string, any>();
+          prev.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          userData.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          return Array.from(map.values());
+        });
+      }
+
+      if (responseData.next_offset !== undefined) {
+        setUserOffset(responseData.next_offset);
+      } else {
+        setUserOffset(currentOffset + BATCH_SIZE);
+      }
+
+      if (responseData.has_more !== undefined) {
+        setHasMoreUsers(responseData.has_more);
+      } else {
+        setHasMoreUsers(userData.length >= BATCH_SIZE);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', t('There was a problem fetching users'));
+      if (reset) setUsers([]);
+    } finally {
+      setLoading(false);
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  const handleLoadMoreUsers = () => {
+    if (!loadingMoreUsers && hasMoreUsers && searchQuery) {
+      fetchUsers(false);
+    }
+  };
+
   const handleSearchByTopics = async () => {
     setIsTopicsModalVisible(false);
     setLoading(true);
     setNoEventsMessage(null);
     setEvents([]);
+    setOffset(0);
+    setHasMore(true);
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const query = buildQuery([`from_date=${today}`, 'order_by_date=asc']);
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : [];
 
-      const filteredData = data.filter((event: any) => !shouldHideEvent(event));
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
 
       if (filteredData.length === 0) {
         setEvents([]);
@@ -644,6 +909,19 @@ export default function CercaScreen() {
       } else {
         setEvents(filteredData);
         setNoEventsMessage(null);
+      }
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
       }
 
       setIsFiltered(true);
@@ -911,7 +1189,10 @@ export default function CercaScreen() {
           style={styles.filtersScroll}
           contentContainerStyle={styles.filtersRow}
         >
-          {(selectedMunicipi || hasDateFilter || selectedTopics.length > 0) && (
+          {(searchQuery.trim() ||
+            selectedMunicipi ||
+            hasDateFilter ||
+            selectedTopics.length > 0) && (
             <TouchableOpacity
               style={[
                 styles.filterButton,
@@ -944,10 +1225,13 @@ export default function CercaScreen() {
             onModeChange={(m) => {}}
             backgroundColor={hasDateFilter ? Colors.accent : Colors.card}
             textColor={hasDateFilter ? '#fff' : Colors.text}
+            accentColor={Colors.accent}
+            surfaceColor={Colors.card}
+            borderColor={Colors.border}
             onDatesChange={({ date, date1, date2, fromDate }) => {
               setIsFiltered(true);
               setHasDateFilter(true);
-              let extraParams: string[] = ['order_by_date=asc'];
+              const extraParams: string[] = [];
 
               if (date) {
                 extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
@@ -958,22 +1242,11 @@ export default function CercaScreen() {
               }
               if (fromDate) {
                 extraParams.push(
-                  `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+                  `from_date=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
                 );
               }
 
-              const query = buildQuery(extraParams);
-              const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-              setLoading(true);
-              fetch(url)
-                .then((res) => res.json())
-                .then((data) => {
-                  const filtered = data.filter((event: any) => !shouldHideEvent(event));
-                  setEvents(filtered);
-                })
-                .catch((err) => console.error(err))
-                .finally(() => setLoading(false));
+              fetchEventsWithFilters(true, extraParams);
             }}
           />
 
@@ -1247,16 +1520,179 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      <FlatList
-        data={events}
-        keyExtractor={(item) => item.id.toString()}
-        renderItem={renderEvent}
-        onEndReached={loadMoreEvents}
-        onEndReachedThreshold={0.5}
-        ListFooterComponent={
-          loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
-        }
-      />
+      {/* Tab selector */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'events' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('events');
+            // Refresh events based on current filters + query
+            fetchEventsWithFilters(true);
+          }}
+        >
+          <Text
+            style={{
+              color: searchType === 'events' ? Colors.card : Colors.text,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {t('Events')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'users' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('users');
+            fetchUsers(true);
+          }}
+        >
+          <Text
+            style={{
+              color: searchType === 'users' ? Colors.card : Colors.text,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {t('Users')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {searchType === 'events' ? (
+        !load && events.length === 0 ? (
+          <View style={styles.endOfListContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={42}
+              color={Colors.textSecondary}
+              style={{ marginBottom: 10 }}
+            />
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '700',
+                textAlign: 'center',
+                color: Colors.text,
+              }}
+            >
+              {t('No events found. Explore a new date or category!')}
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 14,
+                textAlign: 'center',
+                color: Colors.textSecondary,
+              }}
+            >
+              {t('Tip: tweak dates, categories, or keywords to uncover more events.')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={events}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEvent}
+            onEndReached={loadMoreEvents}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : !hasMore && events.length > 0 ? (
+                <View style={styles.endOfListContainer}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      textAlign: 'center',
+                      color: Colors.textSecondary,
+                    }}
+                  >
+                    {t('No more events to show')}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
+                    onPress={() =>
+                      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+                    }
+                  >
+                    <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
+                      {t('Back to top')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
+          />
+        )
+      ) : !load && users.length === 0 ? (
+        <View style={styles.endOfListContainer}>
+          <Ionicons
+            name="people-outline"
+            size={42}
+            color={Colors.textSecondary}
+            style={{ marginBottom: 10 }}
+          />
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '700',
+              textAlign: 'center',
+              color: Colors.text,
+            }}
+          >
+            {t('No users with this name')}
+          </Text>
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 14,
+              textAlign: 'center',
+              color: Colors.textSecondary,
+            }}
+          >
+            {t('Try a shorter name or similar spelling.')}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={users}
+          keyExtractor={(item) => String(item.id ?? item.username)}
+          renderItem={({ item }) => (
+            <UserCard user={item} onPress={() => router.push(`/user/${item.id}`)} />
+          )}
+          onEndReached={handleLoadMoreUsers}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMoreUsers ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : !hasMoreUsers && users.length > 0 ? (
+              <View style={styles.endOfListContainer}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                  }}
+                >
+                  {t('No more users to show')}
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* COMMENTS */}
       {selectedEventId !== null && (
@@ -1604,5 +2040,41 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
     marginBottom: 4,
+  },
+  endOfListContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  endOfListButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginBottom: 6,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
