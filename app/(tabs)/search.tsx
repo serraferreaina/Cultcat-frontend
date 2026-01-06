@@ -699,7 +699,7 @@ export default function CercaScreen() {
   };
 
   // Event search using current filters + q
-  const fetchEventsWithFilters = async (reset = false) => {
+  const fetchEventsWithFilters = async (reset = false, extraParams: string[] = []) => {
     if (reset) {
       setLoading(true);
       setNoEventsMessage(null);
@@ -713,11 +713,19 @@ export default function CercaScreen() {
     try {
       const today = new Date().toISOString().split('T')[0];
       const currentOffset = reset ? 0 : offset;
+      const hasExplicitDate = extraParams.some(
+        (p) =>
+          p.startsWith('date=') ||
+          p.startsWith('date1=') ||
+          p.startsWith('date2=') ||
+          p.startsWith('from_date='),
+      );
       const queryParams = buildQuery([
-        `from_date=${today}`,
+        ...(!hasExplicitDate ? [`from_date=${today}`] : []),
         'order_by_date=asc',
         `batch_size=${BATCH_SIZE}`,
         `offset=${currentOffset}`,
+        ...extraParams,
       ]);
       const url = `http://nattech.fib.upc.edu:40490/events${queryParams}`;
 
@@ -1217,10 +1225,13 @@ export default function CercaScreen() {
             onModeChange={(m) => {}}
             backgroundColor={hasDateFilter ? Colors.accent : Colors.card}
             textColor={hasDateFilter ? '#fff' : Colors.text}
+            accentColor={Colors.accent}
+            surfaceColor={Colors.card}
+            borderColor={Colors.border}
             onDatesChange={({ date, date1, date2, fromDate }) => {
               setIsFiltered(true);
               setHasDateFilter(true);
-              let extraParams: string[] = ['order_by_date=asc'];
+              const extraParams: string[] = [];
 
               if (date) {
                 extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
@@ -1231,22 +1242,11 @@ export default function CercaScreen() {
               }
               if (fromDate) {
                 extraParams.push(
-                  `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+                  `from_date=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
                 );
               }
 
-              const query = buildQuery(extraParams);
-              const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-              setLoading(true);
-              fetch(url)
-                .then((res) => res.json())
-                .then((data) => {
-                  const filtered = data.filter((event: any) => !shouldHideEvent(event));
-                  setEvents(filtered);
-                })
-                .catch((err) => console.error(err))
-                .finally(() => setLoading(false));
+              fetchEventsWithFilters(true, extraParams);
             }}
           />
 

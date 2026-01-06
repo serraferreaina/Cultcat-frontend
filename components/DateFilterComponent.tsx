@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Button, Modal, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, Modal, TouchableOpacity, StyleSheet, Platform } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 
@@ -13,6 +13,9 @@ export interface DateFilterProps {
   onDatesChange: (dates: { date?: Date; date1?: Date; date2?: Date; fromDate?: Date }) => void;
   backgroundColor?: string;
   textColor?: string;
+  accentColor?: string;
+  surfaceColor?: string;
+  borderColor?: string;
 }
 
 export default function DateFilterComponent({
@@ -21,39 +24,73 @@ export default function DateFilterComponent({
   onDatesChange,
   backgroundColor = '#fff',
   textColor = '#000',
+  accentColor = '#ff6347',
+  surfaceColor = '#fff',
+  borderColor = '#ddd',
 }: DateFilterProps) {
   const { t } = useTranslation();
   const [modalVisible, setModalVisible] = useState(false);
   const [mode, setMode] = useState<DateFilterMode>(initialMode);
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [currentPicker, setCurrentPicker] = useState<
+    'one' | 'rangeStart' | 'rangeEnd' | 'from' | null
+  >(null);
 
   const [date, setDate] = useState(new Date());
   const [date1, setDate1] = useState(new Date());
   const [date2, setDate2] = useState(new Date());
   const [fromDate, setFromDate] = useState(new Date());
 
-  const handleChange = (type: string, value: Date) => {
-    if (!value) return;
-    if (type === 'date') {
-      setDate(value);
-      onDatesChange({ date: value });
-    }
-    if (type === 'date1') {
-      setDate1(value);
-      onDatesChange({ date1: value, date2 });
-    }
-    if (type === 'date2') {
-      setDate2(value);
-      onDatesChange({ date1, date2: value });
-    }
-    if (type === 'from') {
-      setFromDate(value);
-      onDatesChange({ fromDate: value });
-    }
+  const closeAll = () => {
+    setPickerVisible(false);
+    setModalVisible(false);
+    setCurrentPicker(null);
   };
 
   const selectMode = (m: DateFilterMode) => {
     setMode(m);
     onModeChange(m);
+    if (m === 'one') {
+      setCurrentPicker('one');
+      setPickerVisible(true);
+    } else if (m === 'range') {
+      setCurrentPicker('rangeStart');
+      setPickerVisible(true);
+    } else {
+      setCurrentPicker('from');
+      setPickerVisible(true);
+    }
+  };
+
+  const handleChange = (_event: any, selected?: Date) => {
+    if (!_event || _event.type === 'dismissed') {
+      setPickerVisible(false);
+      setCurrentPicker(null);
+      return;
+    }
+    if (!selected) return;
+
+    if (currentPicker === 'one') {
+      setDate(selected);
+      onDatesChange({ date: selected });
+      closeAll();
+    }
+    if (currentPicker === 'rangeStart') {
+      setDate1(selected);
+      // Move to end date picker
+      setCurrentPicker('rangeEnd');
+      setPickerVisible(true);
+    }
+    if (currentPicker === 'rangeEnd') {
+      setDate2(selected);
+      onDatesChange({ date1, date2: selected });
+      closeAll();
+    }
+    if (currentPicker === 'from') {
+      setFromDate(selected);
+      onDatesChange({ fromDate: selected });
+      closeAll();
+    }
   };
 
   return (
@@ -68,55 +105,76 @@ export default function DateFilterComponent({
 
       <Modal visible={modalVisible} transparent animationType="fade">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>{t('SelectMode')}</Text>
+          <View style={[styles.modalContent, { backgroundColor: surfaceColor }]}>
+            <Text style={[styles.modalTitle, { color: textColor }]}>{t('SelectMode')}</Text>
 
-            <View
-              style={{ flexDirection: 'row', justifyContent: 'space-around', marginBottom: 12 }}
-            >
-              <Button title={t('singleDate')} onPress={() => selectMode('one')} />
-              <Button title={t('Search between dates')} onPress={() => selectMode('range')} />
-              <Button title={t('Search from date')} onPress={() => selectMode('from')} />
+            <View style={styles.optionsRow}>
+              <TouchableOpacity
+                style={[styles.optionCard, { borderColor, backgroundColor: surfaceColor }]}
+                onPress={() => selectMode('one')}
+              >
+                <Ionicons name="calendar" size={22} color={accentColor} />
+                <Text style={[styles.optionTitle, { color: textColor }]}>
+                  {t('Filter single day')}
+                </Text>
+                <Text style={[styles.optionSub, { color: textColor + 'AA' }]}>
+                  {t('Filtrar eventos activos en un día específico')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.optionCard, { borderColor, backgroundColor: surfaceColor }]}
+                onPress={() => selectMode('range')}
+              >
+                <Ionicons name="calendar-number" size={22} color={accentColor} />
+                <Text style={[styles.optionTitle, { color: textColor }]}>
+                  {t('Filter between dates')}
+                </Text>
+                <Text style={[styles.optionSub, { color: textColor + 'AA' }]}>
+                  {t('Filtrar eventos dentro de un período')}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.optionCard, { borderColor, backgroundColor: surfaceColor }]}
+                onPress={() => selectMode('from')}
+              >
+                <Ionicons name="time" size={22} color={accentColor} />
+                <Text style={[styles.optionTitle, { color: textColor }]}>
+                  {t('Filter from date')}
+                </Text>
+                <Text style={[styles.optionSub, { color: textColor + 'AA' }]}>
+                  {t('Filtrar eventos activos o futuros desde esta fecha')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
-            {mode === 'one' && (
-              <DateTimePicker
-                value={date}
-                mode="date"
-                onChange={(e, d) => d && handleChange('date', d)}
-              />
-            )}
-            {mode === 'range' && (
-              <View>
-                <Text>{t('startDate')}:</Text>
-                <DateTimePicker
-                  value={date1}
-                  mode="date"
-                  onChange={(e, d) => d && handleChange('date1', d)}
-                />
-                <Text>{t('endDate')}:</Text>
-                <DateTimePicker
-                  value={date2}
-                  mode="date"
-                  onChange={(e, d) => d && handleChange('date2', d)}
-                />
-              </View>
-            )}
-            {mode === 'from' && (
-              <View>
-                <Text>{t('selectStartDate')}:</Text>
-                <DateTimePicker
-                  value={fromDate}
-                  mode="date"
-                  onChange={(e, d) => d && handleChange('from', d)}
-                />
-              </View>
-            )}
-
-            <Button title={t('Close')} onPress={() => setModalVisible(false)} />
+            <TouchableOpacity
+              style={[styles.closeButton, { backgroundColor: accentColor + '22', borderColor }]}
+              onPress={closeAll}
+            >
+              <Text style={[styles.closeText, { color: accentColor }]}>{t('Close')}</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
+
+      {pickerVisible && (
+        <DateTimePicker
+          value={
+            currentPicker === 'one'
+              ? date
+              : currentPicker === 'rangeStart'
+                ? date1
+                : currentPicker === 'rangeEnd'
+                  ? date2
+                  : fromDate
+          }
+          mode="date"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={handleChange}
+        />
+      )}
     </View>
   );
 }
@@ -153,5 +211,41 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginBottom: 12,
+  },
+  optionsRow: {
+    flexDirection: 'column',
+    gap: 10,
+    width: '100%',
+  },
+  optionCard: {
+    width: '100%',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    backgroundColor: '#fafafa',
+  },
+  optionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 6,
+    marginBottom: 2,
+    color: '#111',
+  },
+  optionSub: {
+    fontSize: 12,
+    color: '#444',
+  },
+  closeButton: {
+    marginTop: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#eee',
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  closeText: {
+    fontWeight: '600',
+    color: '#222',
   },
 });
