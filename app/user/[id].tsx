@@ -323,8 +323,8 @@ export default function PublicProfile() {
                           style={styles.connectedMenuItem}
                           onPress={handleDeleteConnection}
                         >
-                          <Ionicons name="trash-outline" size={16} color={Colors.attending} />
-                          <Text style={{ color: Colors.attending, marginLeft: 8 }}>
+                          <Ionicons name="trash-outline" size={16} color={Colors.accent} />
+                          <Text style={{ color: Colors.accent, marginLeft: 8 }}>
                             {t('Delete connection')}
                           </Text>
                         </TouchableOpacity>
