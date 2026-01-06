@@ -42,20 +42,7 @@ export default function SearchResultsScreen() {
   const [hasMoreUsers, setHasMoreUsers] = useState(true);
 
   const shouldHideEvent = (event: any): boolean => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    // Check start date (data_inici)
-    if (event.data_inici) {
-      const startDate = new Date(event.data_inici);
-      startDate.setHours(0, 0, 0, 0);
-
-      if (startDate < today) {
-        return true;
-      }
-    }
-
-    // Hide test/dummy events
+    // Hide test/dummy events with year 2924
     if (event.data_fi) {
       const endDate = new Date(event.data_fi);
       const targetDate = new Date('2924-06-30');
@@ -65,6 +52,21 @@ export default function SearchResultsScreen() {
         endDate.getMonth() === targetDate.getMonth() &&
         endDate.getDate() === targetDate.getDate()
       ) {
+        return true;
+      }
+    }
+
+    // Hide events with years beyond 2030
+    if (event.data_inici) {
+      const startDate = new Date(event.data_inici);
+      if (startDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      if (endDate.getFullYear() > 2030) {
         return true;
       }
     }
@@ -91,12 +93,10 @@ export default function SearchResultsScreen() {
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const textData = await res.text();
-      let data = textData ? JSON.parse(textData) : [];
+      const responseData = textData ? JSON.parse(textData) : {};
 
       // Handle both array and object with results property
-      if (data.results) {
-        data = data.results;
-      }
+      let data = responseData.results || responseData || [];
 
       const filteredData = Array.isArray(data)
         ? data.filter((event: any) => !shouldHideEvent(event))
@@ -114,7 +114,6 @@ export default function SearchResultsScreen() {
       }
 
       // Use API's pagination metadata
-      const responseData = textData ? JSON.parse(textData) : {};
       if (responseData.next_offset !== undefined) {
         setEventOffset(responseData.next_offset);
       } else {
@@ -156,12 +155,10 @@ export default function SearchResultsScreen() {
       );
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
       const textData = await res.text();
-      let data = textData ? JSON.parse(textData) : [];
+      const responseData = textData ? JSON.parse(textData) : {};
 
       // Handle both array and object with results property
-      if (data.results) {
-        data = data.results;
-      }
+      let data = responseData.results || responseData || [];
 
       const userData = Array.isArray(data) ? data : [];
 
@@ -177,7 +174,6 @@ export default function SearchResultsScreen() {
       }
 
       // Use API's pagination metadata
-      const responseData = textData ? JSON.parse(textData) : {};
       if (responseData.next_offset !== undefined) {
         setUserOffset(responseData.next_offset);
       } else {

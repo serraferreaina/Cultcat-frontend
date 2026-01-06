@@ -98,6 +98,7 @@ export default function CercaScreen() {
   };
 
   const clearFilters = () => {
+    setSearchQuery('');
     setSelectedMunicipi(null);
     setSelectedTopics([]);
     setHasDateFilter(false);
@@ -680,44 +681,73 @@ export default function CercaScreen() {
 
   const handleSearch = async (text: string) => {
     const query = text.trim();
-    if (!query) return;
+    setSearchQuery(query);
+
+    setLoading(true);
+    setNoEventsMessage(null);
+    setEvents([]);
+    setOffset(0);
+    setHasMore(true);
 
     try {
       const today = new Date().toISOString().split('T')[0];
-      const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}&from_date=${today}&order_by_date=asc&batch_size=${BATCH_SIZE}&offset=0`,
-      );
+      const queryParams = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
+      const url = `http://nattech.fib.upc.edu:40490/events${queryParams}`;
+
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      let data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : {};
 
       // Handle both array and object with results property
-      if (data.results) {
-        data = data.results;
+      let eventData = data.results || data || [];
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      if (filteredData.length === 0) {
+        setEvents([]);
+        setNoEventsMessage(query ? t('No events found') : t('No events for selected categories'));
+      } else {
+        setEvents(filteredData);
+        setNoEventsMessage(null);
       }
 
-      if (!Array.isArray(data) || data.length === 0) {
-        Alert.alert(t('No events found'), t('No events match', { query }));
-        return;
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
       }
 
-      router.push({
-        pathname: '/searchResults',
-        params: { query },
-      });
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
 
-      setTimeout(() => {
-        setSearchQuery('');
-      }, 50);
+      setIsFiltered(true);
     } catch (err) {
       console.error(err);
       Alert.alert('Error', t('There was a problem fetching events.'));
+    } finally {
+      setLoading(false);
     }
   };
 
   const buildQuery = (extraParams: string[] = []) => {
     const params: string[] = [];
+
+    if (searchQuery.trim()) {
+      params.push(`q=${encodeURIComponent(searchQuery.trim())}`);
+    }
 
     if (selectedTopics.length > 0) {
       params.push(...selectedTopics.map((topic) => `categoria=${encodeURIComponent(topic)}`));
@@ -1052,7 +1082,10 @@ export default function CercaScreen() {
           style={styles.filtersScroll}
           contentContainerStyle={styles.filtersRow}
         >
-          {(selectedMunicipi || hasDateFilter || selectedTopics.length > 0) && (
+          {(searchQuery.trim() ||
+            selectedMunicipi ||
+            hasDateFilter ||
+            selectedTopics.length > 0) && (
             <TouchableOpacity
               style={[
                 styles.filterButton,
