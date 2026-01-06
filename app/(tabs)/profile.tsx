@@ -421,18 +421,10 @@ export default function Profile() {
               style={[styles.actionBtn, { backgroundColor: Colors.background }]}
               onPress={() => router.push('/userconfig')}
             >
-              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Edit')}</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.actionBtn,
-                { backgroundColor: Colors.card, borderWidth: 1, borderColor: Colors.border },
-              ]}
-              onPress={() => {
-                setShareModalVisible(true);
-              }}
-            >
-              <Text style={[styles.actionText, { color: Colors.text }]}>{t('Share')}</Text>
+              <Ionicons name="pencil-outline" size={16} color={Colors.text} />
+              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
+                {t('Edit')}
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.actionBtn, { backgroundColor: Colors.background }]}
