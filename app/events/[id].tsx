@@ -74,6 +74,7 @@ export default function EventDetail() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [isSaved, setIsSaved] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const eventLogic = useEventLogic(
     event || {
@@ -490,19 +491,29 @@ export default function EventDetail() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={28} color={Colors.text} />
-          </TouchableOpacity>
-          <Text
-            style={[styles.title, { color: Colors.text, marginLeft: 10, flex: 1 }]}
-            numberOfLines={1}
-          >
-            {event.titol}
-          </Text>
-        </View>
+        {imageUri && (
+          <View style={styles.imageContainer}>
+            <Image source={{ uri: imageUri }} style={styles.image} />
+            <View style={styles.imageOverlay} />
+            <TouchableOpacity onPress={() => router.back()} style={styles.floatingBackButton}>
+              <Ionicons name="arrow-back" size={24} color="#FFF" />
+            </TouchableOpacity>
+          </View>
+        )}
 
-        {imageUri && <Image source={{ uri: imageUri }} style={styles.image} />}
+        {!imageUri && (
+          <View style={styles.headerRow}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={28} color={Colors.text} />
+            </TouchableOpacity>
+          </View>
+        )}
+
+        <View
+          style={[styles.titleCard, { backgroundColor: Colors.card, borderColor: Colors.border }]}
+        >
+          <Text style={[styles.title, { color: Colors.text }]}>{event.titol}</Text>
+        </View>
 
         {(() => {
           if (
@@ -549,45 +560,198 @@ export default function EventDetail() {
           </View>
         </View>
 
-        <View style={styles.dateContainer}>
-          <Ionicons name="calendar-outline" size={18} color={Colors.accent} />
-          <Text style={[styles.eventDate, { color: Colors.text }]}>
-            {formatEventDate(event.data_inici, event.data_fi)}
-          </Text>
-        </View>
+        {(() => {
+          const startDate = event.data_inici ? new Date(event.data_inici) : null;
+          const endDate = event.data_fi ? new Date(event.data_fi) : null;
+          const isSameDay =
+            startDate && endDate && startDate.toDateString() === endDate.toDateString();
+          const isMultiDay = startDate && endDate && !isSameDay;
 
-        <Text style={[styles.description, { color: Colors.text }]}>
-          {event.descripcio?.trim() || t('No description available')}
-        </Text>
+          const formatDateParts = (date: Date) => ({
+            day: date.getDate(),
+            month: date.toLocaleDateString(i18n.language, { month: 'short' }).toUpperCase(),
+            year: date.getFullYear(),
+            weekday: date.toLocaleDateString(i18n.language, { weekday: 'long' }),
+          });
 
-        {event.espai && (
-          <DetailRow icon="business-outline" label={t('Space')} value={event.espai} />
-        )}
-        {event.direccio && (
-          <DetailRow icon="location-outline" label={t('Address')} value={event.direccio} />
-        )}
-        {event.localitat && (
-          <DetailRow icon="map-outline" label={t('Location')} value={event.localitat} />
-        )}
-        {event.modalitat && (
-          <DetailRow icon="bulb-outline" label={t('Modality')} value={event.modalitat} />
-        )}
-        {event.infoHorari && (
-          <DetailRow icon="time-outline" label={t('Schedule')} value={event.infoHorari} />
-        )}
-        {event.infoEntrades && (
-          <DetailRow icon="pricetag-outline" label={t('Tickets')} value={event.infoEntrades} />
-        )}
-        {event.telefon && (
-          <DetailRow icon="call-outline" label={t('Telephone')} value={event.telefon} />
-        )}
-        {event.email && <DetailRow icon="mail-outline" label={t('Email')} value={event.email} />}
+          const start = startDate ? formatDateParts(startDate) : null;
+          const end = endDate ? formatDateParts(endDate) : null;
 
-        {typeof Link === 'string' && Link.trim() !== '' && (
-          <TouchableOpacity onPress={() => Linking.openURL(Link)} style={styles.moreInfoRow}>
-            <Ionicons name="link-outline" size={18} color={Colors.accent} />
-            <Text style={[styles.link, { color: Colors.link }]}>{t('More information')}</Text>
-          </TouchableOpacity>
+          return (
+            <View
+              style={[
+                styles.dateCard,
+                { backgroundColor: Colors.card, borderColor: Colors.border },
+              ]}
+            >
+              <View style={styles.dateCardHeader}>
+                <Ionicons name="calendar" size={20} color={Colors.accent} />
+                <Text style={[styles.dateCardTitle, { color: Colors.text }]}>
+                  {isMultiDay ? t('Event Duration') : t('Event Date')}
+                </Text>
+              </View>
+
+              {start && (
+                <View style={styles.dateInfo}>
+                  <View style={[styles.dateBadge, { backgroundColor: Colors.accent }]}>
+                    <Text style={styles.dateBadgeMonth}>{start.month}</Text>
+                    <Text style={styles.dateBadgeDay}>{start.day}</Text>
+                  </View>
+                  <View style={styles.dateDetails}>
+                    <Text style={[styles.dateWeekday, { color: Colors.text }]}>
+                      {start.weekday}
+                    </Text>
+                    <Text style={[styles.dateFullText, { color: Colors.textSecondary }]}>
+                      {startDate?.toLocaleDateString(i18n.language, {
+                        month: 'long',
+                        day: 'numeric',
+                        year: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {isMultiDay && end && (
+                <>
+                  <View style={styles.dateDivider}>
+                    <Ionicons name="arrow-down" size={20} color={Colors.accent} />
+                  </View>
+                  <View style={styles.dateInfo}>
+                    <View style={[styles.dateBadge, { backgroundColor: Colors.accent }]}>
+                      <Text style={styles.dateBadgeMonth}>{end.month}</Text>
+                      <Text style={styles.dateBadgeDay}>{end.day}</Text>
+                    </View>
+                    <View style={styles.dateDetails}>
+                      <Text style={[styles.dateWeekday, { color: Colors.text }]}>
+                        {end.weekday}
+                      </Text>
+                      <Text style={[styles.dateFullText, { color: Colors.textSecondary }]}>
+                        {endDate?.toLocaleDateString(i18n.language, {
+                          month: 'long',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </Text>
+                    </View>
+                  </View>
+                </>
+              )}
+            </View>
+          );
+        })()}
+
+        {(() => {
+          const description = event.descripcio?.trim() || t('No description available');
+          const isLongDescription = description.length > 200;
+          const displayText =
+            isLongDescription && !isDescriptionExpanded
+              ? description.substring(0, 200) + '...'
+              : description;
+
+          return (
+            <View
+              style={[
+                styles.sectionCard,
+                { backgroundColor: Colors.card, borderColor: Colors.border },
+              ]}
+            >
+              <View style={styles.sectionHeader}>
+                <Ionicons name="document-text" size={20} color={Colors.accent} />
+                <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('About')}</Text>
+              </View>
+              <Text style={[styles.description, { color: Colors.text }]}>{displayText}</Text>
+              {isLongDescription && (
+                <TouchableOpacity
+                  onPress={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  style={styles.seeMoreButton}
+                >
+                  <Text style={[styles.seeMoreText, { color: Colors.accent }]}>
+                    {isDescriptionExpanded ? t('See less') : t('See more')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          );
+        })()}
+
+        {(event.espai || event.direccio || event.localitat) && (
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: Colors.card, borderColor: Colors.border },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons name="location" size={20} color={Colors.accent} />
+              <Text style={[styles.sectionTitle, { color: Colors.text }]}>
+                {t('Location Details')}
+              </Text>
+            </View>
+            {event.espai && (
+              <DetailRow icon="business-outline" label={t('Space')} value={event.espai} />
+            )}
+            {event.direccio && (
+              <DetailRow icon="location-outline" label={t('Address')} value={event.direccio} />
+            )}
+            {event.localitat && (
+              <DetailRow icon="map-outline" label={t('Location')} value={event.localitat} />
+            )}
+          </View>
+        )}
+
+        {(event.modalitat || event.infoHorari || event.infoEntrades) && (
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: Colors.card, borderColor: Colors.border },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons name="information-circle" size={20} color={Colors.accent} />
+              <Text style={[styles.sectionTitle, { color: Colors.text }]}>
+                {t('Event Information')}
+              </Text>
+            </View>
+            {event.modalitat && (
+              <DetailRow icon="bulb-outline" label={t('Modality')} value={event.modalitat} />
+            )}
+            {event.infoHorari && (
+              <DetailRow icon="time-outline" label={t('Schedule')} value={event.infoHorari} />
+            )}
+            {event.infoEntrades && (
+              <DetailRow icon="pricetag-outline" label={t('Tickets')} value={event.infoEntrades} />
+            )}
+          </View>
+        )}
+
+        {(event.telefon || event.email || (typeof Link === 'string' && Link.trim() !== '')) && (
+          <View
+            style={[
+              styles.sectionCard,
+              { backgroundColor: Colors.card, borderColor: Colors.border },
+            ]}
+          >
+            <View style={styles.sectionHeader}>
+              <Ionicons name="call" size={20} color={Colors.accent} />
+              <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Contact')}</Text>
+            </View>
+            {event.telefon && (
+              <DetailRow icon="call-outline" label={t('Telephone')} value={event.telefon} />
+            )}
+            {event.email && (
+              <DetailRow icon="mail-outline" label={t('Email')} value={event.email} />
+            )}
+            {typeof Link === 'string' && Link.trim() !== '' && (
+              <TouchableOpacity onPress={() => Linking.openURL(Link)} style={styles.linkRow}>
+                <Ionicons name="link-outline" size={18} color={Colors.accent} />
+                <Text style={[styles.linkText, { color: Colors.link }]}>
+                  {t('More information')}
+                </Text>
+                <Ionicons name="open-outline" size={16} color={Colors.link} />
+              </TouchableOpacity>
+            )}
+          </View>
         )}
 
         <View
@@ -777,70 +941,197 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingBottom: 20,
   },
+  imageContainer: {
+    position: 'relative',
+    width: '100%',
+    height: SCREEN_HEIGHT * 0.35,
+  },
   image: {
     width: '100%',
-    height: SCREEN_HEIGHT * 0.3, // 30% de l'altura de la pantalla
-    marginTop: 15,
+    height: '100%',
     resizeMode: 'cover',
+  },
+  imageOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.3)',
+  },
+  floatingBackButton: {
+    position: 'absolute',
+    top: 16,
+    left: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: SCREEN_WIDTH * 0.05, // 5% dels marges
-    marginBottom: 8,
+    marginHorizontal: SCREEN_WIDTH * 0.05,
     marginTop: 10,
   },
   backButton: {
-    padding: 6,
+    padding: 8,
     borderRadius: 8,
   },
-  title: {
-    fontSize: SCREEN_WIDTH * 0.037, // Font escalable
-    fontWeight: '700',
+  titleCard: {
+    marginHorizontal: 16,
+    marginTop: -30,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
-  dateContainer: {
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    lineHeight: 32,
+  },
+  dateCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  dateCardHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: SCREEN_WIDTH * 0.05,
-    marginTop: 12,
     gap: 8,
+    marginBottom: 12,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
   },
-  eventDate: {
-    fontSize: SCREEN_WIDTH * 0.04,
+  dateCardTitle: {
+    fontSize: 16,
     fontWeight: '700',
+  },
+  dateInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  dateBadge: {
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  dateBadgeMonth: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#FFF',
+    letterSpacing: 0.5,
+  },
+  dateBadgeDay: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#FFF',
+    marginTop: 2,
+  },
+  dateDetails: {
     flex: 1,
+    gap: 2,
+  },
+  dateWeekday: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  dateFullText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  dateDivider: {
+    alignItems: 'center',
+    marginVertical: 10,
+  },
+  sectionCard: {
+    marginHorizontal: 16,
+    marginTop: 16,
+    padding: 20,
+    borderRadius: 20,
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
   },
   description: {
-    fontSize: SCREEN_WIDTH * 0.042,
-    lineHeight: SCREEN_WIDTH * 0.058,
-    marginBottom: 20,
-    marginHorizontal: SCREEN_WIDTH * 0.05,
-    marginTop: 20,
+    fontSize: 15,
+    lineHeight: 24,
   },
-  link: {
-    fontSize: SCREEN_WIDTH * 0.042,
-    textDecorationLine: 'underline',
-    marginTop: 20,
-    marginHorizontal: SCREEN_WIDTH * 0.05,
+  seeMoreButton: {
+    marginTop: 8,
+    alignSelf: 'flex-start',
   },
-  moreInfoRow: {
+  seeMoreText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  linkRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    marginHorizontal: SCREEN_WIDTH * 0.05,
-    marginTop: 20,
+    marginTop: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+  },
+  linkText: {
+    fontSize: 15,
+    fontWeight: '600',
+    flex: 1,
   },
   detailRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: SCREEN_WIDTH * 0.05,
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
   detailIcon: {
-    marginRight: 8,
+    marginRight: 12,
+    marginTop: 2,
   },
   detailText: {
     fontSize: 15,
+    lineHeight: 22,
     flex: 1,
   },
   detailLabel: {
@@ -853,17 +1144,23 @@ const styles = StyleSheet.create({
   },
   topButtons: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginTop: 15,
+    alignItems: 'center',
+    marginTop: 16,
+    marginHorizontal: 16,
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    gap: 12,
   },
   button: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    minWidth: 120,
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   buttonText: {
     fontWeight: '600',
@@ -878,10 +1175,15 @@ const styles = StyleSheet.create({
   iconsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
+    gap: 8,
   },
   iconButton: {
-    padding: 6,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(128, 128, 128, 0.1)',
   },
   writeReviewButton: {
     flexDirection: 'row',
@@ -972,17 +1274,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   reviewsSection: {
-    marginHorizontal: 20,
-    marginTop: 20,
-    marginBottom: 10,
-    padding: 16,
-    borderRadius: 16,
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 20,
     borderWidth: 1,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   reviewsHeader: {
     flexDirection: 'row',
