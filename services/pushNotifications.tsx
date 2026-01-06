@@ -36,7 +36,6 @@ export async function setupNotificationChannel() {
 // Registrar i obtenir Expo Push Token
 export async function registerForPushNotifications() {
   if (!Device.isDevice) {
-    console.log("⚠️ Has d'usar un dispositiu físic per Push Notifications");
     return null;
   }
 
@@ -56,7 +55,6 @@ export async function registerForPushNotifications() {
     }
 
     if (finalStatus !== 'granted') {
-      console.log('❌ Permisos de notificacions denegats');
       return null;
     }
 
@@ -69,8 +67,6 @@ export async function registerForPushNotifications() {
         projectId: projectId,
       })
     ).data;
-
-    console.log('✅ Expo Push Token obtingut:', token);
 
     // Guardar token localment
     await AsyncStorage.setItem('expoPushToken', token);
@@ -91,7 +87,6 @@ async function sendTokenToBackend(token: string) {
     const authToken = await AsyncStorage.getItem('authToken');
 
     if (!authToken) {
-      console.log('⚠️ No hi ha authToken, no es pot enviar el push token');
       return;
     }
 
@@ -108,7 +103,6 @@ async function sendTokenToBackend(token: string) {
     });
 
     if (response.ok) {
-      console.log('✅ Token enviat al backend correctament');
     } else {
       const error = await response.text();
     }
@@ -124,7 +118,6 @@ export function setupNotificationListeners(
 ) {
   // Quan arriba una notificació (app oberta o en background)
   const listener1 = Notifications.addNotificationReceivedListener((notification) => {
-    console.log('📩 Notificació rebuda:', notification);
     if (onNotificationReceived) {
       onNotificationReceived(notification);
     }
@@ -132,7 +125,6 @@ export function setupNotificationListeners(
 
   // Quan l'usuari toca la notificació
   const listener2 = Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log('👆 Notificació tocada:', response);
     if (onNotificationResponse) {
       onNotificationResponse(response);
     }
@@ -157,7 +149,6 @@ export async function sendLocalNotification(title: string, body: string, data?: 
       },
       trigger: null, // Immediatament
     });
-    console.log('✅ Notificació local enviada');
   } catch (error) {
     console.error('❌ Error enviant notificació local:', error);
   }
@@ -168,7 +159,6 @@ export async function testPushNotification() {
   const token = await AsyncStorage.getItem('expoPushToken');
 
   if (!token) {
-    console.log('❌ No hi ha token guardat');
     return;
   }
 
@@ -191,7 +181,6 @@ export async function testPushNotification() {
     });
 
     const result = await response.json();
-    console.log('✅ Notificació de prova enviada:', result);
     return result;
   } catch (error) {
     console.error('❌ Error enviant notificació de prova:', error);

@@ -55,7 +55,6 @@ function RootLayoutContent() {
 
         // Si té notificacions activades i està autenticat, registrar token
         if (notifEnabled === 'true' && authToken) {
-          console.log('🔔 Registrant per notificacions push...');
           await registerForPushNotifications();
         }
 
@@ -63,13 +62,11 @@ function RootLayoutContent() {
         listeners.current = setupNotificationListeners(
           // Quan arriba una notificació mentre l'app està oberta
           (notification) => {
-            console.log('📩 Notificació rebuda:', notification.request.content);
             // Aquí pots mostrar un toast, actualitzar badge, etc.
           },
           // Quan l'usuari toca la notificació
           (response) => {
             const data = response.notification.request.content.data;
-            console.log('👆 Notificació tocada:', data);
 
             // Navegar segons el tipus de notificació
             if (

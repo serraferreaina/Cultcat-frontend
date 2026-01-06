@@ -15,12 +15,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-
-const BG = '#F7F0E2';
-const TEXT = '#311C0C';
-const ACCENT = '#C86A2E';
-const CARD = '#FFF';
-
+import { useTheme } from '../theme/ThemeContext';
+import { LightColors, DarkColors } from '../theme/colors';
 // 🔹 Configuración del API
 const API_BASE_URL = 'http://nattech.fib.upc.edu:40490';
 
@@ -227,6 +223,9 @@ const itemWidth = (screenWidth - 16 * 2 - itemMargin * (numColumns * 2 - 2)) / n
 export default function PreferencesScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const Colors = theme === 'dark' ? DarkColors : LightColors;
+
   const [selectedCategories, setSelectedCategories] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -340,13 +339,20 @@ export default function PreferencesScreen() {
     const isSelected = selectedCategories.includes(item.id);
     return (
       <TouchableOpacity
-        style={[styles.categoryItem, isSelected ? styles.categorySelected : null]}
+        style={[
+          styles.categoryItem,
+          { backgroundColor: Colors.card },
+          isSelected && { backgroundColor: Colors.accent },
+        ]}
         onPress={() => toggleCategory(item.id)}
       >
         <Image source={{ uri: item.image }} style={styles.categoryImage} />
-        <Text style={[styles.categoryText, { color: isSelected ? CARD : TEXT }]}>{item.label}</Text>
+        <Text style={[styles.categoryText, { color: isSelected ? Colors.card : Colors.text }]}>
+          {t(`categories.${item.key}`)}
+        </Text>
+
         {isSelected && (
-          <Ionicons name="checkmark" size={20} color={CARD} style={styles.checkIcon} />
+          <Ionicons name="checkmark" size={20} color={Colors.card} style={styles.checkIcon} />
         )}
       </TouchableOpacity>
     );
@@ -354,22 +360,24 @@ export default function PreferencesScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={ACCENT} />
-          <Text style={styles.loadingText}>Carregant preferències...</Text>
+          <ActivityIndicator size="large" color={Colors.accent} />
+          <Text style={[styles.loadingText, { color: Colors.text }]}>
+            Carregant preferències...
+          </Text>
         </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: Colors.background }]}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 8 }}>
-          <Ionicons name="arrow-back" size={24} color={TEXT} />
+          <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
-        <Text style={styles.title}>Gestionar Preferències</Text>
+        <Text style={[styles.title, { color: Colors.text }]}>{t('Gestionar Preferències')}</Text>
       </View>
 
       <FlatList
@@ -381,16 +389,30 @@ export default function PreferencesScreen() {
         contentContainerStyle={{ paddingBottom: 140, paddingHorizontal: 16 }}
       />
 
-      <View style={styles.bottomContainer}>
+      <View
+        style={[
+          styles.bottomContainer,
+          {
+            backgroundColor: Colors.background,
+            borderColor: Colors.border,
+          },
+        ]}
+      >
         <TouchableOpacity
-          style={[styles.saveButton, saving && styles.saveButtonDisabled]}
+          style={[
+            styles.saveButton,
+            { backgroundColor: Colors.accent },
+            saving && styles.saveButtonDisabled,
+          ]}
           onPress={savePreferences}
           disabled={saving}
         >
           {saving ? (
-            <ActivityIndicator color={CARD} />
+            <ActivityIndicator color={Colors.card} />
           ) : (
-            <Text style={styles.saveButtonText}>Guardar preferències</Text>
+            <Text style={[styles.saveButtonText, { color: Colors.card }]}>
+              {t('Guardar preferències')}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -399,7 +421,7 @@ export default function PreferencesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+  container: { flex: 1 },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -408,7 +430,6 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: TEXT,
   },
   header: {
     flexDirection: 'row',
@@ -416,10 +437,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
   },
-  title: { fontSize: 22, fontWeight: '700', color: TEXT },
+  title: { fontSize: 22, fontWeight: '700' },
   row: { justifyContent: 'space-between', marginBottom: 12 },
   categoryItem: {
-    backgroundColor: CARD,
     borderRadius: 12,
     width: itemWidth,
     height: itemWidth,
@@ -431,9 +451,6 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 6,
     elevation: 2,
-  },
-  categorySelected: {
-    backgroundColor: ACCENT,
   },
   categoryImage: {
     width: '100%',
@@ -457,17 +474,14 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     padding: 16,
-    backgroundColor: BG,
     borderTopWidth: 1,
-    borderColor: '#ddd',
   },
   saveButton: {
-    backgroundColor: ACCENT,
     paddingVertical: 16,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: ACCENT,
+    shadowColor: '#000',
     shadowOpacity: 0.3,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 8,
@@ -477,7 +491,6 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   saveButtonText: {
-    color: CARD,
     fontWeight: '800',
     fontSize: 16,
   },

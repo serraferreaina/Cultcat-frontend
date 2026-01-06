@@ -142,15 +142,10 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   ) => {
     try {
       if (isActive) {
-        console.log(`Removing event ${eventId} from ${state}`);
         await api(`/save/${eventId}/`, {
           method: 'DELETE',
         });
       } else {
-        console.log(
-          `Adding event ${eventId} to ${state}`,
-          date ? `with date: ${date.toISOString().split('T')[0]}` : '',
-        );
         const body: any = { state };
         if (date) {
           // IMPORTANT: Formatar la data en format YYYY-MM-DD
@@ -162,11 +157,8 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
           body: JSON.stringify(body),
         });
 
-        console.log('API Response:', response);
-
         // Verificar si el backend ha retornat la data correctament
         if (response && response.attendance_date) {
-          console.log('✅ Backend confirmed attendance_date:', response.attendance_date);
         } else {
           console.warn('⚠️ Backend did not return attendance_date');
         }
@@ -186,8 +178,6 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const updatedDates = { ...attendanceDates, [eventId]: dateString };
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
-
-      console.log(`Setting attendance date for event ${eventId}: ${dateString}`);
     } else if (isCurrentlyGoing) {
       // Eliminant: esborrar la data
       const updatedDates = { ...attendanceDates };
@@ -223,8 +213,6 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
       const updatedDates = { ...attendanceDates, [eventId]: dateString };
       setAttendanceDates(updatedDates);
       await persistDates(updatedDates);
-
-      console.log(`Setting attendance date for event ${eventId}: ${dateString}`);
     } else if (isCurrentlyAssisted) {
       // Eliminant: esborrar la data
       const updatedDates = { ...attendanceDates };

@@ -11,6 +11,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -20,6 +21,8 @@ import { api } from '../api';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface Notification {
   id: number;
@@ -62,7 +65,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   onClose,
   onNotificationCountChange,
 }) => {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
@@ -82,7 +85,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const deleteNotification = async (notificationId: number) => {
     try {
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
-      console.log(`✅ Notificació ${notificationId} eliminada`);
     } catch (err) {
       console.error('Error deleting notification:', err);
     }
@@ -125,7 +127,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       if (userId) {
         const userExists = await checkUserExists(userId);
         if (!userExists) {
-          console.log(`🗑️ Netejant notificació de sol·licitud de l'usuari eliminat ${userId}`);
           await deleteNotification(notification.id);
         }
       }
@@ -143,7 +144,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       // Netejar notificacions d'usuaris eliminats després de carregar
       await checkAndCleanupDeletedUsers(data);
     } catch (err: any) {
-      setError(err.message || 'Error carregant notificacions');
+      setError(err.message || t('error_loading_notifications'));
       console.error('Error fetching notifications:', err);
     } finally {
       setLoading(false);
@@ -174,8 +175,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
       // Si és la càrrega inicial i hi ha notificacions, enviar push per cadascuna
       if (isInitialLoadRef.current && currentNotificationIds.size > 0) {
-        console.log(`📬 Càrrega inicial: ${currentNotificationIds.size} notificacions detectades`);
-
         for (const notification of notifications) {
           if (!notification.read) {
             await sendPushForNotification(notification);
@@ -193,8 +192,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       );
 
       if (newNotificationIds.length > 0 && previousNotificationIdsRef.current.size > 0) {
-        console.log(`🆕 ${newNotificationIds.length} notificacions noves detectades`);
-
         for (const id of newNotificationIds) {
           const notification = notifications.find((n) => n.id === id);
           if (notification) {
@@ -224,13 +221,11 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     try {
       const notifEnabled = await AsyncStorage.getItem('notificationsEnabled');
       if (notifEnabled !== 'true') {
-        console.log('❌ Push notifications disabled');
         return;
       }
 
       const { status } = await Notifications.getPermissionsAsync();
       if (status !== 'granted') {
-        console.log('❌ Push notification permission not granted');
         return;
       }
 
@@ -239,26 +234,27 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
       if (notification.type === 'reward_unlocked') {
         const emoji = getRewardEmoji(notification.payload.reward_name || '');
-        const rewardName = notification.payload.reward_name || 'una nova insígnia';
+        const rewardName = notification.payload.reward_name || t('new_badge');
         const translatedName = t(rewardName);
-        title = `${emoji} Nova insígnia desblocada!`;
-        body = `Felicitats! Has aconseguit: ${translatedName}`;
+        title = `${emoji} ${t('badge_unlocked')}`;
+        body = `${t('congratulations')} ${translatedName}`;
       } else if (notification.type === 'connection_request_received') {
-        title = '👥 Nova sol·licitud de connexió';
-        body = `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
+        title = `👥 ${t('new_connection_request')}`;
+        body = `${notification.payload.from_username || t('someone')} ${t('wants_to_connect')}`;
       } else if (notification.type === 'event_soon') {
-        title = '📅 Esdeveniment demà';
+        title = `📅 ${t('event_tomorrow')}`;
         body =
-          notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà`;
+          notification.payload.message ||
+          `${t('the_event')} '${notification.payload.title}' ${t('is_tomorrow')}`;
       } else if (notification.type === 'event_review_pending') {
-        title = '✍️ Escriu una ressenya';
-        body = notification.payload.message || `Què et va semblar '${notification.payload.title}'?`;
+        title = `✍️ ${t('write_review')}`;
+        body =
+          notification.payload.message ||
+          `${t('what_did_you_think')} '${notification.payload.title}'?`;
       } else {
-        title = '🔔 Nova notificació';
+        title = `🔔 ${t('new_notification')}`;
         body = getNotificationText(notification);
       }
-
-      console.log(`📲 Enviant push: ${title} - ${body}`);
 
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -273,8 +269,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         },
         trigger: null,
       });
-
-      console.log('✅ Push enviada correctament');
     } catch (error) {
       console.error('❌ Error sending push notification:', error);
     }
@@ -328,26 +322,28 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   const getNotificationText = (notification: Notification): string => {
     if (notification.type === 'reward_unlocked') {
       const emoji = getRewardEmoji(notification.payload.reward_name || '');
-      const rewardName = notification.payload.reward_name || 'nova insígnia';
+      const rewardName = notification.payload.reward_name || t('new_badge');
       const translatedName = t(rewardName);
-      return `${emoji} Has aconseguit: ${translatedName}`;
+      return `${emoji} ${t('you_earned')} ${translatedName}`;
     }
 
     if (notification.type === 'connection_request_received') {
-      return `${notification.payload.from_username || 'Algú'} vol connectar amb tu`;
+      return `${notification.payload.from_username || t('someone')} ${t('wants_to_connect')}`;
     }
 
+    // A getNotificationText i sendPushForNotification, canvia:
+
     if (notification.type === 'event_soon') {
-      return (
-        notification.payload.message || `L'esdeveniment '${notification.payload.title}' és demà!`
-      );
+      const eventTitle = notification.payload.title || t('an_event');
+      return `${t('the_event')} "${eventTitle}" ${t('is_tomorrow')}`;
     }
 
     if (notification.type === 'event_review_pending') {
-      return notification.payload.message || `Què et va semblar '${notification.payload.title}'?`;
+      const eventTitle = notification.payload.title || t('an_event');
+      return `${t('what_did_you_think')} "${eventTitle}"?`;
     }
 
-    return 'Nova notificació';
+    return t('new_notification');
   };
 
   // Obtenir icona
@@ -422,7 +418,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       const userExists = await checkUserExists(userId);
 
       if (!userExists) {
-        console.log(`❌ L'usuari ${userId} ja no existeix, eliminant notificació`);
         await deleteNotification(notification.id);
         return;
       }
@@ -435,7 +430,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       const eventExists = await checkEventExists(eventId);
 
       if (!eventExists) {
-        console.log(`❌ L'esdeveniment ${eventId} ja no existeix, eliminant notificació`);
         await deleteNotification(notification.id);
         return;
       }
@@ -448,7 +442,6 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       const eventExists = await checkEventExists(eventId);
 
       if (!eventExists) {
-        console.log(`❌ L'esdeveniment ${eventId} ja no existeix, eliminant notificació`);
         await deleteNotification(notification.id);
         return;
       }
@@ -458,7 +451,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
-  // Formatar data
+  // Formatar data segons idioma
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     const now = new Date();
@@ -467,12 +460,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     const diffHours = Math.floor(diffMs / 3600000);
     const diffDays = Math.floor(diffMs / 86400000);
 
-    if (diffMins < 1) return t('Now') || 'Ara mateix';
-    if (diffMins < 60) return `${t('ago')} ${diffMins} min` || `Fa ${diffMins} min`;
-    if (diffHours < 24) return `${t('ago')} ${diffHours} h` || `Fa ${diffHours} h`;
-    if (diffDays < 7) return `${t('ago')} ${diffDays} ${t('days')}` || `Fa ${diffDays} dies`;
+    if (diffMins < 1) return t('now');
+    if (diffMins < 60) return `${t('ago')} ${diffMins} ${t('minutes_short')}`;
+    if (diffHours < 24) return `${t('ago')} ${diffHours} ${t('hours_short')}`;
+    if (diffDays < 7) return `${t('ago')} ${diffDays} ${t('days')}`;
 
-    return date.toLocaleDateString('ca-ES', { day: 'numeric', month: 'short' });
+    // Format segons idioma
+    const locale = i18n.language === 'ca' ? 'ca-ES' : i18n.language === 'es' ? 'es-ES' : 'en-US';
+    return date.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
   };
 
   // Render notificació
@@ -512,7 +507,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             </Text>
             {isReward && item.payload.level && (
               <Text style={[styles.rewardSubtext, { color: Colors.textSecondary }]}>
-                {item.payload.level} • {t(item.payload.category_name || 'Category')}
+                {item.payload.level} • {t(item.payload.category_name || 'category')}
               </Text>
             )}
             <Text style={[styles.timeText, { color: Colors.textSecondary }]}>
@@ -534,16 +529,12 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
             <Ionicons name="arrow-back" size={24} color={Colors.text} />
           </TouchableOpacity>
 
-          <Text style={[styles.headerTitle, { color: Colors.text }]}>
-            {t('Notifications') || 'Notificacions'}
-          </Text>
+          <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('notifications')}</Text>
 
           <View style={{ flexDirection: 'row', gap: 8 }}>
             {notifications.some((n) => !n.read) && (
               <TouchableOpacity onPress={handleMarkAllAsRead} style={styles.markAllButton}>
-                <Text style={[styles.markAllText, { color: Colors.accent }]}>
-                  {t('Mark all') || 'Marcar tot'}
-                </Text>
+                <Text style={[styles.markAllText, { color: Colors.accent }]}>{t('mark_all')}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -561,14 +552,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
               style={[styles.retryButton, { backgroundColor: Colors.accent }]}
               onPress={fetchNotifications}
             >
-              <Text style={styles.retryButtonText}>{t('Retry') || 'Tornar a intentar'}</Text>
+              <Text style={styles.retryButtonText}>{t('retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : notifications.length === 0 ? (
           <View style={styles.centerContainer}>
             <Ionicons name="notifications-off-outline" size={64} color={Colors.textSecondary} />
             <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
-              {t('No notifications') || 'No hi ha notificacions'}
+              {t('no_notifications')}
             </Text>
           </View>
         ) : (
@@ -599,7 +590,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
                 <Text
                   style={{
-                    fontSize: 22,
+                    fontSize: SCREEN_WIDTH * 0.055,
                     fontWeight: 'bold',
                     color: Colors.text,
                     textAlign: 'center',
@@ -610,44 +601,53 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: SCREEN_WIDTH * 0.037,
                     textAlign: 'center',
                     color: Colors.textSecondary,
                     marginTop: 8,
                   }}
                 >
-                  🏅 {selectedBadge.level_label} · {t('Level')} {selectedBadge.level}
+                  🏅 {selectedBadge.level_label} · {t('level')} {selectedBadge.level}
                 </Text>
 
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: SCREEN_WIDTH * 0.037,
                     textAlign: 'center',
                     color: Colors.textSecondary,
                     marginTop: 8,
                   }}
                 >
-                  ⭐ {t('Category')}: {t(selectedBadge.category)}
+                  ⭐ {t('category')}: {t(selectedBadge.category)}
                 </Text>
 
                 <Text
                   style={{
-                    fontSize: 14,
+                    fontSize: SCREEN_WIDTH * 0.037,
                     textAlign: 'center',
                     color: Colors.textSecondary,
                     marginTop: 8,
                   }}
                 >
-                  📅 {t('Obtained at')}:{' '}
-                  {new Date(selectedBadge.obtained_at).toLocaleDateString('ca-ES')}
+                  📅 {t('obtained_at')}:{' '}
+                  {new Date(selectedBadge.obtained_at).toLocaleDateString(
+                    i18n.language === 'ca' ? 'ca-ES' : i18n.language === 'es' ? 'es-ES' : 'en-US',
+                  )}
                 </Text>
 
                 <TouchableOpacity
                   onPress={() => setBadgeModalVisible(false)}
                   style={[styles.modalButton, { backgroundColor: Colors.accent }]}
                 >
-                  <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
-                    {t('Close') || 'Tancar'}
+                  <Text
+                    style={{
+                      color: '#fff',
+                      fontWeight: 'bold',
+                      textAlign: 'center',
+                      fontSize: SCREEN_WIDTH * 0.04,
+                    }}
+                  >
+                    {t('close')}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -672,14 +672,17 @@ const styles = StyleSheet.create({
   },
   closeButton: { padding: 4 },
   headerTitle: {
-    fontSize: 20,
+    fontSize: SCREEN_WIDTH * 0.053,
     fontWeight: '700',
     flex: 1,
     textAlign: 'center',
     marginRight: 32,
   },
   markAllButton: { padding: 4 },
-  markAllText: { fontSize: 14, fontWeight: '600' },
+  markAllText: {
+    fontSize: SCREEN_WIDTH * 0.037,
+    fontWeight: '600',
+  },
   listContainer: { paddingVertical: 8 },
   notificationItem: {
     marginHorizontal: 16,
@@ -708,15 +711,17 @@ const styles = StyleSheet.create({
   },
   textContainer: { flex: 1 },
   notificationText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: SCREEN_WIDTH * 0.037,
+    lineHeight: SCREEN_WIDTH * 0.053,
     marginBottom: 4,
   },
   rewardSubtext: {
-    fontSize: 12,
+    fontSize: SCREEN_WIDTH * 0.032,
     marginBottom: 2,
   },
-  timeText: { fontSize: 12 },
+  timeText: {
+    fontSize: SCREEN_WIDTH * 0.032,
+  },
   unreadDot: {
     width: 8,
     height: 8,
@@ -730,12 +735,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
   },
   emptyText: {
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     marginTop: 16,
     textAlign: 'center',
   },
   errorText: {
-    fontSize: 16,
+    fontSize: SCREEN_WIDTH * 0.042,
     marginTop: 16,
     marginBottom: 16,
     textAlign: 'center',
@@ -747,7 +752,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: 'white',
-    fontSize: 14,
+    fontSize: SCREEN_WIDTH * 0.037,
     fontWeight: '600',
   },
   modalOverlay: {
