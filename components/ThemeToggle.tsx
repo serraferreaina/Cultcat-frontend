@@ -8,20 +8,17 @@ interface ThemeToggleProps {
   theme: string;
   accentColor: string;
   onToggle: () => void;
+  permanent?: boolean; // Nueva prop para indicar si el cambio es permanente
 }
 
-export function ThemeToggle({ theme, accentColor, onToggle }: ThemeToggleProps) {
+export function ThemeToggle({ theme, accentColor, onToggle, permanent = false }: ThemeToggleProps) {
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const scaleAnim = useRef(new Animated.Value(1)).current;
 
   const handlePress = async () => {
-    // Soft haptic feedback
     await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Soft);
-
-    // Reset rotation
     rotateAnim.setValue(0);
 
-    // Combine scale bounce + smooth spin
     Animated.parallel([
       Animated.sequence([
         Animated.spring(scaleAnim, {

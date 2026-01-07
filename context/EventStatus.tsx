@@ -1,14 +1,18 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTranslation } from 'react-i18next';
+import { api } from '../api';
 
 interface EventStatusContextProps {
   goingEvents: Record<number, boolean>;
   savedEvents: Record<number, boolean>;
   assistedEvents: Record<number, boolean>;
-  toggleGoing: (eventId: number) => Promise<void>;
-  toggleSaved: (eventId: number) => Promise<void>;
-  toggleAssisted: (eventId: number) => Promise<void>;
+  attendanceDates: Record<number, string>;
+  toggleGoing: (eventId: number, date?: Date) => Promise<void>;
+  toggleSaved: (eventId: number, event?: any) => Promise<void>;
+  toggleAssisted: (eventId: number, date?: Date) => Promise<void>;
+  refreshSavedEvents: () => Promise<void>;
+  loadInitialData: () => Promise<void>;
 }
 
 const EventStatusContext = createContext<EventStatusContextProps | undefined>(undefined);
@@ -17,196 +21,256 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
   const [goingEvents, setGoingEvents] = useState<Record<number, boolean>>({});
   const [savedEvents, setSavedEvents] = useState<Record<number, boolean>>({});
   const [assistedEvents, setAssistedEvents] = useState<Record<number, boolean>>({});
+  const [attendanceDates, setAttendanceDates] = useState<Record<number, string>>({});
 
-  // --- Load all data on startup ---
   useEffect(() => {
     loadInitialData();
   }, []);
 
   const loadInitialData = async () => {
-    // 1. Load locally saved events
+    // Carregar dades locals primer (més ràpid)
     try {
       const json = await AsyncStorage.getItem('savedEvents');
       if (json) setSavedEvents(JSON.parse(json));
+
+      const datesJson = await AsyncStorage.getItem('attendanceDates');
+      if (datesJson) setAttendanceDates(JSON.parse(datesJson));
     } catch (e) {
-      console.warn('Error loading saved events from storage:', e);
+      console.error('Error loading local saved events:', e);
     }
 
-    // 2. Load API data
-    if (global.authToken) {
-      try {
-        // A. Load "Want To Go"
-        const resGoing = await fetch(
-          'http://nattech.fib.upc.edu:40490/saved-events/?state=wantToGo',
-          {
-            headers: { Authorization: `Token ${global.authToken}` },
-          },
-        );
+    // Després sincronitzar amb el backend
+    try {
+      const datesMap: Record<number, string> = {};
 
-        if (resGoing.ok) {
-          const data = await resGoing.json();
-          const goingMap: Record<number, boolean> = {};
-          data.forEach((item: any) => {
-            goingMap[parseInt(item.event_id, 10)] = true;
-          });
-          setGoingEvents(goingMap);
-        }
+      // Carregar esdeveniments "going"
+      const goingData = await api('/saved-events/?state=wantToGo');
+      const goingMap: Record<number, boolean> = {};
 
-        // B. Load "Attended" (Backend calls it 'attended', we map it to 'assistedEvents')
-        const resAssisted = await fetch(
-          'http://nattech.fib.upc.edu:40490/saved-events/?state=attended',
-          {
-            headers: { Authorization: `Token ${global.authToken}` },
-          },
-        );
+      if (Array.isArray(goingData)) {
+        goingData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          goingMap[eventId] = true;
 
-        if (resAssisted.ok) {
-          const data = await resAssisted.json();
-          const assistedMap: Record<number, boolean> = {};
-          data.forEach((item: any) => {
-            assistedMap[parseInt(item.event_id, 10)] = true;
-          });
-          setAssistedEvents(assistedMap);
-        }
-      } catch (err) {
-        console.error('Error loading API events:', err);
+          if (item.attendance_date) {
+            datesMap[eventId] = item.attendance_date;
+          }
+        });
       }
+      setGoingEvents(goingMap);
+
+      // Carregar esdeveniments "attended"
+      // B. Load "Attended"
+      const assistedData = await api('/saved-events/?state=attended');
+      const assistedMap: Record<number, boolean> = {};
+
+      if (Array.isArray(assistedData)) {
+        assistedData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          assistedMap[eventId] = true;
+
+          if (item.attendance_date) {
+            datesMap[eventId] = item.attendance_date;
+          }
+        });
+      }
+
+      setAssistedEvents(assistedMap);
+
+      // Actualitzar totes les dates
+      setAttendanceDates(datesMap);
+      await AsyncStorage.setItem('attendanceDates', JSON.stringify(datesMap));
+
+      // Carregar esdeveniments "wishlist"
+      // C. Load "Wishlist" (Saved/Bookmarked)
+      const savedData = await api('/saved-events/?state=wishlist');
+      const savedMap: Record<number, boolean> = {};
+
+      if (Array.isArray(savedData)) {
+        savedData.forEach((item: any) => {
+          const eventId = parseInt(item.event_id, 10);
+          savedMap[eventId] = true;
+        });
+      }
+
+      setSavedEvents(savedMap);
+
+      await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
+    } catch (error: any) {
+      if (error?.silent) return;
+      if (error?.message === 'Unauthorized') return;
+      console.error('❌ Error loading API data:', error);
     }
   };
 
-  // --- Persist locally saved events ---
+  const refreshSavedEvents = async () => {
+    try {
+      const savedData = await api('/saved-events/?state=wishlist');
+      const savedMap: Record<number, boolean> = {};
+      savedData.forEach((item: any) => {
+        savedMap[parseInt(item.event_id, 10)] = true;
+      });
+      setSavedEvents(savedMap);
+      await AsyncStorage.setItem('savedEvents', JSON.stringify(savedMap));
+    } catch (err) {
+      console.error('Error refreshing saved events:', err);
+    }
+  };
+
   const persistSaved = async (updated: Record<number, boolean>) => {
     try {
       await AsyncStorage.setItem('savedEvents', JSON.stringify(updated));
     } catch (e) {
-      console.warn('Error saving events to storage:', e);
+      console.error('Error persisting saved events:', e);
     }
   };
 
-  // --- Generic Helper for API Toggles ---
-  // Updated type to accept 'attended' instead of 'assisted'
+  const persistDates = async (updated: Record<number, string>) => {
+    try {
+      await AsyncStorage.setItem('attendanceDates', JSON.stringify(updated));
+    } catch (e) {
+      console.error('Error persisting attendance dates:', e);
+    }
+  };
+
   const handleApiToggle = async (
     eventId: number,
     isActive: boolean,
-    state: 'wantToGo' | 'attended',
+    state: 'wantToGo' | 'attended' | 'wishlist',
     onFail: () => void,
+    date?: Date,
   ) => {
-    if (!global.authToken) {
-      console.warn('No token available, toggled only locally.');
-      return;
-    }
-
     try {
       if (isActive) {
-        // DELETE logic
-        console.log(`Removing event ${eventId} from ${state}`);
-        const res = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
+        await api(`/save/${eventId}/`, {
           method: 'DELETE',
-          headers: { Authorization: `Token ${global.authToken}` },
         });
-
-        if (!res.ok) {
-          // Fallback: Try setting to 'wishlist' to overwrite/remove
-          console.log('DELETE failed, trying fallback to wishlist state...');
-          const fallbackRes = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Token ${global.authToken}`,
-            },
-            body: JSON.stringify({ state: 'wishlist' }),
-          });
-
-          if (!fallbackRes.ok) throw new Error(`HTTP error! status: ${fallbackRes.status}`);
-        }
       } else {
-        // POST logic (Add)
-        console.log(`Adding event ${eventId} to ${state}`);
-        const res = await fetch(`http://nattech.fib.upc.edu:40490/save/${eventId}/`, {
+        const body: any = { state };
+        if (date) {
+          // IMPORTANT: Formatar la data en format YYYY-MM-DD
+          body.attendance_date = date.toISOString().split('T')[0];
+        }
+
+        const response = await api(`/save/${eventId}/`, {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Token ${global.authToken}`,
-          },
-          body: JSON.stringify({ state }), // This now sends "attended" or "wantToGo"
+          body: JSON.stringify(body),
         });
 
-        if (!res.ok) {
-          const errorText = await res.text();
-          console.error('API Error Response:', errorText);
-          throw new Error(`HTTP error! status: ${res.status}`);
+        // Verificar si el backend ha retornat la data correctament
+        if (response && response.attendance_date) {
+        } else {
+          console.warn('⚠️ Backend did not return attendance_date');
         }
       }
     } catch (err) {
-      console.error(`Error toggling "${state}" on server:`, err);
-      onFail(); // Execute rollback
+      console.error(`Error toggling ${state}:`, err);
+      onFail();
     }
   };
 
-  // --- Toggle "Want to Go" ---
-  const toggleGoing = async (eventId: number) => {
+  const toggleGoing = async (eventId: number, date?: Date) => {
     const isCurrentlyGoing = goingEvents[eventId] || false;
 
-    // Optimistic Update
+    if (!isCurrentlyGoing && date) {
+      // Afegint: guardar la data
+      const dateString = date.toISOString().split('T')[0];
+      const updatedDates = { ...attendanceDates, [eventId]: dateString };
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    } else if (isCurrentlyGoing) {
+      // Eliminant: esborrar la data
+      const updatedDates = { ...attendanceDates };
+      delete updatedDates[eventId];
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    }
+
+    // Actualització optimista
     const updated = { ...goingEvents, [eventId]: !isCurrentlyGoing };
     setGoingEvents(updated);
 
-    await handleApiToggle(eventId, isCurrentlyGoing, 'wantToGo', () => {
-      // Revert
-      setGoingEvents({ ...goingEvents, [eventId]: isCurrentlyGoing });
-    });
+    // Sincronitzar amb backend
+    await handleApiToggle(
+      eventId,
+      isCurrentlyGoing,
+      'wantToGo',
+      () => {
+        // En cas d'error, revertir
+        console.warn(`⚠️ Could not sync event ${eventId} with backend, reverting...`);
+        setGoingEvents({ ...goingEvents, [eventId]: isCurrentlyGoing });
+      },
+      date,
+    );
   };
 
-  // --- Toggle "Assisted" ---
-  const toggleAssisted = async (eventId: number) => {
+  const toggleAssisted = async (eventId: number, date?: Date) => {
     const isCurrentlyAssisted = assistedEvents[eventId] || false;
 
-    // Optimistic Update
+    if (!isCurrentlyAssisted && date) {
+      // Afegint: guardar la data
+      const dateString = date.toISOString().split('T')[0];
+      const updatedDates = { ...attendanceDates, [eventId]: dateString };
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    } else if (isCurrentlyAssisted) {
+      // Eliminant: esborrar la data
+      const updatedDates = { ...attendanceDates };
+      delete updatedDates[eventId];
+      setAttendanceDates(updatedDates);
+      await persistDates(updatedDates);
+    }
+
+    // Actualització optimista
     const updated = { ...assistedEvents, [eventId]: !isCurrentlyAssisted };
     setAssistedEvents(updated);
 
-    // HERE IS THE FIX: We pass 'attended' string to the API helper
-    await handleApiToggle(eventId, isCurrentlyAssisted, 'attended', () => {
-      // Revert
-      setAssistedEvents({ ...assistedEvents, [eventId]: isCurrentlyAssisted });
-    });
+    // Sincronitzar amb backend
+    await handleApiToggle(
+      eventId,
+      isCurrentlyAssisted,
+      'attended',
+      () => {
+        // En cas d'error, revertir
+        console.warn(`⚠️ Could not sync event ${eventId} with backend, reverting...`);
+        setAssistedEvents({ ...assistedEvents, [eventId]: isCurrentlyAssisted });
+      },
+      date,
+    );
   };
 
-  // --- Toggle "Saved" (Bookmark) ---
-  const toggleSaved = async (eventId: number) => {
+  const toggleSaved = async (eventId: number, event?: any) => {
     const isCurrentlySaved = savedEvents[eventId] || false;
 
     const updated = { ...savedEvents, [eventId]: !isCurrentlySaved };
     setSavedEvents(updated);
     await persistSaved(updated);
 
-    if (!global.authToken) return;
+    // Si estamos guardando (no eliminando), necesitamos una fecha válida
+    let dateToSend: Date | undefined = undefined;
 
-    try {
-      // 1. Ensure event exists in backend
-      const res = await fetch(`http://nattech.fib.upc.edu:40490/events/${eventId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Token ${global.authToken}`,
-        },
-      });
-      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-
-      // 2. If we are un-saving, delete
-      if (isCurrentlySaved) {
-        await fetch(`http://nattech.fib.upc.edu:40490/saved-events/${eventId}/`, {
-          method: 'DELETE',
-          headers: { Authorization: `Token ${global.authToken}` },
-        });
+    if (!isCurrentlySaved && event) {
+      // Para wishlist (bookmark), usar la fecha de fin del evento
+      if (event.data_fi) {
+        dateToSend = new Date(event.data_fi);
+      } else if (event.data_inici) {
+        dateToSend = new Date(event.data_inici);
+      } else {
+        dateToSend = new Date();
       }
-    } catch (err) {
-      console.error('Error saving event on server:', err);
-      // Revert
-      const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
-      setSavedEvents(reverted);
-      await persistSaved(reverted);
     }
+
+    await handleApiToggle(
+      eventId,
+      isCurrentlySaved,
+      'wishlist',
+      async () => {
+        const reverted = { ...savedEvents, [eventId]: isCurrentlySaved };
+        setSavedEvents(reverted);
+        await persistSaved(reverted);
+      },
+      dateToSend,
+    );
   };
 
   return (
@@ -215,9 +279,12 @@ export const EventStatusProvider: React.FC<{ children: React.ReactNode }> = ({ c
         goingEvents,
         savedEvents,
         assistedEvents,
+        attendanceDates,
         toggleGoing,
         toggleSaved,
         toggleAssisted,
+        refreshSavedEvents,
+        loadInitialData,
       }}
     >
       {children}
@@ -232,37 +299,52 @@ export const useEventStatus = () => {
 };
 
 export const useEventLogic = (event: any) => {
-  const { goingEvents, toggleGoing, assistedEvents, toggleAssisted } = useEventStatus();
+  const { goingEvents, toggleGoing, assistedEvents, toggleAssisted, attendanceDates } =
+    useEventStatus();
   const { t } = useTranslation();
 
   const isPast = () => {
-    if (!event.data_inici) return false;
-    const eventDate = new Date(event.data_inici);
+    if (!event.data_fi) return false;
+    const endDate = new Date(event.data_fi);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return eventDate < today;
+    endDate.setHours(0, 0, 0, 0);
+    return endDate < today;
   };
 
   const past = isPast();
   const id = event.id;
 
+  // Obtenir la data d'assistència
+  const attendanceDate = attendanceDates[id]
+    ? (() => {
+        // Parsejar manualment per evitar problemes de zona horària
+        const [year, month, day] = attendanceDates[id].split('-').map(Number);
+        // Crear la data directament amb els components (month - 1 perquè els mesos van de 0-11)
+        const date = new Date(year, month - 1, day, 12, 0, 0);
+        return date;
+      })()
+    : undefined;
+
   if (past) {
     return {
       isActive: !!assistedEvents[id],
-      toggle: () => toggleAssisted(id),
+      toggle: (date?: Date) => toggleAssisted(id, date),
       textKey: t('assisted'),
       textKeyInactive: t('iHaveAssisted'),
       isPast: true,
       colorActive: '#4CAF50',
+      attendanceDate,
     };
   } else {
     return {
       isActive: !!goingEvents[id],
-      toggle: () => toggleGoing(id),
+      toggle: (date?: Date) => toggleGoing(id, date),
       textKey: t('iWillAttend'),
       textKeyInactive: t('wantToGo'),
       isPast: false,
       colorActive: '#4CAF50',
+      attendanceDate,
     };
   }
 };

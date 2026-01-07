@@ -1,4 +1,6 @@
 import React, { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { api } from '../api';
 
 declare global {
   var currentUser: {
@@ -13,19 +15,11 @@ declare global {
 export default function UserLoader({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const loadUser = async () => {
-      if (!global.authToken) {
-        setTimeout(loadUser, 100);
-        return;
-      }
-
       try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/profile/', {
-          headers: {
-            Authorization: `Token ${global.authToken}`,
-          },
-        });
+        const data = await api('/profile/');
 
-        const data = await res.json();
+        // 👇 CLAU PER ALS XATS
+        await AsyncStorage.setItem('userId', data.id.toString());
 
         global.currentUser = {
           id: data.id ?? 0,
@@ -34,10 +28,10 @@ export default function UserLoader({ children }: { children: React.ReactNode }) 
           email: data.email ?? '',
           profile_picture:
             data.profilePic ??
-            'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png', // fallback string
+            'https://cultcat-media.s3.amazonaws.com/profile_pics/1a3c6c870f6e4105b0ef74c8659d9dc1_icon-7797704_640.png',
         };
       } catch (e) {
-        // silenciat
+        console.log('Error loading user profile:', e);
       }
     };
 

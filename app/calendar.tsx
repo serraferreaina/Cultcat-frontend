@@ -24,6 +24,7 @@ type SavedEvent = {
   event_title: string;
   state: string;
   created_at: string;
+  attendance_date?: string;
 };
 
 type EventDetail = {
@@ -75,14 +76,24 @@ export default function CalendarScreen() {
         uniqueEventIds.map((id) => api(`/events/${id}/`)),
       );
 
+      const attendanceMap: Record<string, string> = {};
+
+      combinedSaved.forEach((item) => {
+        if (item.attendance_date) {
+          attendanceMap[item.event_id] = item.attendance_date;
+        }
+      });
+
       const withDate: Record<string, EventDetail[]> = {};
       const without: EventDetail[] = [];
 
       details.forEach((ev) => {
-        if (!ev.data_inici) {
+        const attendanceDate = attendanceMap[String(ev.id)];
+        const day = attendanceDate ?? ev.data_inici?.slice(0, 10);
+
+        if (!day) {
           without.push(ev);
         } else {
-          const day = ev.data_inici.slice(0, 10);
           withDate[day] ??= [];
           withDate[day].push(ev);
         }

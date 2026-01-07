@@ -11,14 +11,32 @@ import {
   StyleSheet,
   Image,
   ScrollView,
+  Alert,
+  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../theme/ThemeContext';
 import { LightColors, DarkColors } from '../theme/colors';
 import { useTranslation } from 'react-i18next';
 import * as ImagePicker from 'expo-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const BASE_URL = 'http://nattech.fib.upc.edu:40490';
+
+// POSSIBLE PROFILE ENDPOINTS - Try these in order
+const PROFILE_ENDPOINTS = [
+  '/users/profile/',
+  '/user/profile/',
+  '/api/users/profile/',
+  '/api/user/profile/',
+  '/profile/',
+  '/users/me/',
+  '/user/me/',
+];
 
 // ---------------------------
 // TYPES
@@ -49,18 +67,24 @@ interface Props {
   eventId: number;
   visible: boolean;
   onClose: () => void;
+  readOnly?: boolean;
 }
 
-export default function ReviewSection({ eventId, visible, onClose }: Props) {
+export default function ReviewSection({ eventId, visible, onClose, readOnly = false }: Props) {
   const { t } = useTranslation();
   const { theme } = useTheme();
+  const insets = useSafeAreaInsets();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
+  const router = useRouter();
 
-  const currentUser = global.currentUser as {
+  const [currentUser, setCurrentUser] = useState<{
     id: number;
     username: string;
     profile_picture: string | null;
-  };
+  } | null>(null);
+
+  const [userLoading, setUserLoading] = useState(true);
+  const [userError, setUserError] = useState<string | null>(null);
 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(false);
@@ -78,6 +102,104 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
   const [removedImageIds, setRemovedImageIds] = useState<number[]>([]);
 
   // ---------------------------
+  // NAVEGAR AL PERFIL
+  // ---------------------------
+
+  const openProfile = async (userId: number) => {
+    try {
+      // Tanquem el modal de reviews i naveguem al perfil
+      onClose();
+      router.push(`/user/${userId}`);
+    } catch (e) {
+      console.error('Error navegant al perfil:', e);
+      Alert.alert('Error', "No s'ha pogut obrir el perfil");
+    }
+  };
+
+  // ---------------------------
+  // LOAD CURRENT USER
+  // ---------------------------
+
+  useEffect(() => {
+    const loadCurrentUser = async () => {
+      setUserLoading(true);
+      setUserError(null);
+
+      try {
+        const token = await AsyncStorage.getItem('authToken');
+        if (!token) {
+          setUserError('No auth token');
+          console.warn('⚠️ No auth token available');
+          setUserLoading(false);
+          return;
+        }
+
+        // Try each endpoint until one works
+        let userData = null;
+        let workingEndpoint = null;
+
+        for (const endpoint of PROFILE_ENDPOINTS) {
+          try {
+            const url = `${BASE_URL}${endpoint}`;
+
+            const res = await fetch(url, {
+              headers: {
+                Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (res.ok) {
+              userData = await res.json();
+              workingEndpoint = endpoint;
+              break;
+            }
+          } catch (err) {
+            continue;
+          }
+        }
+
+        if (!userData || !workingEndpoint) {
+          setUserError('Profile endpoint not found');
+
+          Alert.alert(
+            'Error de configuració',
+            `No s'ha trobat l'endpoint del perfil d'usuari. Contacta amb suport tècnic.\n\nEndpoints provats: ${PROFILE_ENDPOINTS.join(', ')}`,
+            [{ text: 'OK', onPress: onClose }],
+          );
+
+          setUserLoading(false);
+          return;
+        }
+
+        // Parse user data with flexible field names
+        setCurrentUser({
+          id: userData.id,
+          username: userData.username || userData.user || userData.name,
+          profile_picture:
+            userData.profile_picture || userData.profilePic || userData.avatar || null,
+        });
+
+        setUserLoading(false);
+      } catch (e) {
+        console.error('❌ Unexpected error loading user:', e);
+        setUserError('Error de connexió');
+
+        Alert.alert('Error', "No s'ha pogut carregar el perfil. Comprova la connexió a internet.", [
+          { text: 'Tancar', onPress: onClose },
+          { text: 'Reintentar', onPress: () => loadCurrentUser() },
+        ]);
+
+        setUserLoading(false);
+      }
+    };
+
+    if (visible) {
+      loadCurrentUser();
+    }
+  }, [visible]);
+
+  // ---------------------------
   // LOAD REVIEWS
   // ---------------------------
 
@@ -85,16 +207,74 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
     try {
       setLoading(true);
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/reviews/event/${eventId}/`, {
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
+
+      if (!res.ok) {
+        console.error(`Error fetching reviews: ${res.status}`);
+        setLoading(false);
+        return;
+      }
 
       const data = await res.json();
 
-      // Fix for reviews with invalid user object from backend
+      // Filtro de reviews con usuario válido
       const safeData = data.filter((r: any) => r.user && typeof r.user === 'object');
 
-      setReviews(safeData);
+      // Carregar informació completa de cada usuari
+      const reviewsWithFullUserData = await Promise.all(
+        safeData.map(async (review: any) => {
+          try {
+            // Si ja tenim l'objecte user complet, no cal fer res més
+            if (review.user.id && review.user.username) {
+              return review;
+            }
+
+            // Si només tenim l'ID de l'usuari, carreguem les dades completes
+            const userId = typeof review.user === 'number' ? review.user : review.user.id;
+
+            if (!userId) {
+              console.warn('Review sense user ID:', review);
+              return review;
+            }
+
+            const userRes = await fetch(`${BASE_URL}/users/${userId}/`, {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+
+            if (userRes.ok) {
+              const fullUserData = await userRes.json();
+              return {
+                ...review,
+                user: {
+                  id: fullUserData.id,
+                  username: fullUserData.username || fullUserData.user || fullUserData.name,
+                  profilePic:
+                    fullUserData.profile_picture ||
+                    fullUserData.profilePic ||
+                    fullUserData.avatar ||
+                    null,
+                },
+              };
+            }
+
+            return review;
+          } catch (err) {
+            console.error("Error carregant dades d'usuari:", err);
+            return review;
+          }
+        }),
+      );
+
+      setReviews(reviewsWithFullUserData);
     } catch (e) {
       console.error('Error loading reviews:', e);
     } finally {
@@ -124,11 +304,24 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
   // ---------------------------
 
   const publish = async () => {
-    if (rating === 0) return;
+    if (rating === 0) {
+      Alert.alert('Atenció', 'Selecciona una puntuació');
+      return;
+    }
+
+    if (!currentUser) {
+      Alert.alert('Error', "No s'ha pogut obtenir la informació de l'usuari");
+      return;
+    }
 
     try {
-      const form = new FormData();
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
 
+      const form = new FormData();
       form.append('user', String(currentUser.id));
       form.append('event', String(eventId));
       form.append('rating', String(rating));
@@ -144,18 +337,19 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
 
       const res = await fetch(`${BASE_URL}/reviews/create/`, {
         method: 'POST',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
 
       const created = await res.json();
+
       if (created.detail === 'Ya existe una review para este usuario y evento.') {
-        alert('Ja tens una ressenya per aquest esdeveniment.');
+        Alert.alert('Avís', 'Ja tens una ressenya per aquest esdeveniment.');
         return;
       }
 
       if (!created.id) {
-        console.log('BACKEND ERROR:', created);
+        Alert.alert('Error', "No s'ha pogut crear la ressenya");
         return;
       }
 
@@ -163,8 +357,10 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
       setRating(0);
       setNewComment('');
       setNewImages([]);
+      Alert.alert('Èxit', 'Ressenya publicada correctament');
     } catch (e) {
       console.error('Error creating review:', e);
+      Alert.alert('Error', "No s'ha pogut publicar la ressenya");
     }
   };
 
@@ -174,14 +370,22 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
 
   const remove = async (id: number) => {
     try {
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       await fetch(`${BASE_URL}/reviews/${id}/`, {
         method: 'DELETE',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` },
       });
 
       setReviews((prev) => prev.filter((r) => r.id !== id));
+      Alert.alert('Èxit', 'Ressenya eliminada');
     } catch (e) {
       console.error('Error deleting review:', e);
+      Alert.alert('Error', "No s'ha pogut eliminar la ressenya");
     }
   };
 
@@ -198,7 +402,7 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
   };
 
   const submitEdit = async () => {
-    if (!editingReview) return;
+    if (!editingReview || !currentUser) return;
 
     try {
       const form = new FormData();
@@ -221,20 +425,28 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
         } as any),
       );
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(`${BASE_URL}/reviews/${editingReview.id}/edit/`, {
         method: 'PUT',
-        headers: { Authorization: `Token ${global.authToken}` },
+        headers: { Authorization: `Bearer ${token}` },
         body: form,
       });
 
       const updated = await res.json();
 
       setReviews((prev) => prev.map((r) => (r.id === editingReview.id ? updated : r)));
-      await loadReviews(); // recarrega les imatges reals del backend
+      await loadReviews();
 
       setEditingReview(null);
+      Alert.alert('Èxit', 'Ressenya actualitzada');
     } catch (e) {
       console.error('Error editing review:', e);
+      Alert.alert('Error', "No s'ha pogut actualitzar la ressenya");
     }
   };
 
@@ -244,19 +456,23 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
         ? `${BASE_URL}/reviews/${reviewId}/upvote/remove/`
         : `${BASE_URL}/reviews/${reviewId}/upvote/`;
 
+      const token = await AsyncStorage.getItem('authToken');
+      if (!token) {
+        console.warn('No auth token available');
+        return;
+      }
+
       const res = await fetch(url, {
         method: alreadyUpvoted ? 'DELETE' : 'POST',
         headers: {
-          Authorization: `Token ${global.authToken}`,
+          Authorization: `Bearer ${token}`,
         },
       });
 
       if (!res.ok) {
-        console.log('Error fent upvote/unvote:', await res.text());
         return;
       }
 
-      // Després de fer el toggle, tornem a carregar les ressenyes
       await loadReviews();
     } catch (err) {
       console.error('Error toggleUpvote:', err);
@@ -272,15 +488,31 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
       <View style={styles.backdrop}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-          style={[styles.card, { backgroundColor: Colors.card }]}
+          style={[
+            styles.card,
+            {
+              backgroundColor: Colors.card,
+              paddingBottom: insets.bottom + 8,
+            },
+          ]}
         >
           {/* HEADER */}
           <View style={styles.header}>
-            <Text style={[styles.title, { color: Colors.text }]}>Reviews</Text>
+            <Text style={[styles.title, { color: Colors.text }]}>{t('Reviews')}</Text>
             <TouchableOpacity onPress={onClose}>
               <Ionicons name="close" size={24} color={Colors.text} />
             </TouchableOpacity>
           </View>
+
+          {/* USER ERROR BANNER */}
+          {userError && (
+            <View style={[styles.errorBanner, { backgroundColor: Colors.border }]}>
+              <Ionicons name="warning-outline" size={20} color={Colors.text} />
+              <Text style={[styles.errorText, { color: Colors.text }]}>
+                No s'ha pogut carregar el perfil. Pots veure ressenyes però no crear-ne de noves.
+              </Text>
+            </View>
+          )}
 
           {/* LIST */}
           <FlatList
@@ -289,25 +521,45 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
               return item.id ? String(item.id) : `temp_${index}`;
             }}
             style={{ flex: 1 }}
+            ListEmptyComponent={
+              loading ? (
+                <Text style={{ color: Colors.textSecondary, textAlign: 'center', marginTop: 20 }}>
+                  Carregant ressenyes...
+                </Text>
+              ) : (
+                <Text style={{ color: Colors.textSecondary, textAlign: 'center', marginTop: 20 }}>
+                  No hi ha ressenyes encara
+                </Text>
+              )
+            }
             renderItem={({ item }) => {
               if (!item.user || typeof item.user !== 'object') return null;
 
               return (
                 <View style={styles.reviewRow}>
-                  {/* USER PIC */}
-                  {item.user.profilePic ? (
-                    <Image
-                      source={{ uri: item.user.profilePic }}
-                      style={{ width: 32, height: 32, borderRadius: 16 }}
-                    />
-                  ) : (
-                    <Ionicons name="person-circle-outline" size={30} color={Colors.text} />
-                  )}
+                  {/* USER PIC - CLICKABLE */}
+                  <TouchableOpacity
+                    style={styles.userSection}
+                    onPress={() => openProfile(item.user.id)}
+                  >
+                    {item.user.profilePic ? (
+                      <Image source={{ uri: item.user.profilePic }} style={styles.profilePic} />
+                    ) : (
+                      <View
+                        style={[styles.profilePicPlaceholder, { backgroundColor: Colors.border }]}
+                      >
+                        <Ionicons name="person" size={24} color={Colors.text} />
+                      </View>
+                    )}
+                  </TouchableOpacity>
 
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontWeight: '600', color: Colors.text }}>
-                      {item.user.username}
-                    </Text>
+                    {/* USERNAME - CLICKABLE */}
+                    <TouchableOpacity onPress={() => openProfile(item.user.id)}>
+                      <Text style={[styles.username, { color: Colors.accent }]}>
+                        @{item.user.username}
+                      </Text>
+                    </TouchableOpacity>
 
                     {/* STARS */}
                     <View style={styles.starsRow}>
@@ -321,26 +573,23 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
                       ))}
                     </View>
 
-                    {/* TEXT */}
-                    <Text style={{ color: Colors.text }}>{item.review ?? 'No text'}</Text>
+                    {/* REVIEW TEXT */}
+                    {item.review && (
+                      <Text style={[styles.reviewText, { color: Colors.text }]}>{item.review}</Text>
+                    )}
 
-                    {/* IMAGES */}
+                    {/* REVIEW IMAGES */}
                     {item.images?.length > 0 && (
                       <ScrollView
                         horizontal
-                        style={{ marginVertical: 6 }}
+                        style={styles.imagesScroll}
                         showsHorizontalScrollIndicator={false}
                       >
                         {item.images.map((img) => (
                           <Image
                             key={img.id}
                             source={{ uri: img.image }}
-                            style={{
-                              width: 120,
-                              height: 120,
-                              marginRight: 8,
-                              borderRadius: 8,
-                            }}
+                            style={styles.reviewImage}
                           />
                         ))}
                       </ScrollView>
@@ -348,27 +597,28 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
 
                     {/* VOTES */}
                     <TouchableOpacity
-                      style={{ flexDirection: 'row', alignItems: 'center' }}
+                      style={styles.votesButton}
                       onPress={() => toggleUpvote(item.id, item.upvoted)}
+                      disabled={!currentUser}
                     >
                       <Ionicons
                         name={item.upvoted ? 'heart' : 'heart-outline'}
                         size={20}
-                        color={item.upvoted ? 'red' : Colors.text}
+                        color={item.upvoted ? '#FF4458' : Colors.text}
                       />
-                      <Text style={{ marginLeft: 4 }}>{item.votes}</Text>
+                      <Text style={[styles.votesCount, { color: Colors.text }]}>{item.votes}</Text>
                     </TouchableOpacity>
                   </View>
 
                   {/* EDIT + DELETE */}
-                  {item.user.id === currentUser.id && (
-                    <View style={{ gap: 10 }}>
+                  {currentUser && item.user.id === currentUser.id && (
+                    <View style={styles.actionsColumn}>
                       <TouchableOpacity onPress={() => startEdit(item)}>
                         <Ionicons name="create-outline" size={22} color={Colors.text} />
                       </TouchableOpacity>
 
                       <TouchableOpacity onPress={() => remove(item.id)}>
-                        <Ionicons name="trash-outline" size={22} color={Colors.text} />
+                        <Ionicons name="trash-outline" size={22} color="#FF4458" />
                       </TouchableOpacity>
                     </View>
                   )}
@@ -377,72 +627,74 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
             }}
           />
 
-          {/* NEW REVIEW */}
-          <View style={[styles.composer, { borderTopColor: Colors.border }]}>
-            <View style={styles.starsInputRow}>
-              {[1, 2, 3, 4, 5].map((v) => (
-                <TouchableOpacity key={v} onPress={() => setRating(v)}>
-                  <Ionicons
-                    name={v <= rating ? 'star' : 'star-outline'}
-                    size={28}
-                    color="#e58e26"
-                  />
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <TextInput
-              value={newComment}
-              onChangeText={setNewComment}
-              placeholder="Write a review…"
-              placeholderTextColor={Colors.textSecondary}
-              style={[styles.input, { color: Colors.text }]}
-              multiline
-            />
-
-            {/* SELECT IMAGES */}
-            <TouchableOpacity onPress={() => pickImages(setNewImages)}>
-              <Ionicons name="image-outline" size={28} color={Colors.text} />
-            </TouchableOpacity>
-
-            {newImages.length > 0 && (
-              <ScrollView horizontal style={{ marginVertical: 8 }}>
-                {newImages.map((img, i) => (
-                  <Image
-                    key={i}
-                    source={{ uri: img.uri }}
-                    style={{
-                      width: 80,
-                      height: 80,
-                      marginRight: 8,
-                      borderRadius: 8,
-                    }}
-                  />
+          {/* NEW REVIEW - Only show if user is loaded AND not in read-only mode */}
+          {currentUser && !userError && !readOnly && (
+            <View style={[styles.composer, { borderTopColor: Colors.border }]}>
+              <View style={styles.starsInputRow}>
+                {[1, 2, 3, 4, 5].map((v) => (
+                  <TouchableOpacity key={v} onPress={() => setRating(v)}>
+                    <Ionicons
+                      name={v <= rating ? 'star' : 'star-outline'}
+                      size={28}
+                      color="#e58e26"
+                    />
+                  </TouchableOpacity>
                 ))}
-              </ScrollView>
-            )}
+              </View>
 
-            <TouchableOpacity
-              onPress={publish}
-              disabled={rating === 0}
-              style={[
-                styles.sendBtn,
-                {
-                  backgroundColor: rating === 0 ? Colors.border : Colors.accent,
-                },
-              ]}
-            >
-              <Text
-                style={{
-                  color: Colors.card,
-                  fontWeight: '700',
-                  fontSize: 16,
-                }}
+              <TextInput
+                value={newComment}
+                onChangeText={setNewComment}
+                placeholder={t('Write a review…')}
+                placeholderTextColor={Colors.textSecondary}
+                style={[styles.input, { color: Colors.text, borderColor: Colors.border }]}
+                multiline
+              />
+
+              {/* SELECT IMAGES */}
+              <TouchableOpacity onPress={() => pickImages(setNewImages)}>
+                <Ionicons name="image-outline" size={28} color={Colors.text} />
+              </TouchableOpacity>
+
+              {newImages.length > 0 && (
+                <ScrollView horizontal style={{ marginVertical: 8 }}>
+                  {newImages.map((img, i) => (
+                    <Image
+                      key={i}
+                      source={{ uri: img.uri }}
+                      style={{
+                        width: 80,
+                        height: 80,
+                        marginRight: 8,
+                        borderRadius: 8,
+                      }}
+                    />
+                  ))}
+                </ScrollView>
+              )}
+
+              <TouchableOpacity
+                onPress={publish}
+                disabled={rating === 0}
+                style={[
+                  styles.sendBtn,
+                  {
+                    backgroundColor: rating === 0 ? Colors.border : Colors.accent,
+                  },
+                ]}
               >
-                Publish
-              </Text>
-            </TouchableOpacity>
-          </View>
+                <Text
+                  style={{
+                    color: Colors.card,
+                    fontWeight: '700',
+                    fontSize: SCREEN_WIDTH * 0.04,
+                  }}
+                >
+                  {t('Publish')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
         </KeyboardAvoidingView>
       </View>
 
@@ -451,7 +703,7 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
         <Modal visible transparent animationType="fade">
           <View style={styles.editBackdrop}>
             <View style={[styles.editBox, { backgroundColor: Colors.card }]}>
-              <Text style={[styles.title, { color: Colors.text }]}>Edit review</Text>
+              <Text style={[styles.title, { color: Colors.text }]}>{t('Edit review')}</Text>
 
               {/* STARS */}
               <View style={styles.starsInputRow}>
@@ -471,7 +723,7 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
                 value={editedComment}
                 onChangeText={setEditedComment}
                 multiline
-                style={[styles.input, { color: Colors.text }]}
+                style={[styles.input, { color: Colors.text, borderColor: Colors.border }]}
               />
 
               {/* OLD IMAGES WITH DELETE BUTTON */}
@@ -537,11 +789,21 @@ export default function ReviewSection({ eventId, visible, onClose }: Props) {
               {/* ACTIONS */}
               <View style={styles.editActions}>
                 <TouchableOpacity onPress={() => setEditingReview(null)}>
-                  <Text style={{ color: Colors.textSecondary }}>Cancel</Text>
+                  <Text style={{ color: Colors.textSecondary, fontSize: SCREEN_WIDTH * 0.04 }}>
+                    Cancel
+                  </Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity onPress={submitEdit}>
-                  <Text style={{ color: Colors.accent, fontWeight: '700' }}>Save</Text>
+                  <Text
+                    style={{
+                      color: Colors.accent,
+                      fontWeight: '700',
+                      fontSize: SCREEN_WIDTH * 0.04,
+                    }}
+                  >
+                    Save
+                  </Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -563,8 +825,8 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   card: {
-    height: '80%',
-    padding: 16,
+    height: SCREEN_HEIGHT * 0.8,
+    padding: SCREEN_WIDTH * 0.04,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
   },
@@ -574,17 +836,82 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   title: {
-    fontSize: 18,
+    fontSize: SCREEN_WIDTH * 0.048,
     fontWeight: '700',
+  },
+  errorBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 12,
+    gap: 8,
+  },
+  errorText: {
+    flex: 1,
+    fontSize: SCREEN_WIDTH * 0.034,
   },
   reviewRow: {
     flexDirection: 'row',
-    gap: 10,
-    marginVertical: 10,
+    gap: 12,
+    marginVertical: 12,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
+  },
+  userSection: {
+    alignItems: 'center',
+  },
+  profilePic: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+  },
+  profilePicPlaceholder: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  username: {
+    fontWeight: '600',
+    fontSize: SCREEN_WIDTH * 0.04,
+    marginBottom: 4,
   },
   starsRow: {
     flexDirection: 'row',
     marginVertical: 4,
+  },
+  reviewText: {
+    fontSize: SCREEN_WIDTH * 0.037,
+    lineHeight: SCREEN_WIDTH * 0.053,
+    marginTop: 6,
+  },
+  imagesScroll: {
+    marginVertical: 8,
+  },
+  reviewImage: {
+    width: 120,
+    height: 120,
+    marginRight: 8,
+    borderRadius: 8,
+  },
+  votesButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingVertical: 4,
+  },
+  votesCount: {
+    marginLeft: 6,
+    fontSize: SCREEN_WIDTH * 0.037,
+    fontWeight: '500',
+  },
+  actionsColumn: {
+    gap: 12,
+    justifyContent: 'flex-start',
+    paddingTop: 4,
   },
   likeRow: {
     flexDirection: 'row',
@@ -607,6 +934,7 @@ const styles = StyleSheet.create({
     minHeight: 60,
     textAlignVertical: 'top',
     marginVertical: 10,
+    fontSize: SCREEN_WIDTH * 0.038,
   },
   sendBtn: {
     paddingVertical: 10,

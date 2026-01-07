@@ -1,64 +1,1017 @@
 // app/(auth)/login.tsx
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import React, { useState, useEffect } from 'react';
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
+  Dimensions,
+  Alert,
+  ActivityIndicator,
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Animated,
+  Modal,
+} from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
-import { useRouter } from 'expo-router';
-import GoogleButton from '../../components/GoogleButton';
-import { useTranslation } from 'react-i18next';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
+import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
+import { apiFetch } from '../../api';
 
-export default function LoginScreen() {
-  const router = useRouter();
-  const { theme } = useTheme();
-  const effectiveScheme = theme || 'light';
-  const Colors = effectiveScheme === 'dark' ? DarkColors : LightColors;
+WebBrowser.maybeCompleteAuthSession();
+
+const { width, height } = Dimensions.get('window');
+
+const Login: React.FC = () => {
   const { t } = useTranslation();
+  const { theme } = useTheme();
+  const colors = theme === 'light' ? LightColors : DarkColors;
 
-  const BACKEND_LOGIN_URL = 'http://nattech.fib.upc.edu:40490/login';
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState<'signin' | 'signup' | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [fadeAnim] = useState(new Animated.Value(0));
+  const [slideAnim] = useState(new Animated.Value(50));
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
+  const [username, setUsername] = useState('');
 
-  const handleGoogleLogin = async () => {
+  // Estado para el modal de verificación
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationEmail, setVerificationEmail] = useState('');
+
+  // Estado para notificación de logout
+  const [showLogoutNotification, setShowLogoutNotification] = useState(false);
+
+  // Estado para notificación de eliminación de cuenta
+  const [showDeletedNotification, setShowDeletedNotification] = useState(false);
+
+  // Estado para modal de error de login
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [errorTitle, setErrorTitle] = useState('');
+
+  // Estado para modal de error de registro
+  const [showRegistrationErrorModal, setShowRegistrationErrorModal] = useState(false);
+  const [registrationErrorMessage, setRegistrationErrorMessage] = useState('');
+  const [registrationErrorTitle, setRegistrationErrorTitle] = useState('');
+  const [registrationErrorField, setRegistrationErrorField] = useState<
+    'username' | 'email' | 'password' | 'general' | null
+  >(null);
+
+  // Check for logout notification
+  useEffect(() => {
+    const checkLogoutStatus = async () => {
+      const loggedOut = await AsyncStorage.getItem('justLoggedOut');
+      if (loggedOut === 'true') {
+        setShowLogoutNotification(true);
+        await AsyncStorage.removeItem('justLoggedOut');
+        // Auto-hide after 3 seconds
+        setTimeout(() => setShowLogoutNotification(false), 3000);
+      }
+    };
+    checkLogoutStatus();
+  }, []);
+
+  // Check for account deletion notification
+  useEffect(() => {
+    const checkDeletedStatus = async () => {
+      const deleted = await AsyncStorage.getItem('justDeleted');
+      if (deleted === 'true') {
+        setShowDeletedNotification(true);
+        await AsyncStorage.removeItem('justDeleted');
+        // Auto-hide after 3 seconds
+        setTimeout(() => setShowDeletedNotification(false), 3000);
+      }
+    };
+    checkDeletedStatus();
+  }, []);
+
+  const [request, response, promptAsync] = Google.useAuthRequest({
+    androidClientId: '883633704420-rbd97nlhmkna7mqjklr0bh3h295etjrj.apps.googleusercontent.com',
+    iosClientId: '883633704420-ur84mk8aov2rbhgqlbvim1747mh6s2ud.apps.googleusercontent.com',
+    scopes: ['openid', 'email', 'profile'],
+  });
+
+  const router = useRouter();
+
+  // ANIMACIÓ ENTRADA
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+      Animated.timing(slideAnim, { toValue: 0, duration: 600, useNativeDriver: true }),
+    ]).start();
+  }, []);
+
+  // MANEIG RESPONSE GOOGLE
+  useEffect(() => {
+    if (response?.type === 'success') {
+      console.log('✅ GOOGLE AUTH SUCCESS');
+      const idToken = response.authentication?.idToken;
+      console.log('🪪 ID TOKEN REBUT:', idToken);
+
+      if (!idToken) {
+        Alert.alert(t('Error'), t('Google authentication failed'));
+        return;
+      }
+
+      handleGoogleAuth(idToken);
+    } else if (response?.type === 'error') {
+      console.log('❌ GOOGLE AUTH ERROR:', response.error);
+    }
+  }, [response]);
+
+  const handleGoogleAuth = async (googleToken: string) => {
+    console.log('📤 GOOGLE TOKEN SENT TO BACKEND:', googleToken.slice(0, 20));
+    await AsyncStorage.multiRemove(['authToken', 'refreshToken', 'isLoggedIn']);
     try {
-      await WebBrowser.openBrowserAsync(BACKEND_LOGIN_URL);
-      router.replace('/(tabs)');
-    } catch (error) {
-      console.error('Error durant el login amb Google:', error);
+      const res = await apiFetch('/api/auth/google/token/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_token: googleToken }),
+      });
+      console.log('📥 GOOGLE LOGIN STATUS:', res.status);
+
+      const data = await res.json();
+      console.log('📥 GOOGLE LOGIN RESPONSE:', data);
+      console.log('BACKEND RESPONSE:', data);
+
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        console.log('🔑 ACCESS TOKEN (Google):', data.access);
+        console.log('🔄 REFRESH TOKEN (Google):', data.refresh);
+        const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
+
+        if (hasCompletedSetup === 'true') {
+          router.replace('/(tabs)');
+        } else {
+          router.replace('/SetupScreen');
+        }
+      } else {
+        Alert.alert(t('Error'), t('Google authentication failed'));
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert(t('Error'), t('Network error'));
     }
   };
 
-  return (
-    <View style={styles.container}>
-      <Text style={styles.brandTop}>CultCat.</Text>
-      <Text style={styles.title}>{t('Inicia sessió')}</Text>
+  const handleGoogleSignIn = async () => {
+    setGoogleLoading('signin');
+    try {
+      await promptAsync({ showInRecents: true });
+    } catch (error) {
+      console.error('Google Sign-In error:', error);
+      Alert.alert(t('Error'), t('Failed to initiate Google Sign-In'));
+      setGoogleLoading(null);
+    }
+  };
 
-      <TouchableOpacity>
-        <GoogleButton onPress={handleGoogleLogin} />
-      </TouchableOpacity>
+  const handleManualLogin = async () => {
+    console.log('🟡 MANUAL LOGIN CLICKED');
 
-      <TouchableOpacity
-        style={{
-          marginTop: 20,
-          padding: 12,
-          backgroundColor: '#444',
-          borderRadius: 8,
-        }}
-        onPress={() => {
-          if (!global.authToken) {
-            global.authToken = process.env.EXPO_PUBLIC_DEV_TOKEN;
-          }
+    console.log('📤 LOGIN BODY:', {
+      identifier: email.toLowerCase().trim(),
+      password,
+    });
+    if (!email || !password) {
+      Alert.alert(t('Error'), t('Please fill in all fields'));
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/auth/login/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identifier: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      console.log('📥 LOGIN STATUS:', res.status);
+
+      const data = await res.json();
+      console.log('📥 LOGIN RESPONSE:', data);
+      if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        console.log('🔑 ACCESS TOKEN:', data.access);
+        console.log('🔄 REFRESH TOKEN:', data.refresh);
+
+        const hasCompletedSetup = await AsyncStorage.getItem('hasCompletedSetup');
+
+        if (hasCompletedSetup === 'true') {
           router.replace('/(tabs)');
-        }}
+        } else {
+          router.replace('/SetupScreen');
+        }
+      } else {
+        let title = t('Login Failed');
+        let message = t('Invalid credentials');
+        if (data.detail === 'invalid username/email or password') {
+          title = t('Invalid Credentials');
+          message = t('InvalidPasswordMessage');
+        }
+        setErrorTitle(title);
+        setErrorMessage(message);
+        setShowErrorModal(true);
+      }
+    } catch (error) {
+      console.error('Login error:', error);
+      setErrorTitle(t('Error'));
+      setErrorMessage(t('An error occurred during login'));
+      setShowErrorModal(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleManualRegister = async () => {
+    if (!username || !email || !password) {
+      setRegistrationErrorTitle(t('Missing Fields'));
+      setRegistrationErrorMessage(t('Please fill in all fields'));
+      setRegistrationErrorField('general');
+      setShowRegistrationErrorModal(true);
+      return;
+    }
+
+    if (password.length < 8) {
+      setRegistrationErrorTitle(t('Weak Password'));
+      setRegistrationErrorMessage(t('PasswordTooShortMessage'));
+      setRegistrationErrorField('password');
+      setShowRegistrationErrorModal(true);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await apiFetch('/api/auth/register/', {
+        method: 'POST',
+        headers: { Accept: '*/*', 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          username: username.trim(),
+          email: email.toLowerCase().trim(),
+          password,
+        }),
+      });
+      const data = await res.json();
+
+      if (res.status === 201 && data.detail === 'Verification email sent') {
+        setVerificationEmail(email.toLowerCase().trim());
+        setShowVerificationModal(true);
+      } else if (res.ok && data.access) {
+        await AsyncStorage.setItem('authToken', data.access);
+        await AsyncStorage.setItem('refreshToken', data.refresh);
+        await AsyncStorage.setItem('isLoggedIn', 'true');
+
+        console.log('🔑 ACCESS TOKEN (Register):', data.access);
+        console.log('🔄 REFRESH TOKEN (Register):', data.refresh);
+
+        // 🔥 RESET onboarding local (usuari nou)
+        await AsyncStorage.multiRemove([
+          'hasCompletedSetup',
+          'preferredLanguage',
+          'appLanguage',
+          'darkMode',
+          'allowNotifications',
+        ]);
+
+        // Registro siempre va a configuración inicial
+        router.replace('/SetupScreen');
+      } else {
+        // Handle specific error messages
+        let title = t('Registration failed');
+        let message = t('Registration failed');
+        let field: 'username' | 'email' | 'password' | 'general' | null = 'general';
+
+        if (data.username?.[0]) {
+          title = t('Username Taken');
+          message = t('UsernameAlreadyTakenMessage');
+          field = 'username';
+        } else if (data.email?.[0]) {
+          const emailError = data.email[0].toLowerCase();
+          if (
+            emailError.includes('valid email') ||
+            emailError.includes('correo válido') ||
+            emailError.includes('adreça de correu')
+          ) {
+            title = t('Invalid Email');
+            message = t('InvalidEmailMessage');
+            field = 'email';
+          } else {
+            title = t('Email Already Used');
+            message = t('EmailAlreadyInUseMessage');
+            field = 'email';
+          }
+        } else if (data.password?.[0]) {
+          const passwordError = data.password[0].toLowerCase();
+          title = t('Weak Password');
+          if (
+            passwordError.includes('8') ||
+            passwordError.includes('ocho') ||
+            passwordError.includes('vuit')
+          ) {
+            message = t('PasswordTooShortMessage');
+          } else if (
+            passwordError.includes('uppercase') ||
+            passwordError.includes('mayúscula') ||
+            passwordError.includes('majúscula')
+          ) {
+            message = t('PasswordNeedsUppercase');
+          } else if (passwordError.includes('lowercase') || passwordError.includes('minúscula')) {
+            message = t('PasswordNeedsLowercase');
+          } else if (
+            passwordError.includes('digit') ||
+            passwordError.includes('número') ||
+            passwordError.includes('número')
+          ) {
+            message = t('PasswordNeedsNumber');
+          } else {
+            message = t('PasswordTooShortMessage');
+          }
+          field = 'password';
+        } else {
+          title = t('Registration failed');
+          message = t('Registration failed');
+        }
+
+        setRegistrationErrorTitle(title);
+        setRegistrationErrorMessage(message);
+        setRegistrationErrorField(field);
+        setShowRegistrationErrorModal(true);
+      }
+    } catch (error) {
+      console.error('Register error:', error);
+      setRegistrationErrorTitle(t('Error'));
+      setRegistrationErrorMessage(t('An error occurred during registration'));
+      setRegistrationErrorField('general');
+      setShowRegistrationErrorModal(true);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerificationModalClose = () => {
+    setShowVerificationModal(false);
+    setIsRegisterMode(false);
+    setUsername('');
+    setEmail('');
+    setPassword('');
+  };
+
+  const dynamicStyles = createDynamicStyles(colors);
+
+  return (
+    <LinearGradient
+      colors={theme === 'light' ? ['#FFF8F0', '#FFEBD6'] : ['#1C1C1C', '#2C2C2C']}
+      style={styles.gradient}
+    >
+      {/* Logout Notification */}
+      {showLogoutNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('You have successfully logged out. See you soon!')}
+          </Text>
+        </Animated.View>
+      )}
+
+      {/* Delete Account Notification */}
+      {showDeletedNotification && (
+        <Animated.View
+          style={[
+            styles.notification,
+            {
+              backgroundColor: colors.accent,
+              opacity: fadeAnim,
+            },
+          ]}
+        >
+          <Ionicons name="checkmark-circle" size={20} color="#FFFFFF" />
+          <Text style={styles.notificationText}>
+            {t('Your account has been successfully deleted')}
+          </Text>
+        </Animated.View>
+      )}
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.flex}
       >
-        <Text style={{ color: 'white', fontWeight: 'bold', textAlign: 'center' }}>DEV LOGIN</Text>
-      </TouchableOpacity>
-    </View>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={styles.container}>
+            <View style={[styles.circleTop, { backgroundColor: `${colors.accent}15` }]} />
+            <View style={[styles.circleBottom, { backgroundColor: `${colors.accent}10` }]} />
+
+            <Animated.View
+              style={[
+                styles.content,
+                { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+              ]}
+            >
+              <View style={styles.logoSection}>
+                <Image
+                  source={
+                    theme === 'dark'
+                      ? require('../../assets/cultcat-logo_dark.png')
+                      : require('../../assets/cultcat-logo_white.png')
+                  }
+                  style={styles.logo}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.title, { color: colors.text }]}>
+                  {isRegisterMode ? t('Create Account') : t('Welcome Back')}
+                </Text>
+                <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+                  {isRegisterMode
+                    ? t('Join us and start your cultural journey')
+                    : t('Sign in to continue your cultural journey')}
+                </Text>
+              </View>
+
+              <View style={styles.formContainer}>
+                {isRegisterMode && (
+                  <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                    <Ionicons name="person-outline" size={20} color={colors.placeholder} />
+                    <TextInput
+                      style={[dynamicStyles.input, { color: colors.text }]}
+                      placeholder={t('Username')}
+                      placeholderTextColor={colors.placeholder}
+                      value={username}
+                      onChangeText={setUsername}
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                )}
+
+                <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                  <Ionicons name="mail-outline" size={20} color={colors.placeholder} />
+                  <TextInput
+                    style={[dynamicStyles.input, { color: colors.text }]}
+                    placeholder={isRegisterMode ? t('Email') : t('Email or Username')}
+                    placeholderTextColor={colors.placeholder}
+                    value={email}
+                    onChangeText={setEmail}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    textContentType="emailAddress"
+                  />
+                </View>
+
+                <View style={[dynamicStyles.inputContainer, { borderColor: colors.border }]}>
+                  <Ionicons name="lock-closed-outline" size={20} color={colors.placeholder} />
+                  <TextInput
+                    style={[dynamicStyles.input, { color: colors.text }]}
+                    placeholder={t('Password')}
+                    placeholderTextColor={colors.placeholder}
+                    value={password}
+                    onChangeText={setPassword}
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="password"
+                  />
+                  <TouchableOpacity onPress={() => setShowPassword(!showPassword)}>
+                    <Ionicons
+                      name={showPassword ? 'eye-outline' : 'eye-off-outline'}
+                      size={20}
+                      color={colors.placeholder}
+                    />
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity
+                  style={[
+                    dynamicStyles.loginButton,
+                    { backgroundColor: colors.accent },
+                    loading && styles.buttonDisabled,
+                  ]}
+                  onPress={isRegisterMode ? handleManualRegister : handleManualLogin}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.loginButtonText}>
+                      {isRegisterMode ? t('Create Account') : t('Sign In')}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.switchModeButton}
+                  onPress={() => {
+                    setIsRegisterMode(!isRegisterMode);
+                    setUsername('');
+                    setEmail('');
+                    setPassword('');
+                  }}
+                >
+                  <Text style={[styles.switchModeText, { color: colors.textSecondary }]}>
+                    {isRegisterMode ? t('Already have an account? ') : t("Don't have an account? ")}
+                    <Text style={{ color: colors.accent, fontWeight: '700' }}>
+                      {isRegisterMode ? t('Sign In') : t('Sign Up')}
+                    </Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.dividerContainer}>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+                <Text style={[styles.dividerText, { color: colors.textSecondary }]}>
+                  {t('or continue with')}
+                </Text>
+                <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              </View>
+
+              <View style={styles.googleButtonsContainer}>
+                <TouchableOpacity
+                  style={[
+                    dynamicStyles.googleButton,
+                    { borderColor: colors.border, backgroundColor: colors.card },
+                  ]}
+                  onPress={handleGoogleSignIn}
+                  activeOpacity={0.7}
+                >
+                  <Image
+                    source={require('../../assets/googleLogo.png')}
+                    style={styles.googleIcon}
+                    resizeMode="contain"
+                  />
+                  <Text style={[styles.googleButtonText, { color: colors.text }]}>
+                    {t('Sign In with Google')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.footer}>
+                <Text style={[styles.footerText, { color: colors.textSecondary }]}>
+                  {t('By continuing, you agree to our')}{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                    {t('Terms of Service')}
+                  </Text>{' '}
+                  {t('and')}{' '}
+                  <Text style={{ color: colors.accent, fontWeight: '600' }}>
+                    {t('Privacy Policy')}
+                  </Text>
+                </Text>
+              </View>
+            </Animated.View>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Modal de Verificación de Email */}
+      <Modal
+        visible={showVerificationModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleVerificationModalClose}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            <View style={[styles.modalIconContainer, { backgroundColor: `${colors.accent}20` }]}>
+              <Ionicons name="mail-outline" size={60} color={colors.accent} />
+            </View>
+
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {t('Verify Your Email')}
+            </Text>
+
+            <Text style={[styles.modalMessage, { color: colors.textSecondary }]}>
+              {t("We've sent a verification link to:")}
+            </Text>
+
+            <Text style={[styles.modalEmail, { color: colors.accent }]}>{verificationEmail}</Text>
+
+            <Text style={[styles.modalDescription, { color: colors.textSecondary }]}>
+              {t(
+                'Please check your inbox and click the verification link to activate your account.',
+              )}
+            </Text>
+
+            <View style={[styles.modalInfoBox, { backgroundColor: `${colors.accent}10` }]}>
+              <Ionicons name="information-circle-outline" size={20} color={colors.accent} />
+              <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                {t("You won't be able to sign in until you verify your email address.")}
+              </Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={handleVerificationModalClose}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>{t('Got it!')}</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.modalSecondaryButton}
+              onPress={handleVerificationModalClose}
+            >
+              <Text style={[styles.modalSecondaryButtonText, { color: colors.accent }]}>
+                {t("Didn't receive the email? Check spam folder")}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Error Modal */}
+      <Modal visible={showErrorModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            {/* Error Icon */}
+            <View
+              style={[
+                {
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: `${colors.accent}20`,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              <Ionicons name="alert-circle-outline" size={32} color={colors.accent} />
+            </View>
+
+            {/* Error Title */}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{errorTitle}</Text>
+
+            {/* Error Message */}
+            <Text style={[styles.modalMessage, { color: colors.textSecondary, marginBottom: 24 }]}>
+              {errorMessage}
+            </Text>
+
+            {/* Helpful Tips */}
+            <View
+              style={[
+                styles.modalInfoBox,
+                { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+              ]}
+            >
+              <Ionicons name="help-circle-outline" size={18} color={colors.accent} />
+              <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                {t('Make sure your email or username is correct and your password is accurate.')}
+              </Text>
+            </View>
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={() => setShowErrorModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>{t('Try Again')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Registration Error Modal */}
+      <Modal visible={showRegistrationErrorModal} transparent animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0, 0, 0, 0.6)' }]}>
+          <View style={[styles.modalContainer, { backgroundColor: colors.card }]}>
+            {/* Error Icon */}
+            <View
+              style={[
+                {
+                  width: 60,
+                  height: 60,
+                  borderRadius: 30,
+                  backgroundColor: `${colors.accent}20`,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  marginBottom: 16,
+                },
+              ]}
+            >
+              <Ionicons name="alert-circle-outline" size={32} color={colors.accent} />
+            </View>
+
+            {/* Error Title */}
+            <Text style={[styles.modalTitle, { color: colors.text }]}>
+              {registrationErrorTitle}
+            </Text>
+
+            {/* Error Message */}
+            <Text style={[styles.modalMessage, { color: colors.textSecondary, marginBottom: 24 }]}>
+              {registrationErrorMessage}
+            </Text>
+
+            {/* Helpful Tips based on field */}
+            {registrationErrorField === 'password' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="lock-closed-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Use at least 8 characters with a mix of uppercase, lowercase, and numbers.')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'email' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="mail-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Make sure to enter a valid email address (e.g., user@example.com)')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'username' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="person-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Try choosing a different username or check the requirements.')}
+                </Text>
+              </View>
+            )}
+            {registrationErrorField === 'general' && (
+              <View
+                style={[
+                  styles.modalInfoBox,
+                  { backgroundColor: `${colors.border}40`, marginBottom: 20 },
+                ]}
+              >
+                <Ionicons name="help-circle-outline" size={18} color={colors.accent} />
+                <Text style={[styles.modalInfoText, { color: colors.textSecondary }]}>
+                  {t('Please review your information and try again.')}
+                </Text>
+              </View>
+            )}
+
+            {/* Close Button */}
+            <TouchableOpacity
+              style={[styles.modalButton, { backgroundColor: colors.accent }]}
+              onPress={() => setShowRegistrationErrorModal(false)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalButtonText}>{t('Try Again')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+    </LinearGradient>
   );
-}
+};
+
+const createDynamicStyles = (colors: any) =>
+  StyleSheet.create({
+    inputContainer: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      backgroundColor: colors.card,
+      paddingHorizontal: 16,
+      paddingVertical: 14,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      marginBottom: 16,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.08,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+    input: { flex: 1, fontSize: 16, marginLeft: 12, fontWeight: '500' },
+    loginButton: {
+      paddingVertical: 16,
+      borderRadius: 12,
+      alignItems: 'center',
+      marginTop: 8,
+      shadowColor: colors.accent,
+      shadowOffset: { width: 0, height: 4 },
+      shadowOpacity: 0.3,
+      shadowRadius: 8,
+      elevation: 5,
+    },
+    googleButton: {
+      flex: 1,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      paddingVertical: 14,
+      paddingHorizontal: 12,
+      borderRadius: 12,
+      borderWidth: 1.5,
+      shadowColor: colors.shadow,
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 8,
+      elevation: 3,
+    },
+  });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 20 },
-  title: { fontSize: 24, fontWeight: 'bold', marginBottom: 30 },
-  nextButton: { marginTop: 30 },
-  brandTop: { fontSize: 50, fontWeight: '900', textAlign: 'left', marginBottom: 20 },
+  gradient: { flex: 1 },
+  flex: { flex: 1 },
+  scrollContent: { flexGrow: 1 },
+  container: { flex: 1, minHeight: height },
+  circleTop: {
+    position: 'absolute',
+    top: -100,
+    right: -80,
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+  },
+  circleBottom: {
+    position: 'absolute',
+    bottom: -120,
+    left: -60,
+    width: 280,
+    height: 280,
+    borderRadius: 140,
+  },
+  content: {
+    flex: 1,
+    paddingHorizontal: 28,
+    paddingTop: 60,
+    paddingBottom: 40,
+    zIndex: 1,
+    justifyContent: 'space-between',
+  },
+  logoSection: { alignItems: 'center', marginBottom: 32 },
+  logo: { width: 120, height: 120, marginBottom: 16 },
+  title: { fontSize: 32, fontWeight: '700', marginBottom: 8, letterSpacing: 0.5 },
+  subtitle: { fontSize: 15, textAlign: 'center', lineHeight: 22, paddingHorizontal: 20 },
+  formContainer: { width: '100%', marginBottom: 24 },
+  forgotPassword: { alignSelf: 'flex-end', marginBottom: 20 },
+  forgotPasswordText: { fontSize: 14, fontWeight: '600' },
+  loginButtonText: { color: '#FFFFFF', fontSize: 17, fontWeight: '700', letterSpacing: 0.5 },
+  buttonDisabled: { opacity: 0.5 },
+  switchModeButton: { alignItems: 'center', marginTop: 16 },
+  switchModeText: { fontSize: 14, fontWeight: '500' },
+  dividerContainer: { flexDirection: 'row', alignItems: 'center', marginVertical: 28 },
+  divider: { flex: 1, height: 1 },
+  dividerText: { fontSize: 13, marginHorizontal: 16, fontWeight: '500' },
+  googleButtonsContainer: { flexDirection: 'row', marginBottom: 24 },
+  googleIcon: { width: 20, height: 20, marginRight: 10 },
+  googleButtonText: { fontSize: 15, fontWeight: '600' },
+  footer: { alignItems: 'center', marginTop: 16 },
+  footerText: { fontSize: 12, textAlign: 'center', lineHeight: 18, paddingHorizontal: 20 },
+
+  // Notification bar
+  notification: {
+    position: 'absolute',
+    top: 50,
+    left: 20,
+    right: 20,
+    zIndex: 1000,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    borderRadius: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 6,
+    gap: 10,
+  },
+  notificationText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+
+  // Modal styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  modalIconContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 26,
+    fontWeight: '700',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  modalMessage: {
+    fontSize: 15,
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  modalEmail: {
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  modalDescription: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  modalInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    width: '100%',
+  },
+  modalInfoText: {
+    flex: 1,
+    fontSize: 13,
+    marginLeft: 12,
+    lineHeight: 18,
+  },
+  modalButton: {
+    width: '100%',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: '700',
+  },
+  modalSecondaryButton: {
+    paddingVertical: 8,
+  },
+  modalSecondaryButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
 });
+
+export default Login;

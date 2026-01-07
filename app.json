@@ -1,8 +1,14 @@
 {
   "expo": {
     "name": "cultcat-frontend",
-    "scheme": "cultcat",
     "slug": "cultcat-frontend",
+    "scheme": "com.anonymous.cultcatfrontend",
+    "router": {
+      "origin": false
+    },
+    "experiments": {
+      "typedRoutes": false
+    },
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,16 +21,29 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.anonymous.cultcatfrontend"
+      "bundleIdentifier": "com.anonymous.cultcatfrontend",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
+      "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.anonymous.cultcatfrontend"
+      "package": "com.anonymous.cultcatfrontend",
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyCIcm5OKhUPpnKFVTrgkTvZSYEwqU8GmxA"
+        }
+      }
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,7 +57,21 @@
           "locationAlwaysAndWhenInUsePermission": "Permet que l'aplicació accedeixi a la teva ubicació.",
           "isIosBackgroundLocationEnabled": false
         }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
       ]
-    ]
+    ],
+    "extra": {
+      "API_URL": "http://nattech.fib.upc.edu:40490",
+      "eas": {
+        "projectId": "2244d658-5f13-4aef-ad90-49905e4184c0"
+      }
+    }
   }
 }

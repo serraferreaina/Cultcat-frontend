@@ -1,28 +1,12 @@
-import React, { useEffect, useState, useRef } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ActivityIndicator,
-  Alert,
-  Image,
-  Modal,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator, Alert, Image } from 'react-native';
 
-import MapView from 'react-native-map-clustering';
-import { Marker } from 'react-native-maps';
+import MapView, { Marker, Region } from 'react-native-maps';
 import * as Location from 'expo-location';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useEventStatus } from '../../context/EventStatus';
-import { Share } from 'react-native';
-import CommentSection from '../../components/CommentSection';
-import ReviewSection from '../../components/ReviewSection';
 
 interface EventItem {
   id: number;
@@ -35,6 +19,8 @@ interface EventItem {
   horari?: string;
   modalitat?: string;
   direccio?: string;
+  data_inici?: string | null;
+  data_fi?: string | null;
 }
 
 export default function MapScreen() {
@@ -47,52 +33,202 @@ export default function MapScreen() {
   const [location, setLocation] = useState<Location.LocationObjectCoords | null>(null);
   const [events, setEvents] = useState<EventItem[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [selectedEvent, setSelectedEvent] = useState<EventItem | null>(null);
-
-  const [showComments, setShowComments] = useState(false);
-  const [showReviews, setShowReviews] = useState(false);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [currentRegion, setCurrentRegion] = useState<Region | null>(null);
 
   const mapRef = useRef(null);
+  const debounceTimeout = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
-  const { goingEvents, toggleGoing, savedEvents, toggleSaved } = useEventStatus();
+  const BATCH_SIZE = 200; // Reduït per carregar més ràpid
+  const DEBOUNCE_MS = 300; // Reduït per resposta més ràpida
+  const SEARCH_RADIUS_KM = 10; // Radi de cerca en km
 
   const openEventDetail = (id: number) => {
-    setSelectedEvent(null);
     router.push(`/events/${id}`);
   };
 
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        Alert.alert(t('Permission denied'), t('Enable location to see the map.'));
+  // Funció per comprovar si un esdeveniment està dins de la regió visible
+  const isEventInVisibleRegion = (event: EventItem, region: Region): boolean => {
+    const latMin = region.latitude - region.latitudeDelta / 2;
+    const latMax = region.latitude + region.latitudeDelta / 2;
+    const lonMin = region.longitude - region.longitudeDelta / 2;
+    const lonMax = region.longitude + region.longitudeDelta / 2;
+
+    return (
+      event.latitud >= latMin &&
+      event.latitud <= latMax &&
+      event.longitud >= lonMin &&
+      event.longitud <= lonMax
+    );
+  };
+
+  // Filtrar esdeveniments visibles
+  const visibleEvents = currentRegion
+    ? events.filter((event) => isEventInVisibleRegion(event, currentRegion))
+    : events;
+
+  const fetchEventsByCenter = useCallback(async (latitude: number, longitude: number) => {
+    // Cancel·lar petició anterior
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+
+    abortControllerRef.current = new AbortController();
+    setLoadingEvents(true);
+
+    try {
+      const today = new Date();
+      const fromDate = today.toISOString().split('T')[0];
+
+      const url =
+        `http://nattech.fib.upc.edu:40490/events` +
+        `?latitud=${latitude}` +
+        `&longitud=${longitude}` +
+        `&from_date=${fromDate}` +
+        `&batch_size=${BATCH_SIZE}` +
+        `&order_by_date=asc`;
+
+      const res = await fetch(url, {
+        signal: abortControllerRef.current.signal,
+      });
+
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+
+      const textData = await res.text();
+
+      let data: EventItem[] = [];
+      try {
+        const jsonData = textData.trim() ? JSON.parse(textData) : [];
+        data = Array.isArray(jsonData) ? jsonData : jsonData.results || [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
         return;
       }
-      const userLocation = await Location.getCurrentPositionAsync({});
-      setLocation(userLocation.coords);
-      setLoading(false);
+
+      // Filtrar esdeveniments vàlids
+      const validEvents = data.filter(
+        (event) =>
+          event.latitud && event.longitud && !isNaN(event.latitud) && !isNaN(event.longitud),
+      );
+
+      // Afegir nous esdeveniments sense duplicats
+      setEvents((prevEvents) => {
+        const eventIds = new Set(prevEvents.map((e) => e.id));
+        const newEvents = validEvents.filter((e) => !eventIds.has(e.id));
+        return [...prevEvents, ...newEvents];
+      });
+
+      setError(null);
+    } catch (err: any) {
+      if (err.name === 'AbortError') {
+        return;
+      }
+      console.error('Error fetching events:', err);
+      setError(err.message);
+    } finally {
+      setLoadingEvents(false);
+    }
+  }, []);
+
+  // Obtenir ubicació inicial
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert(t('Permission denied'), t('Enable location to see the map.'));
+          setLoading(false);
+          return;
+        }
+
+        const userLocation = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+
+        setLocation(userLocation.coords);
+
+        const initialRegion: Region = {
+          latitude: userLocation.coords.latitude,
+          longitude: userLocation.coords.longitude,
+          latitudeDelta: 0.15,
+          longitudeDelta: 0.15,
+        };
+
+        setCurrentRegion(initialRegion);
+      } catch (err) {
+        console.error('Error getting location:', err);
+        Alert.alert(t('Error'), t('Could not get your location'));
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
+  // Carregar esdeveniments inicials
   useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(t('Error loading events'));
-        const data: EventItem[] = await res.json();
-        setEvents(data);
-      } catch (err: any) {
-        setError(err.message);
+    if (location) {
+      fetchEventsByCenter(location.latitude, location.longitude);
+    }
+  }, [location, fetchEventsByCenter]);
+
+  // Handler per quan l'usuari mou el mapa
+  const handleRegionChangeComplete = useCallback(
+    (region: Region) => {
+      setCurrentRegion(region);
+
+      // Cancel·lar timeout anterior
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+
+      // Esperar abans de fer la cerca
+      debounceTimeout.current = setTimeout(() => {
+        fetchEventsByCenter(region.latitude, region.longitude);
+      }, DEBOUNCE_MS);
+    },
+    [fetchEventsByCenter],
+  );
+
+  // Netejar esdeveniments que estan molt lluny (cada 5 segons)
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      if (currentRegion) {
+        setEvents((prevEvents) => {
+          // Mantenir només esdeveniments dins d'un radi ampli
+          const expandedRegion: Region = {
+            ...currentRegion,
+            latitudeDelta: currentRegion.latitudeDelta * 3,
+            longitudeDelta: currentRegion.longitudeDelta * 3,
+          };
+
+          return prevEvents.filter((event) => isEventInVisibleRegion(event, expandedRegion));
+        });
+      }
+    }, 5000);
+
+    return () => clearInterval(cleanupInterval);
+  }, [currentRegion]);
+
+  // Cleanup
+  useEffect(() => {
+    return () => {
+      if (debounceTimeout.current) {
+        clearTimeout(debounceTimeout.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
-    fetchEvents();
   }, []);
 
   if (loading || !location) {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color={Colors.accent} />
-        <Text style={{ color: Colors.text }}>{t('Loading map')}...</Text>
+        <Text style={{ color: Colors.text, marginTop: 10 }}>{t('Loading map')}...</Text>
       </View>
     );
   }
@@ -109,23 +245,33 @@ export default function MapScreen() {
 
   return (
     <View style={styles.container}>
+      {loadingEvents && (
+        <View style={styles.loadingIndicator}>
+          <View style={[styles.loadingBadge, { backgroundColor: Colors.card }]}>
+            <ActivityIndicator size="small" color={Colors.accent} />
+            <Text style={[styles.loadingText, { color: Colors.text }]}>
+              {t('Loading events')}...
+            </Text>
+          </View>
+        </View>
+      )}
+
       <MapView
         ref={mapRef}
         style={styles.map}
         showsUserLocation
-        animationEnabled
-        clusteringEnabled
-        clusterColor={Colors.accent}
-        clusterTextColor={Colors.card}
-        spiderLineColor={Colors.accent}
+        showsMyLocationButton
         initialRegion={{
           latitude: location.latitude,
           longitude: location.longitude,
-          latitudeDelta: 0.05,
-          longitudeDelta: 0.05,
+          latitudeDelta: 0.15,
+          longitudeDelta: 0.15,
         }}
+        onRegionChangeComplete={handleRegionChangeComplete}
+        loadingEnabled
+        loadingIndicatorColor={Colors.accent}
       >
-        {events.map((event) => {
+        {visibleEvents.map((event) => {
           const images = event.imatges ? event.imatges.split(',').map((i) => i.trim()) : [];
           const imageUrl =
             images.length > 0
@@ -139,11 +285,7 @@ export default function MapScreen() {
                 latitude: Number(event.latitud),
                 longitude: Number(event.longitud),
               }}
-              tracksViewChanges={false}
-              onPress={(e) => {
-                e.stopPropagation();
-                setSelectedEvent(event);
-              }}
+              onPress={() => openEventDetail(event.id)}
             >
               <View style={styles.markerContainer}>
                 <View
@@ -160,159 +302,19 @@ export default function MapScreen() {
         })}
       </MapView>
 
-      {selectedEvent && (
-        <Modal
-          visible
-          transparent
-          animationType="slide"
-          onRequestClose={() => setSelectedEvent(null)}
-        >
-          <TouchableOpacity
-            style={[styles.modalOverlay, { backgroundColor: Colors.background + '80' }]}
-            activeOpacity={1}
-            onPress={() => setSelectedEvent(null)}
-          >
-            <TouchableOpacity
-              activeOpacity={1}
-              onPress={(e) => e.stopPropagation()}
-              style={[styles.eventCardModal, { backgroundColor: Colors.card }]}
-            >
-              <ScrollView>
-                <View style={styles.eventRow}>
-                  <TouchableOpacity onPress={() => openEventDetail(selectedEvent.id)}>
-                    <Image
-                      source={{
-                        uri: selectedEvent.imatges
-                          ? `https://agenda.cultura.gencat.cat${selectedEvent.imatges.split(',')[0].trim()}`
-                          : 'https://via.placeholder.com/100x100/FFA500/FFFFFF?text=E',
-                      }}
-                      style={styles.eventImageSide}
-                    />
-                  </TouchableOpacity>
-
-                  <View style={styles.eventInfo}>
-                    <TouchableOpacity onPress={() => openEventDetail(selectedEvent.id)}>
-                      <Text style={[styles.eventTitle, { color: Colors.text }]}>
-                        {selectedEvent.titol || t('Event without title')}
-                      </Text>
-                    </TouchableOpacity>
-
-                    <View style={styles.labelContainer}>
-                      {selectedEvent.espai && (
-                        <Label text={selectedEvent.espai} color={Colors.accent} />
-                      )}
-                      {selectedEvent.horari && (
-                        <Label text={selectedEvent.horari} color={Colors.accent} />
-                      )}
-                      {selectedEvent.modalitat && (
-                        <Label text={selectedEvent.modalitat} color={Colors.accent} />
-                      )}
-                      {selectedEvent.localitat && (
-                        <Label text={selectedEvent.localitat} color={Colors.accent} />
-                      )}
-                      {selectedEvent.direccio && (
-                        <Label text={selectedEvent.direccio} color={Colors.accent} />
-                      )}
-                    </View>
-
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 10 }}>
-                      <TouchableOpacity
-                        style={[
-                          styles.button,
-                          {
-                            backgroundColor: goingEvents[selectedEvent.id]
-                              ? Colors.going
-                              : Colors.accent,
-                            marginRight: 10,
-                          },
-                        ]}
-                        onPress={() => toggleGoing(selectedEvent.id)}
-                      >
-                        <Text style={[styles.buttonText, { color: Colors.card }]}>
-                          {goingEvents[selectedEvent.id] ? t('I will attend') : t('Want to go')}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={[styles.iconButton, { marginRight: 12 }]}
-                        onPress={() => toggleSaved(selectedEvent.id)}
-                      >
-                        <Ionicons
-                          name={savedEvents[selectedEvent.id] ? 'bookmark' : 'bookmark-outline'}
-                          size={20}
-                          color={Colors.text}
-                        />
-                      </TouchableOpacity>
-
-                      {/* OPEN COMMENTS */}
-                      <TouchableOpacity
-                        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
-                        onPress={() => setShowComments(true)}
-                      >
-                        <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
-                      </TouchableOpacity>
-
-                      {/* OPEN REVIEWS */}
-                      <TouchableOpacity
-                        style={{ flexDirection: 'row', alignItems: 'center', marginRight: 12 }}
-                        onPress={() => setShowReviews(true)}
-                      >
-                        <Ionicons name="star-outline" size={20} color={Colors.text} />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.iconButton}
-                        onPress={() => {
-                          const url = `https://tu-app.com/event/${selectedEvent.id}`;
-                          Share.share({
-                            message: `Mira este evento: ${url}`,
-                            url,
-                          });
-                        }}
-                      >
-                        <Ionicons name="share-social-outline" size={20} color={Colors.text} />
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.closeButtonModal, { backgroundColor: Colors.accent }]}
-                  onPress={() => setSelectedEvent(null)}
-                >
-                  <Text style={{ color: Colors.background, fontWeight: '700' }}>{t('Close')}</Text>
-                </TouchableOpacity>
-              </ScrollView>
-            </TouchableOpacity>
-          </TouchableOpacity>
-        </Modal>
-      )}
-      {/* COMMENTS */}
-      {selectedEvent && (
-        <CommentSection
-          eventId={selectedEvent.id}
-          visible={showComments}
-          onClose={() => setShowComments(false)}
-        />
-      )}
-
-      {/* REVIEWS */}
-      {selectedEvent && (
-        <ReviewSection
-          eventId={selectedEvent.id}
-          visible={showReviews}
-          onClose={() => setShowReviews(false)}
-        />
+      {/* Comptador d'esdeveniments visibles */}
+      {!loadingEvents && visibleEvents.length > 0 && (
+        <View style={styles.eventCounter}>
+          <View style={[styles.counterBadge, { backgroundColor: Colors.card }]}>
+            <Text style={[styles.counterText, { color: Colors.text }]}>
+              {visibleEvents.length} {visibleEvents.length === 1 ? t('event') : t('events')}
+            </Text>
+          </View>
+        </View>
       )}
     </View>
   );
 }
-
-const Label = ({ text, color }: { text: string; color: string }) => (
-  <View style={[styles.label, { backgroundColor: color + '22' }]}>
-    <Text style={[styles.labelText, { color }]}>{text}</Text>
-  </View>
-);
 
 const styles = StyleSheet.create({
   container: {
@@ -338,75 +340,58 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
     borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
   },
   markerImage: {
     width: 46,
     height: 46,
     borderRadius: 23,
   },
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingHorizontal: 8,
-    paddingBottom: 20,
+  loadingIndicator: {
+    position: 'absolute',
+    top: 60,
+    alignSelf: 'center',
+    zIndex: 1000,
   },
-  eventCardModal: {
-    borderRadius: 12,
-    padding: 12,
-    maxHeight: '80%',
-  },
-  eventRow: {
+  loadingBadge: {
     flexDirection: 'row',
-    marginBottom: 10,
-  },
-  eventImageSide: {
-    width: 120,
-    height: 120,
-    borderRadius: 12,
-  },
-  eventInfo: {
-    flex: 1,
-    paddingLeft: 10,
-  },
-  eventTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  labelContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginBottom: 6,
-  },
-  label: {
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-  },
-  labelText: {
-    fontSize: 12,
-    fontWeight: '500',
-  },
-  button: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 20,
-  },
-  buttonText: {
-    fontSize: 12,
-  },
-  iconButton: {
-    padding: 6,
-  },
-  commentCount: {
-    fontSize: 13,
-  },
-  closeButtonModal: {
-    marginTop: 12,
-    paddingVertical: 10,
+    alignItems: 'center',
+    paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 20,
-    alignSelf: 'flex-start',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  eventCounter: {
+    position: 'absolute',
+    bottom: 20,
+    alignSelf: 'center',
+    zIndex: 1000,
+  },
+  counterBadge: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  counterText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
 });

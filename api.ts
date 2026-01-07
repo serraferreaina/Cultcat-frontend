@@ -1,21 +1,171 @@
-export async function api(path: string, options: RequestInit = {}) {
-  const res = await fetch(`http://nattech.fib.upc.edu:40490${path}`, {
+// api.ts
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import Constants from 'expo-constants';
+
+export const API_URL = Constants.expoConfig?.extra?.API_URL;
+console.log('API_URL', API_URL);
+
+export const apiFetch = (path: string, options?: RequestInit) =>
+  fetch(`${API_URL}${path}`, options);
+
+const AUTH_TOKEN_KEY = 'authToken';
+const REFRESH_TOKEN_KEY = 'refreshToken';
+
+/**
+ * Logout dur: neteja tokens
+ */
+export async function logout() {
+  await AsyncStorage.multiRemove([AUTH_TOKEN_KEY, REFRESH_TOKEN_KEY, 'isLoggedIn']);
+}
+
+/**
+ * Refresh access token
+ */
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const res = await fetch(`${API_URL}/auth/token/refresh/`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+
+    if (!res.ok) {
+      await logout();
+      return null;
+    }
+
+    const data = await res.json();
+
+    if (!data.access) {
+      await logout();
+      return null;
+    }
+
+    await AsyncStorage.setItem(AUTH_TOKEN_KEY, data.access);
+    return data.access;
+  } catch (error) {
+    await logout();
+    return null;
+  }
+}
+
+/**
+ * API wrapper amb Bearer + refresh automàtic
+ */
+export async function api(path: string, options: RequestInit = {}): Promise<any> {
+  const token = await AsyncStorage.getItem('authToken');
+
+  if (!token) {
+    return Promise.reject({ silent: true });
+  }
+
+  let response = await fetch(`${API_URL}${path}`, {
     ...options,
     headers: {
       'Content-Type': 'application/json',
-      Authorization: `Token ${global.authToken}`,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...options.headers,
     },
   });
 
-  if (!res.ok) {
-    console.log('API ERROR:', res.status, await res.text());
-    throw new Error('API error');
+  // Si token caducat → intentem refresh
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+
+    if (!newToken) {
+      throw new Error('Unauthorized');
+    }
+
+    response = await fetch(`${API_URL}${path}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${newToken}`,
+        ...options.headers,
+      },
+    });
   }
 
-  return res.json();
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(errorText || 'API Error');
+  }
+
+  return response.json();
 }
 
-export function getProfile() {
-  return api('/profile/');
+/**
+ * Helpers d’API (exemples)
+ */
+
+export const getProfile = () => api('/profile/');
+
+export const getSavedEvents = async (state?: 'attended' | 'wishlist' | 'wantToGo') => {
+  const query = state ? `?state=${state}` : '';
+  return api(`/saved-events/${query}`);
+};
+
+export const getUserProfile = (id: number) => api(`/users/${id}/`);
+
+export const getEvents = () => api('/events/');
+
+export const getEventById = (id: number) => api(`/events/${id}/`);
+
+export const deleteAccount = async () => {
+  const token = await AsyncStorage.getItem('authToken');
+  if (!token) throw new Error('No auth token');
+
+  const response = await fetch('http://nattech.fib.upc.edu:40490/profile/delete/', {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || 'Failed to delete account');
+  }
+
+  // Clear auth token after successful deletion
+  await AsyncStorage.removeItem('authToken');
+  global.currentUser = null;
+};
+
+export const getUserBadges = () => api('/rewards/');
+
+export function getUserBadgesByUserId(userId: string) {
+  return api(`/rewards/users/${userId}`);
+}
+
+export function sendConnectionRequest(userId: string) {
+  return api('/connection/send/', {
+    method: 'POST',
+    body: JSON.stringify({ to_user_id: userId }),
+  });
+}
+
+// Notifications and connections helpers
+export function getNotifications() {
+  return api('/notifications/');
+}
+
+export function acceptConnection(requestId: number | string) {
+  return api(`/connection/accept/${requestId}/`, {
+    method: 'POST',
+  });
+}
+
+export function deleteConnection(connectionId: number | string) {
+  return api(`/connection/delete/${connectionId}/`, {
+    method: 'DELETE',
+  });
 }

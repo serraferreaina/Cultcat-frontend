@@ -13,53 +13,94 @@ import {
   FlatList,
   ActivityIndicator,
   Alert,
-  Share,
+  Platform,
+  Animated,
 } from 'react-native';
 import SearchBar from '../../components/SearchBar';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '../../theme/ThemeContext';
 import { LightColors, DarkColors } from '../../theme/colors';
-import React, { useState, useEffect, useMemo } from 'react';
-import { MapPin, Bookmark, Star, SlidersHorizontal, X } from 'lucide-react-native';
-import MultiSlider from '@ptomasroos/react-native-multi-slider';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { MapPin, Star, X } from 'lucide-react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { useEventStatus } from '../../context/EventStatus';
 import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
-import { municipisCatalunya } from '../cerca/municipisCatalunya';
+import { UserCard } from '../../components/UserCard';
+import { municipisCatalunya } from '../../cerca/municipisCatalunya';
 import DateFilterComponent from '../../components/DateFilterComponent';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import { ShareEventModal } from '../../components/ShareEventModal';
+import { useFocusEffect } from '@react-navigation/native';
+import { useCallback } from 'react';
 
 export default function CercaScreen() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const { theme } = useTheme();
   const Colors = theme === 'dark' ? DarkColors : LightColors;
 
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState('');
 
-  const [isOptionsModalVisible, setIsOptionsModalVisible] = useState(false);
-
   const [isTopicsModalVisible, setIsTopicsModalVisible] = useState(false);
 
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
 
   const [events, setEvents] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [load, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const { goingEvents, savedEvents, toggleGoing, toggleSaved } = useEventStatus();
+  const {
+    goingEvents,
+    toggleGoing,
+    attendanceDates,
+    savedEvents,
+    toggleSaved,
+    refreshSavedEvents,
+  } = useEventStatus();
   const [isFiltered, setIsFiltered] = useState(false);
+  const [searchType, setSearchType] = useState<'events' | 'users'>('events');
 
   const [selectedEventId, setSelectedEventId] = useState<number | null>(null);
   const [showComments, setShowComments] = useState(false);
   const [showReviews, setShowReviews] = useState(false);
 
+  const [shareModalVisible, setShareModalVisible] = useState(false);
+  const [selectedEventForShare, setSelectedEventForShare] = useState<any | null>(null);
+
+  // Ref to control list scrolling
+  const flatListRef = useRef<FlatList<any>>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasMountedSearchRef = useRef(false);
+
+  const normalizeDate = (date: Date): Date => {
+    const normalized = new Date(date);
+    normalized.setHours(12, 0, 0, 0);
+    return normalized;
+  };
+
+  const [showDateModal, setShowDateModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedEventForDate, setSelectedEventForDate] = useState<any | null>(null);
+
   const [isMunicipiModalVisible, setIsMunicipiModalVisible] = useState(false);
   const [municipiSearch, setMunicipiSearch] = useState('');
   const [selectedMunicipi, setSelectedMunicipi] = useState<string | null>(null);
+  const [hasDateFilter, setHasDateFilter] = useState(false);
   const filteredMunicipis = useMemo(() => {
     return municipisCatalunya.filter((m) => m.toLowerCase().includes(municipiSearch.toLowerCase()));
   }, [municipiSearch]);
+
+  const BATCH_SIZE = 25;
+
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [userOffset, setUserOffset] = useState(0);
+  const [hasMoreUsers, setHasMoreUsers] = useState(true);
+  const [loadingMoreUsers, setLoadingMoreUsers] = useState(false);
 
   const toggleTopic = (topic: string) => {
     setSelectedTopics((prev) =>
@@ -67,55 +108,80 @@ export default function CercaScreen() {
     );
   };
 
-  const handleCloseModal = () => {
-    setIsTopicsModalVisible(false);
-    console.log('Filtrar esdeveniments per temàtiques:', selectedTopics);
+  const clearFilters = () => {
+    setSearchQuery('');
+    setSelectedMunicipi(null);
+    setSelectedTopics([]);
+    setHasDateFilter(false);
+    setIsFiltered(false);
+    setOffset(0);
+    setHasMore(true);
+    fetchEvents(true);
   };
 
-  const [page, setPage] = useState(1);
-  const [loadingMore, setLoadingMore] = useState(false);
+  const handleCloseModal = () => {
+    setIsTopicsModalVisible(false);
+  };
 
-  const loadMoreEvents = async () => {
-    if (loadingMore || isFiltered) return;
-    setLoadingMore(true);
-    try {
-      const res = await fetch(`http://nattech.fib.upc.edu:40490/events?page=${page + 1}`);
-      const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
-      setEvents((prev) => [...prev, ...data]);
-      setPage(page + 1);
-    } catch (err) {
-      console.error('Error al cargar más eventos:', err);
-    } finally {
-      setLoadingMore(false);
+  const shouldHideEvent = (event: any): boolean => {
+    // Hide events with null/undefined municipi when municipi filter is active
+    if (selectedMunicipi && (!event.municipi || event.municipi === null)) {
+      return true;
+    }
+
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      const targetDate = new Date('2924-06-30');
+
+      if (
+        endDate.getFullYear() === targetDate.getFullYear() &&
+        endDate.getMonth() === targetDate.getMonth() &&
+        endDate.getDate() === targetDate.getDate()
+      ) {
+        return true;
+      }
+    }
+
+    if (event.data_inici) {
+      const startDate = new Date(event.data_inici);
+      if (startDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    if (event.data_fi) {
+      const endDate = new Date(event.data_fi);
+      if (endDate.getFullYear() > 2030) {
+        return true;
+      }
+    }
+
+    return false;
+  };
+
+  const loadMoreEvents = () => {
+    if (!hasMore || loadingMore) return;
+
+    if (isFiltered) {
+      // If filtered, load more with existing filters
+      loadMoreFiltered();
+    } else {
+      // Otherwise load more from default API
+      fetchEvents();
     }
   };
 
-  useEffect(() => {
-    const fetchEvents = async () => {
-      try {
-        const res = await fetch('http://nattech.fib.upc.edu:40490/events');
-        if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
-        const textData = await res.text();
-        const data = textData ? JSON.parse(textData) : [];
-        setEvents(data);
-      } catch (err: any) {
-        console.error('Error loading events', err);
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchEvents();
-  }, []);
-
-  const handleSearchByMunicipi = async (municipi: string) => {
-    setSelectedMunicipi(municipi);
-    setIsMunicipiModalVisible(false);
-    setLoading(true);
+  const loadMoreFiltered = async () => {
+    setLoadingMore(true);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        `offset=${offset}`,
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
 
       const res = await fetch(url);
@@ -132,25 +198,272 @@ export default function CercaScreen() {
         data = [];
       }
 
-      setEvents(data);
-      setIsFiltered(true);
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
 
-      if (data.length === 0) {
-        Alert.alert('Cap esdeveniment', `No hi ha esdeveniments a ${municipi}`, [
-          { text: "D'acord" },
-        ]);
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      setEvents((prev) => {
+        const map = new Map<number, any>();
+        prev.forEach((evt: any) => map.set(evt.id, evt));
+        filteredData.forEach((evt: any) => map.set(evt.id, evt));
+        return Array.from(map.values());
+      });
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(offset + BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
       }
     } catch (err: any) {
       console.error(err);
       setError(err.message);
-      Alert.alert('Error', 'Hi ha hagut un problema carregant els esdeveniments.');
+    } finally {
+      setLoadingMore(false);
+    }
+  };
+
+  const fetchEvents = async (reset = false) => {
+    if (loadingMore) return;
+
+    reset ? setLoading(true) : setLoadingMore(true);
+
+    try {
+      const currentOffset = reset ? 0 : offset;
+      const today = new Date().toISOString().split('T')[0];
+
+      const res = await fetch(
+        `http://nattech.fib.upc.edu:40490/events?batch_size=${BATCH_SIZE}&offset=${currentOffset}&from_date=${today}&order_by_date=asc`,
+      );
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const data = await res.json();
+      const newEvents = (data.results || data || []).filter(
+        (event: any) => !shouldHideEvent(event),
+      );
+
+      setEvents((prev: any[]) => {
+        if (reset) return newEvents;
+
+        const map = new Map<number, any>();
+        prev.forEach((evt: any) => map.set(evt.id, evt));
+        newEvents.forEach((evt: any) => map.set(evt.id, evt));
+
+        return Array.from(map.values());
+      });
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(currentOffset + BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(newEvents.length >= BATCH_SIZE);
+      }
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchEvents(true);
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshSavedEvents();
+    }, []),
+  );
+
+  const handleSearchByMunicipi = async (municipi: string) => {
+    setIsMunicipiModalVisible(false);
+    setLoading(true);
+    setOffset(0);
+    setHasMore(true);
+
+    // Set selectedMunicipi BEFORE buildQuery so it's included in the query
+    setSelectedMunicipi(municipi);
+
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      // Wait a moment for state to update, or pass municipi directly
+      const query = `?municipi=${encodeURIComponent(municipi)}&from_date=${today}&order_by_date=asc&batch_size=${BATCH_SIZE}&offset=0`;
+      const url = `http://nattech.fib.upc.edu:40490/events${query}`;
+
+      const res = await fetch(url);
+
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+
+      let data = [];
+      try {
+        data = textData.trim() ? JSON.parse(textData) : [];
+      } catch (e) {
+        console.error('JSON PARSE ERROR:', textData);
+        data = [];
+      }
+
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      setEvents(filteredData);
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+
+      setIsFiltered(true);
+    } catch (err: any) {
+      console.error(err);
+      setError(err.message);
+      Alert.alert(t('Error'), t('Hi ha hagut un problema carregant els esdeveniments.'));
     } finally {
       setLoading(false);
     }
   };
 
-  const EventCard = React.memo(({ item }: { item: any }) => {
+  const onDateChange = (event: any, date?: Date) => {
+    if (Platform.OS === 'android') {
+      setShowDatePicker(false);
+    }
+
+    if (date) {
+      setSelectedDate(date);
+    }
+  };
+
+  const confirmDate = async () => {
+    if (selectedEventForDate) {
+      const normalizedDate = normalizeDate(selectedDate);
+      await toggleGoing(selectedEventForDate.id, normalizedDate);
+    }
+    setShowDatePicker(false);
+    setShowDateModal(false);
+    setSelectedEventForDate(null);
+  };
+
+  const getMinMaxDates = () => {
+    if (!selectedEventForDate) return { minDate: new Date(), maxDate: new Date() };
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const startDate = selectedEventForDate.data_inici
+      ? new Date(selectedEventForDate.data_inici)
+      : new Date();
+    startDate.setHours(0, 0, 0, 0);
+
+    let minDate = tomorrow;
+    if (startDate > tomorrow) {
+      minDate = startDate;
+    }
+
+    const maxDate = selectedEventForDate.data_fi
+      ? new Date(selectedEventForDate.data_fi)
+      : new Date();
+    maxDate.setHours(0, 0, 0, 0);
+
+    return { minDate, maxDate };
+  };
+
+  const isToday = (date: Date): boolean => {
+    const today = new Date();
+    const compareDate = new Date(date);
+
+    return (
+      today.getDate() === compareDate.getDate() &&
+      today.getMonth() === compareDate.getMonth() &&
+      today.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  const isTomorrow = (date: Date): boolean => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const compareDate = new Date(date);
+
+    return (
+      tomorrow.getDate() === compareDate.getDate() &&
+      tomorrow.getMonth() === compareDate.getMonth() &&
+      tomorrow.getFullYear() === compareDate.getFullYear()
+    );
+  };
+
+  const hasAttendanceDatePassed = (attendanceDate: Date): boolean => {
+    const today = new Date();
+    const attendance = new Date(attendanceDate);
+
+    const todayDate = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const attendanceOnlyDate = new Date(
+      attendance.getFullYear(),
+      attendance.getMonth(),
+      attendance.getDate(),
+    );
+
+    return attendanceOnlyDate < todayDate;
+  };
+
+  const hasEventPassedCompletely = (event: any): boolean => {
+    if (!event.data_fi) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const endDate = new Date(event.data_fi);
+    endDate.setHours(0, 0, 0, 0);
+
+    return endDate < today;
+  };
+
+  const EventCard = ({ item }: { item: any }) => {
     const isGoing = !!goingEvents[item.id];
+
+    const attendanceDate = attendanceDates[item.id]
+      ? (() => {
+          const [year, month, day] = attendanceDates[item.id].split('-').map(Number);
+          return new Date(year, month - 1, day, 12, 0, 0);
+        })()
+      : undefined;
 
     const images: string[] =
       item.imatges && item.imatges.trim() !== ''
@@ -173,6 +486,112 @@ export default function CercaScreen() {
 
     const isSaved = !!savedEvents[item.id];
 
+    const eventHasPassedCompletely = hasEventPassedCompletely(item);
+
+    const userAttendancePassed = attendanceDate ? hasAttendanceDatePassed(attendanceDate) : false;
+    const userAttendanceIsToday = attendanceDate ? isToday(attendanceDate) : false;
+    const userAttendanceIsTomorrow = attendanceDate ? isTomorrow(attendanceDate) : false;
+    const userAttendanceIsFuture =
+      attendanceDate && !userAttendancePassed && !userAttendanceIsToday;
+
+    const getButtonText = () => {
+      if (userAttendanceIsToday) {
+        return t('Today is the event');
+      } else if (userAttendancePassed) {
+        const formattedDate = attendanceDate!.toLocaleDateString(i18n.language, {
+          day: 'numeric',
+          month: 'short',
+        });
+        return t('You attended');
+      } else if (eventHasPassedCompletely && !attendanceDate) {
+        return t('No vares assistir');
+      } else if (attendanceDate && (userAttendanceIsFuture || userAttendanceIsTomorrow)) {
+        const formattedDate = attendanceDate.toLocaleDateString(i18n.language, {
+          day: 'numeric',
+          month: 'short',
+        });
+        return t('I will attend') + ` - ${formattedDate}`;
+      } else if (isGoing && !attendanceDate) {
+        return t('I will attend');
+      } else {
+        return t('Want to go');
+      }
+    };
+
+    const handleToggleSave = async () => {
+      await toggleSaved(item.id, item);
+    };
+
+    const getButtonColor = () => {
+      if (userAttendanceIsToday) {
+        return '#FFA500';
+      } else if (userAttendancePassed || eventHasPassedCompletely) {
+        return '#FF6B6B';
+      } else if (isGoing) {
+        return Colors.going;
+      } else {
+        return Colors.accent;
+      }
+    };
+
+    const isButtonDisabled = () => {
+      return userAttendanceIsToday || userAttendancePassed || eventHasPassedCompletely;
+    };
+
+    const handleShare = () => {
+      setSelectedEventForShare(item);
+      setShareModalVisible(true);
+    };
+
+    const handleButtonPress = () => {
+      if (userAttendanceIsToday) {
+        return;
+      }
+
+      if (userAttendancePassed) {
+        return;
+      }
+
+      if (eventHasPassedCompletely) {
+        return;
+      }
+
+      if (!isGoing) {
+        setSelectedEventForDate(item);
+        if (item.data_inici) {
+          setSelectedDate(new Date(item.data_inici));
+        }
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const startDate = item.data_inici ? new Date(item.data_inici) : new Date();
+        startDate.setHours(0, 0, 0, 0);
+
+        let minDate = tomorrow;
+        if (startDate > tomorrow) {
+          minDate = startDate;
+        }
+
+        const maxDate = item.data_fi ? new Date(item.data_fi) : new Date();
+        maxDate.setHours(0, 0, 0, 0);
+
+        const isSingleDay = minDate.getTime() === maxDate.getTime();
+
+        if (isSingleDay) {
+          const normalizedMinDate = normalizeDate(minDate);
+          toggleGoing(item.id, normalizedMinDate);
+        } else {
+          setShowDateModal(true);
+        }
+      } else {
+        toggleGoing(item.id);
+      }
+    };
+
     return (
       <TouchableOpacity
         style={[styles.eventRow, { backgroundColor: Colors.card }]}
@@ -184,6 +603,10 @@ export default function CercaScreen() {
           <Text style={[styles.eventTitle, { color: Colors.text }]} numberOfLines={2}>
             {title}
           </Text>
+
+          {userAttendanceIsToday && (
+            <Text style={[styles.messageText, { color: Colors.accent }]}>Recorda assistir-hi</Text>
+          )}
 
           <View style={styles.labelContainer}>
             {espai && (
@@ -229,7 +652,7 @@ export default function CercaScreen() {
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
               <TouchableOpacity
                 style={[styles.iconButton, { marginRight: 12 }]}
-                onPress={() => toggleSaved(item.id)}
+                onPress={handleToggleSave}
               >
                 <Ionicons
                   name={isSaved ? 'bookmark' : 'bookmark-outline'}
@@ -247,103 +670,251 @@ export default function CercaScreen() {
               >
                 <Ionicons name="chatbubble-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
-              <TouchableOpacity
-                style={{ marginRight: 12 }}
-                onPress={() => {
-                  setSelectedEventId(item.id);
-                  setShowReviews(true);
-                }}
-              >
-                <Ionicons name="star-outline" size={20} color={Colors.text} />
-              </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.iconButton}
-                onPress={() => {
-                  const url = `https://tu-app.com/event/${item.id}`;
-                  Share.share({
-                    message: `Mira este evento: ${url}`,
-                    url,
-                  });
-                }}
-              >
+              <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
                 <Ionicons name="share-social-outline" size={20} color={Colors.text} />
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.button, { backgroundColor: isGoing ? Colors.going : Colors.accent }]}
-              onPress={() => toggleGoing(item.id)}
+              style={[
+                styles.button,
+                { backgroundColor: getButtonColor(), opacity: isButtonDisabled() ? 0.7 : 1 },
+              ]}
+              onPress={handleButtonPress}
+              disabled={isButtonDisabled()}
             >
-              <Text style={[styles.buttonText, { color: Colors.card }]}>
-                {isGoing ? t('I will attend') : t('Want to go')}
-              </Text>
+              <Text style={[styles.buttonText, { color: Colors.card }]}>{getButtonText()}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </TouchableOpacity>
     );
-  });
+  };
 
   const [noEventsMessage, setNoEventsMessage] = useState<string | null>(null);
 
-  const debounce = (func: (...args: any[]) => void, delay: number) => {
-    let timeout: NodeJS.Timeout;
-    return (...args: any[]) => {
-      clearTimeout(timeout);
-      timeout = setTimeout(() => func(...args), delay);
-    };
+  const handleSearch = (text: string) => {
+    // Let the debounced effect trigger the fetch so typing stays responsive
+    setSearchQuery(text.trim());
   };
 
-  const handleSearch = async (text: string) => {
-    const query = text.trim();
-    if (!query) return;
+  // Event search using current filters + q
+  const fetchEventsWithFilters = async (
+    reset = false,
+    extraParams: string[] = [],
+    showOverlay = true,
+  ) => {
+    if (reset) {
+      if (showOverlay) {
+        setLoading(true);
+      } else {
+        setLoading(false);
+        setLoadingMore(true);
+      }
+      setNoEventsMessage(null);
+      setEvents([]);
+      setOffset(0);
+      setHasMore(true);
+    } else {
+      setLoadingMore(true);
+    }
 
     try {
-      const res = await fetch(
-        `http://nattech.fib.upc.edu:40490/events?q=${encodeURIComponent(query)}`,
+      const today = new Date().toISOString().split('T')[0];
+      const currentOffset = reset ? 0 : offset;
+      const hasExplicitDate = extraParams.some(
+        (p) =>
+          p.startsWith('date=') ||
+          p.startsWith('date1=') ||
+          p.startsWith('date2=') ||
+          p.startsWith('from_date='),
       );
+      const queryParams = buildQuery([
+        ...(!hasExplicitDate ? [`from_date=${today}`] : []),
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        `offset=${currentOffset}`,
+        ...extraParams,
+      ]);
+      const url = `http://nattech.fib.upc.edu:40490/events${queryParams}`;
+
+      const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : {};
+      let eventData = data.results || data || [];
 
-      if (!Array.isArray(data) || data.length === 0) {
-        Alert.alert(t('No events found'), t('No events match', { query }));
-        return;
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      if (reset) {
+        if (filteredData.length === 0) {
+          setEvents([]);
+          setNoEventsMessage(
+            searchQuery ? t('No events found') : t('No events for selected categories'),
+          );
+        } else {
+          setEvents(filteredData);
+          setNoEventsMessage(null);
+        }
+      } else {
+        setEvents((prev) => {
+          const map = new Map<number, any>();
+          prev.forEach((evt: any) => map.set(evt.id, evt));
+          filteredData.forEach((evt: any) => map.set(evt.id, evt));
+          return Array.from(map.values());
+        });
       }
 
-      router.push({
-        pathname: '/searchResults',
-        params: { query },
-      });
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(currentOffset + BATCH_SIZE);
+      }
 
-      setTimeout(() => {
-        setSearchQuery('');
-      }, 50);
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
+      }
+
+      setIsFiltered(true);
     } catch (err) {
       console.error(err);
-      Alert.alert('Error', 'There was a problem fetching events.');
+      Alert.alert('Error', t('There was a problem fetching events.'));
+    } finally {
+      setLoading(false);
+      setLoadingMore(false);
     }
   };
 
   const buildQuery = (extraParams: string[] = []) => {
     const params: string[] = [];
 
-    // 🔹 Categories múltiples
+    if (searchQuery.trim()) {
+      params.push(`q=${encodeURIComponent(searchQuery.trim())}`);
+    }
+
     if (selectedTopics.length > 0) {
       params.push(...selectedTopics.map((topic) => `categoria=${encodeURIComponent(topic)}`));
     }
 
-    // 🔹 Municipi
     if (selectedMunicipi) {
       params.push(`municipi=${encodeURIComponent(selectedMunicipi)}`);
     }
 
-    // 🔹 Afegeix paràmetres extra si la funció que la crida ho necessita
     params.push(...extraParams);
 
     return params.length > 0 ? `?${params.join('&')}` : '';
+  };
+
+  // Users search with pagination and dedup
+  const fetchUsers = async (reset = false) => {
+    const query = searchQuery.trim();
+
+    if (reset) {
+      setLoading(true);
+      setUserOffset(0);
+      setHasMoreUsers(true);
+      setUsers([]);
+    } else {
+      if (loadingMoreUsers || !hasMoreUsers) return;
+      setLoadingMoreUsers(true);
+    }
+
+    try {
+      const currentOffset = reset ? 0 : userOffset;
+      // If query is empty, fetch all users; otherwise filter by username
+      const url = query
+        ? `http://nattech.fib.upc.edu:40490/users?username=${encodeURIComponent(query)}&batch_size=${BATCH_SIZE}&offset=${currentOffset}`
+        : `http://nattech.fib.upc.edu:40490/users?batch_size=${BATCH_SIZE}&offset=${currentOffset}`;
+
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
+
+      const textData = await res.text();
+      const responseData = textData ? JSON.parse(textData) : {};
+      let data = responseData.results || responseData || [];
+      const userData = Array.isArray(data) ? data : [];
+
+      if (reset) {
+        setUsers(userData);
+      } else {
+        setUsers((prev) => {
+          const map = new Map<string, any>();
+          prev.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          userData.forEach((u: any) => map.set(String(u.id ?? u.username), u));
+          return Array.from(map.values());
+        });
+      }
+
+      if (responseData.next_offset !== undefined) {
+        setUserOffset(responseData.next_offset);
+      } else {
+        setUserOffset(currentOffset + BATCH_SIZE);
+      }
+
+      if (responseData.has_more !== undefined) {
+        setHasMoreUsers(responseData.has_more);
+      } else {
+        setHasMoreUsers(userData.length >= BATCH_SIZE);
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert('Error', t('There was a problem fetching users'));
+      if (reset) setUsers([]);
+    } finally {
+      setLoading(false);
+      setLoadingMoreUsers(false);
+    }
+  };
+
+  useEffect(() => {
+    const trimmed = searchQuery.trim();
+
+    // Only auto-trigger when query has at least 3 characters (unless empty)
+    if (trimmed.length > 0 && trimmed.length < 3) {
+      return () => {
+        if (searchDebounceRef.current) {
+          clearTimeout(searchDebounceRef.current);
+        }
+      };
+    }
+
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+
+    searchDebounceRef.current = setTimeout(() => {
+      if (!hasMountedSearchRef.current) {
+        hasMountedSearchRef.current = true;
+        // Avoid double initial fetch when events tab starts empty
+        if (searchType === 'events' && !trimmed) {
+          return;
+        }
+      }
+
+      if (searchType === 'users') {
+        fetchUsers(true);
+      } else {
+        fetchEventsWithFilters(true, [], false);
+      }
+    }, 350);
+
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, searchType]);
+
+  const handleLoadMoreUsers = () => {
+    if (!loadingMoreUsers && hasMoreUsers) {
+      fetchUsers(false);
+    }
   };
 
   const handleSearchByTopics = async () => {
@@ -351,25 +922,54 @@ export default function CercaScreen() {
     setLoading(true);
     setNoEventsMessage(null);
     setEvents([]);
+    setOffset(0);
+    setHasMore(true);
 
     try {
-      const query = buildQuery();
+      const today = new Date().toISOString().split('T')[0];
+      const query = buildQuery([
+        `from_date=${today}`,
+        'order_by_date=asc',
+        `batch_size=${BATCH_SIZE}`,
+        'offset=0',
+      ]);
       const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-      console.log('URL de búsqueda:', url);
 
       const res = await fetch(url);
       if (!res.ok) throw new Error(`HTTP error! status: ${res.status}`);
 
       const textData = await res.text();
-      const data = textData ? JSON.parse(textData) : [];
+      let data = textData ? JSON.parse(textData) : [];
 
-      if (data.length === 0) {
+      // Handle both array and object with results property
+      let eventData = data;
+      if (data.results) {
+        eventData = data.results;
+      }
+
+      const filteredData = Array.isArray(eventData)
+        ? eventData.filter((event: any) => !shouldHideEvent(event))
+        : [];
+
+      if (filteredData.length === 0) {
         setEvents([]);
         setNoEventsMessage(t('No events for selected categories'));
       } else {
-        setEvents(data);
+        setEvents(filteredData);
         setNoEventsMessage(null);
+      }
+
+      // Use API's pagination metadata
+      if (data.next_offset !== undefined) {
+        setOffset(data.next_offset);
+      } else {
+        setOffset(BATCH_SIZE);
+      }
+
+      if (data.has_more !== undefined) {
+        setHasMore(data.has_more);
+      } else {
+        setHasMore(filteredData.length >= BATCH_SIZE);
       }
 
       setIsFiltered(true);
@@ -384,123 +984,378 @@ export default function CercaScreen() {
 
   const renderEvent = ({ item }: { item: any }) => <EventCard item={item} />;
 
+  // Skeleton Loader Component
+  const SkeletonLoader = () => {
+    const rotation = useRef(new Animated.Value(0)).current;
+    const scale = useRef(new Animated.Value(1)).current;
+    const shimmer = useRef(new Animated.Value(0)).current;
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.timing(rotation, {
+          toValue: 1,
+          duration: 2000,
+          useNativeDriver: true,
+          easing: (t) => t,
+        }),
+      ).start();
+    }, [rotation]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(scale, {
+            toValue: 1.15,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+          Animated.timing(scale, {
+            toValue: 1,
+            duration: 600,
+            useNativeDriver: true,
+          }),
+        ]),
+      ).start();
+    }, [scale]);
+
+    React.useEffect(() => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(shimmer, { toValue: 1, duration: 600, useNativeDriver: true }),
+          Animated.timing(shimmer, { toValue: 0, duration: 600, useNativeDriver: true }),
+        ]),
+      ).start();
+    }, [shimmer]);
+
+    const rotationDegrees = rotation.interpolate({
+      inputRange: [0, 1],
+      outputRange: ['0deg', '360deg'],
+    });
+
+    return (
+      <View style={[styles.screen, { backgroundColor: Colors.background }]}>
+        <View style={styles.header}>
+          <View
+            style={{
+              width: 120,
+              height: 24,
+              borderRadius: 8,
+              backgroundColor: Colors.border,
+            }}
+          />
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+            <View
+              style={{
+                width: 32,
+                height: 32,
+                borderRadius: 16,
+                backgroundColor: Colors.border,
+              }}
+            />
+          </View>
+        </View>
+
+        {/* Background skeleton cards */}
+        <ScrollView
+          contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 100, paddingBottom: 60 }}
+          scrollEnabled={false}
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, zIndex: 0 }}
+        >
+          {[1, 2].map((i) => (
+            <Animated.View
+              key={i}
+              style={[
+                styles.eventRow,
+                {
+                  backgroundColor: Colors.card,
+                  opacity: shimmer.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [0.35, 0.55],
+                  }),
+                  marginBottom: 20,
+                  borderWidth: 0.5,
+                  borderColor: Colors.border,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 100,
+                  height: 100,
+                  backgroundColor: Colors.border,
+                  borderRadius: 8,
+                  opacity: 0.6,
+                }}
+              />
+              <View style={{ flex: 1, paddingHorizontal: 12, paddingVertical: 8 }}>
+                {/* Title lines */}
+                <View
+                  style={{
+                    height: 16,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    marginBottom: 8,
+                    opacity: 0.7,
+                  }}
+                />
+                <View
+                  style={{
+                    height: 14,
+                    backgroundColor: Colors.border,
+                    borderRadius: 8,
+                    width: '75%',
+                    marginBottom: 10,
+                    opacity: 0.6,
+                  }}
+                />
+                {/* Labels/tags */}
+                <View style={{ flexDirection: 'row', gap: 6, marginBottom: 8 }}>
+                  <View
+                    style={{
+                      height: 20,
+                      width: 45,
+                      backgroundColor: Colors.border,
+                      borderRadius: 10,
+                      opacity: 0.5,
+                    }}
+                  />
+                  <View
+                    style={{
+                      height: 20,
+                      width: 40,
+                      backgroundColor: Colors.border,
+                      borderRadius: 10,
+                      opacity: 0.5,
+                    }}
+                  />
+                </View>
+                {/* Button area */}
+                <View
+                  style={{
+                    height: 32,
+                    backgroundColor: Colors.border,
+                    borderRadius: 16,
+                    width: '55%',
+                    opacity: 0.6,
+                  }}
+                />
+              </View>
+            </Animated.View>
+          ))}
+        </ScrollView>
+
+        {/* Foreground: Rotating Logo */}
+        <View
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 10,
+          }}
+        >
+          <Animated.View
+            style={{
+              transform: [{ rotate: rotationDegrees }, { scale: scale }],
+            }}
+          >
+            <Image
+              source={
+                theme === 'dark'
+                  ? require('../../assets/cultcat-logo_dark.png')
+                  : require('../../assets/cultcat-logo_white.png')
+              }
+              style={{
+                width: 140,
+                height: 140,
+                resizeMode: 'contain',
+              }}
+            />
+          </Animated.View>
+
+          <Text
+            style={{
+              fontSize: 20,
+              fontWeight: '700',
+              color: Colors.text,
+              marginTop: 32,
+              textAlign: 'center',
+            }}
+          >
+            {t('Loading events')}
+          </Text>
+
+          <Text
+            style={{
+              fontSize: 14,
+              color: Colors.textSecondary,
+              marginTop: 8,
+              textAlign: 'center',
+            }}
+          >
+            {t('Preparing your cultural experience')}
+          </Text>
+        </View>
+      </View>
+    );
+  };
+
+  if (load) {
+    return (
+      <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
+        <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
+        <SkeletonLoader />
+      </SafeAreaView>
+    );
+  }
+
   return (
     <SafeAreaView style={[styles.screen, { backgroundColor: Colors.background }]}>
       <StatusBar style={theme === 'dark' ? 'light' : 'dark'} />
-      {/* Barra de cerca */}
       <SearchBar value={searchQuery} onChangeText={setSearchQuery} onSearch={handleSearch} />
 
-      {/* Scroll horizontal */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filtersScroll}
-        contentContainerStyle={styles.filtersRow}
+      <View
+        style={[
+          styles.filtersContainer,
+          {
+            backgroundColor: Colors.card,
+            borderBottomColor: Colors.border,
+            borderBottomWidth: 1,
+          },
+        ]}
       >
-        {/* Botó ubicació */}
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsMunicipiModalVisible(true)}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.filtersScroll}
+          contentContainerStyle={styles.filtersRow}
         >
-          <MapPin color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>
-            {selectedMunicipi || t('Location')}
-          </Text>
-        </TouchableOpacity>
-
-        {/* Botó data */}
-        <DateFilterComponent
-          mode="one"
-          onModeChange={(m) => console.log('Modo de fecha:', m)}
-          onDatesChange={({ date, date1, date2, fromDate }) => {
-            setIsFiltered(true);
-            let extraParams: string[] = [];
-
-            if (date) {
-              extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
-            }
-            if (date1 && date2) {
-              extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
-              extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
-            }
-            if (fromDate) {
-              extraParams.push(
-                `fromDate=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
-              );
-            }
-
-            const query = buildQuery(extraParams);
-            const url = `http://nattech.fib.upc.edu:40490/events${query}`;
-
-            setLoading(true);
-            fetch(url)
-              .then((res) => res.json())
-              .then((data) => setEvents(data))
-              .catch((err) => console.error(err))
-              .finally(() => setLoading(false));
-          }}
-        />
-
-        {/* Botó altres */}
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsTopicsModalVisible(true)}
-        >
-          <Star color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Category')}</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.filterButton, { backgroundColor: Colors.card }]}
-          onPress={() => setIsOptionsModalVisible(true)}
-        >
-          <SlidersHorizontal color={Colors.text} size={18} />
-          <Text style={[styles.filterText, { color: Colors.text }]}>{t('Others')}</Text>
-        </TouchableOpacity>
-      </ScrollView>
-
-      {/* Modal d'altres*/}
-      <Modal
-        visible={isOptionsModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setIsOptionsModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.optionsModal, { backgroundColor: Colors.card }]}>
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: Colors.text }]}>{t('Filter by')}</Text>
-
-              <TouchableOpacity onPress={() => setIsOptionsModalVisible(false)}>
-                <X color={Colors.text} size={20} />
-              </TouchableOpacity>
-            </View>
-
+          {(searchQuery.trim() ||
+            selectedMunicipi ||
+            hasDateFilter ||
+            selectedTopics.length > 0) && (
             <TouchableOpacity
-              style={[styles.optionItem, { paddingVertical: 8 }]}
-              onPress={() => {
-                setSelectedMunicipi(null);
-                setIsMunicipiModalVisible(false);
-                setEvents([]);
-                setIsFiltered(false);
-                setLoading(true);
-
-                fetch('http://nattech.fib.upc.edu:40490/events')
-                  .then((res) => res.json())
-                  .then((data) => setEvents(data))
-                  .catch((err) => console.error(err))
-                  .finally(() => setLoading(false));
-              }}
+              style={[
+                styles.filterButton,
+                {
+                  backgroundColor: Colors.background,
+                  borderWidth: 1.5,
+                  borderColor: '#ff4444',
+                  shadowColor: '#ff4444',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 6,
+                  elevation: 3,
+                },
+              ]}
+              onPress={clearFilters}
             >
-              <Text style={{ color: Colors.text, fontSize: 14, fontWeight: '600' }}>
-                {t('Clear filter')}
-              </Text>
+              <Ionicons name="trash-outline" size={18} color="#ff4444" />
             </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          )}
 
-      {/* Modal de categories*/}
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedMunicipi ? Colors.accent : Colors.card,
+                borderWidth: selectedMunicipi ? 0 : 1.5,
+                borderColor: Colors.border,
+                shadowColor: selectedMunicipi ? Colors.accent : 'transparent',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: selectedMunicipi ? 0.25 : 0,
+                shadowRadius: 8,
+                elevation: selectedMunicipi ? 5 : 1,
+              },
+            ]}
+            onPress={() => setIsMunicipiModalVisible(true)}
+          >
+            <MapPin color={selectedMunicipi ? '#fff' : Colors.text} size={18} />
+            <Text style={[styles.filterText, { color: selectedMunicipi ? '#fff' : Colors.text }]}>
+              {selectedMunicipi || t('Select municipality')}
+            </Text>
+            {selectedMunicipi && (
+              <View style={[styles.filterBadge, { backgroundColor: '#fff' + '40' }]}>
+                <Text style={styles.filterBadgeText}>✓</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <DateFilterComponent
+            mode="one"
+            onModeChange={(m) => {}}
+            backgroundColor={hasDateFilter ? Colors.accent : Colors.card}
+            textColor={hasDateFilter ? '#fff' : Colors.text}
+            accentColor={Colors.accent}
+            surfaceColor={Colors.card}
+            borderColor={Colors.border}
+            onDatesChange={({ date, date1, date2, fromDate }) => {
+              setIsFiltered(true);
+              setHasDateFilter(true);
+              const extraParams: string[] = [];
+
+              if (date) {
+                extraParams.push(`date=${encodeURIComponent(date.toISOString().split('T')[0])}`);
+              }
+              if (date1 && date2) {
+                extraParams.push(`date1=${encodeURIComponent(date1.toISOString().split('T')[0])}`);
+                extraParams.push(`date2=${encodeURIComponent(date2.toISOString().split('T')[0])}`);
+              }
+              if (fromDate) {
+                extraParams.push(
+                  `from_date=${encodeURIComponent(fromDate.toISOString().split('T')[0])}`,
+                );
+              }
+
+              fetchEventsWithFilters(true, extraParams);
+            }}
+          />
+
+          <TouchableOpacity
+            style={[
+              styles.filterButton,
+              {
+                backgroundColor: selectedTopics.length > 0 ? Colors.accent : Colors.card,
+                borderWidth: selectedTopics.length > 0 ? 0 : 1.5,
+                borderColor: Colors.border,
+                shadowColor: selectedTopics.length > 0 ? Colors.accent : 'transparent',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: selectedTopics.length > 0 ? 0.25 : 0,
+                shadowRadius: 8,
+                elevation: selectedTopics.length > 0 ? 5 : 1,
+              },
+            ]}
+            onPress={() => setIsTopicsModalVisible(true)}
+          >
+            <Star color={selectedTopics.length > 0 ? '#fff' : Colors.text} size={18} />
+            <Text
+              style={[
+                styles.filterText,
+                { color: selectedTopics.length > 0 ? '#fff' : Colors.text },
+              ]}
+            >
+              {t('Category')}
+            </Text>
+            {selectedTopics.length > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: '#fff' + '40' }]}>
+                <Text style={styles.filterBadgeText}>{selectedTopics.length}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+
       <Modal
         visible={isTopicsModalVisible}
         transparent
@@ -509,7 +1364,6 @@ export default function CercaScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-            {/* Header */}
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { color: Colors.text }]}>
                 {t('Filter by category')}
@@ -520,7 +1374,6 @@ export default function CercaScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Lista de categorias */}
             <View style={styles.topicsContainer}>
               {[
                 'concerts',
@@ -581,7 +1434,6 @@ export default function CercaScreen() {
               })}
             </View>
 
-            {/* Boto confirmar la busqueda*/}
             <TouchableOpacity
               style={[styles.searchButton, { backgroundColor: Colors.accent }]}
               onPress={handleSearchByTopics}
@@ -594,7 +1446,6 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      {/* Modal de municipi */}
       <Modal
         visible={isMunicipiModalVisible}
         transparent
@@ -643,11 +1494,10 @@ export default function CercaScreen() {
               }}
             >
               <Text style={{ color: Colors.background, fontWeight: '600' }}>
-                {t('Clear filter')}
+                {t('Clear filters')}
               </Text>
             </TouchableOpacity>
 
-            {/* Scroll amb municipis filtrats */}
             <ScrollView style={{ maxHeight: 200 }}>
               {filteredMunicipis.map((m, index) => (
                 <TouchableOpacity
@@ -663,38 +1513,269 @@ export default function CercaScreen() {
         </View>
       </Modal>
 
-      <FlatList
-        data={events}
-        keyExtractor={(item, index) => `${item.id}-${index}`}
-        renderItem={renderEvent}
-        contentContainerStyle={{ paddingHorizontal: 8, paddingBottom: 20 }}
-        onEndReached={isFiltered ? undefined : loadMoreEvents}
-        onEndReachedThreshold={0.5}
-        ListHeaderComponent={
+      {/* MODAL DE SELECCIÓN DE FECHA */}
+      <Modal
+        visible={showDateModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowDateModal(false)}
+      >
+        <View style={styles.dateModalOverlay}>
+          <View style={[styles.dateModalContainer, { backgroundColor: Colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: Colors.text }]}>
+                {t('Select attendance date')}
+              </Text>
+              <TouchableOpacity onPress={() => setShowDateModal(false)}>
+                <Ionicons name="close" size={24} color={Colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={[styles.modalSubtitle, { color: Colors.textSecondary }]}>
+              {t('Choose the day you want to attend this event')}
+            </Text>
+
+            <View style={styles.datePickerContainer}>
+              {Platform.OS === 'ios' ? (
+                <DateTimePicker
+                  value={selectedDate}
+                  mode="date"
+                  display="spinner"
+                  onChange={onDateChange}
+                  minimumDate={getMinMaxDates().minDate}
+                  maximumDate={getMinMaxDates().maxDate}
+                  locale={i18n.language}
+                  textColor={Colors.text}
+                />
+              ) : (
+                <>
+                  <TouchableOpacity
+                    style={[styles.dateButton, { backgroundColor: Colors.background }]}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.accent} />
+                    <Text style={[styles.dateButtonText, { color: Colors.text }]}>
+                      {selectedDate.toLocaleDateString(i18n.language, {
+                        weekday: 'long',
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={selectedDate}
+                      mode="date"
+                      display="default"
+                      onChange={onDateChange}
+                      minimumDate={getMinMaxDates().minDate}
+                      maximumDate={getMinMaxDates().maxDate}
+                    />
+                  )}
+                </>
+              )}
+            </View>
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.cancelButton, { borderColor: Colors.border }]}
+                onPress={() => setShowDateModal(false)}
+              >
+                <Text style={[styles.cancelButtonText, { color: Colors.text }]}>{t('Cancel')}</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.confirmButton,
+                  { backgroundColor: Colors.accent },
+                ]}
+                onPress={confirmDate}
+              >
+                <Text style={[styles.confirmButtonText, { color: Colors.card }]}>
+                  {t('Confirm')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Tab selector */}
+      <View style={styles.tabsContainer}>
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'events' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('events');
+            // Refresh events based on current filters + query
+            fetchEventsWithFilters(true);
+          }}
+        >
           <Text
             style={{
-              fontSize: 18,
+              color: searchType === 'events' ? Colors.card : Colors.text,
               fontWeight: '600',
-              marginTop: 12,
-              marginLeft: 12,
-              marginBottom: 8,
+              textAlign: 'center',
+            }}
+          >
+            {t('Events')}
+          </Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[
+            styles.tabButton,
+            { backgroundColor: searchType === 'users' ? Colors.accent : Colors.card },
+          ]}
+          onPress={() => {
+            setSearchType('users');
+            fetchUsers(true);
+          }}
+        >
+          <Text
+            style={{
+              color: searchType === 'users' ? Colors.card : Colors.text,
+              fontWeight: '600',
+              textAlign: 'center',
+            }}
+          >
+            {t('Users')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {searchType === 'events' ? (
+        !load && events.length === 0 ? (
+          <View style={styles.endOfListContainer}>
+            <Ionicons
+              name="calendar-outline"
+              size={42}
+              color={Colors.textSecondary}
+              style={{ marginBottom: 10 }}
+            />
+            <Text
+              style={{
+                fontSize: 16,
+                fontWeight: '700',
+                textAlign: 'center',
+                color: Colors.text,
+              }}
+            >
+              {t('No events found. Explore a new date or category!')}
+            </Text>
+            <Text
+              style={{
+                marginTop: 6,
+                fontSize: 14,
+                textAlign: 'center',
+                color: Colors.textSecondary,
+              }}
+            >
+              {t('Tip: tweak dates, categories, or keywords to uncover more events.')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={events}
+            keyExtractor={(item) => item.id.toString()}
+            renderItem={renderEvent}
+            onEndReached={loadMoreEvents}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={
+              loadingMore ? (
+                <ActivityIndicator size="small" color={Colors.accent} />
+              ) : !hasMore && events.length > 0 ? (
+                <View style={styles.endOfListContainer}>
+                  <Text
+                    style={{
+                      fontSize: 14,
+                      fontWeight: '500',
+                      textAlign: 'center',
+                      color: Colors.textSecondary,
+                    }}
+                  >
+                    {t('No more events to show')}
+                  </Text>
+                  <TouchableOpacity
+                    style={[styles.endOfListButton, { backgroundColor: Colors.accent }]}
+                    onPress={() =>
+                      flatListRef.current?.scrollToOffset({ offset: 0, animated: true })
+                    }
+                  >
+                    <Text style={[styles.endOfListButtonText, { color: Colors.card }]}>
+                      {t('Back to top')}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              ) : null
+            }
+          />
+        )
+      ) : !load && users.length === 0 ? (
+        <View style={styles.endOfListContainer}>
+          <Ionicons
+            name="people-outline"
+            size={42}
+            color={Colors.textSecondary}
+            style={{ marginBottom: 10 }}
+          />
+          <Text
+            style={{
+              fontSize: 16,
+              fontWeight: '700',
+              textAlign: 'center',
               color: Colors.text,
             }}
           >
-            {isFiltered ? t('Filtered events') : t('All events')}
+            {t('No users with this name')}
           </Text>
-        }
-        ListFooterComponent={
-          loadingMore ? <ActivityIndicator size="small" color={Colors.accent} /> : null
-        }
-        ListEmptyComponent={() => (
-          <View style={{ paddingVertical: 20 }}>
-            <Text style={{ textAlign: 'center', color: Colors.text }}>
-              {noEventsMessage || t('No events available')}
-            </Text>
-          </View>
-        )}
-      />
+          <Text
+            style={{
+              marginTop: 6,
+              fontSize: 14,
+              textAlign: 'center',
+              color: Colors.textSecondary,
+            }}
+          >
+            {t('Try a shorter name or similar spelling.')}
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          ref={flatListRef}
+          data={users}
+          keyExtractor={(item) => String(item.id ?? item.username)}
+          renderItem={({ item }) => (
+            <UserCard user={item} onPress={() => router.push(`/user/${item.id}`)} />
+          )}
+          onEndReached={handleLoadMoreUsers}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMoreUsers ? (
+              <ActivityIndicator size="small" color={Colors.accent} />
+            ) : !hasMoreUsers && users.length > 0 ? (
+              <View style={styles.endOfListContainer}>
+                <Text
+                  style={{
+                    fontSize: 14,
+                    fontWeight: '500',
+                    textAlign: 'center',
+                    color: Colors.textSecondary,
+                  }}
+                >
+                  {t('No more users to show')}
+                </Text>
+              </View>
+            ) : null
+          }
+        />
+      )}
 
       {/* COMMENTS */}
       {selectedEventId !== null && (
@@ -713,6 +1794,39 @@ export default function CercaScreen() {
           onClose={() => setShowReviews(false)}
         />
       )}
+
+      {selectedEventForShare && (
+        <ShareEventModal
+          visible={shareModalVisible}
+          onClose={() => {
+            setShareModalVisible(false);
+            setSelectedEventForShare(null);
+          }}
+          event={{
+            id: selectedEventForShare.id,
+            titol: selectedEventForShare.titol || '',
+            descripcio: selectedEventForShare.descripcio || '',
+            imgApp: selectedEventForShare.imgApp,
+            imatges: selectedEventForShare.imatges,
+            data_inici: selectedEventForShare.data_inici,
+            data_fi: selectedEventForShare.data_fi,
+            localitat: selectedEventForShare.localitat || null,
+            enllacos: {},
+            infoEntrades: selectedEventForShare.infoEntrades || null,
+            infoHorari: selectedEventForShare.infoHorari || null,
+            gratuita: false,
+            modalitat: selectedEventForShare.modalitat || null,
+            direccio: selectedEventForShare.direccio || null,
+            espai: selectedEventForShare.espai || null,
+            georeferencia: null,
+            latitud: null,
+            longitud: null,
+            telefon: null,
+            email: null,
+          }}
+          Colors={Colors}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -721,33 +1835,75 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  header: {
+    marginTop: 60,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
   content: {
     paddingTop: 8,
   },
+  filtersContainer: {
+    paddingVertical: 5,
+    paddingHorizontal: 0,
+    marginTop: 5,
+    marginBottom: 5,
+    marginLeft: 5,
+    marginRight: 5,
+    borderBottomWidth: 0.5,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 2,
+  },
   filtersScroll: {
-    marginTop: 12,
+    marginTop: 0,
   },
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 12,
-    marginHorizontal: 4,
+    marginHorizontal: 0,
+    position: 'relative',
+  },
+  filterBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
   dateButtonWrapper: {
     marginHorizontal: 4,
   },
   filterText: {
-    fontSize: 14,
+    fontSize: 12,
+    fontWeight: '600',
   },
   dateText: {
     marginTop: 12,
@@ -862,7 +2018,7 @@ const styles = StyleSheet.create({
     padding: 10,
   },
   eventTitle: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: '600',
     marginBottom: 8,
   },
@@ -877,7 +2033,7 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   labelText: {
-    fontSize: 12,
+    fontSize: 9,
     fontWeight: '500',
   },
   button: {
@@ -888,7 +2044,7 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '400',
-    fontSize: 12,
+    fontSize: 9,
   },
   iconButton: {
     padding: 6,
@@ -912,5 +2068,112 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E4D8C8',
     marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  cancelButton: {
+    borderWidth: 1.5,
+  },
+  cancelButtonText: {
+    fontWeight: '600',
+    fontSize: 16,
+  },
+  confirmButton: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  confirmButtonText: {
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  dateButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  dateButtonText: {
+    fontSize: 16,
+    fontWeight: '500',
+    flex: 1,
+  },
+  modalSubtitle: {
+    fontSize: 14,
+    marginBottom: 24,
+  },
+  datePickerContainer: {
+    marginBottom: 24,
+  },
+  dateModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  dateModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  messageText: {
+    fontSize: 11,
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  endOfListContainer: {
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListText: {
+    fontSize: 14,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  endOfListButton: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  endOfListButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  tabsContainer: {
+    flexDirection: 'row',
+    marginHorizontal: 8,
+    marginBottom: 6,
+    gap: 8,
+  },
+  tabButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });
