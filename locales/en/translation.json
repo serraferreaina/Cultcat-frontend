@@ -23,7 +23,9 @@
   "No hi ha events pròxims": "No upcoming events",
   "For you": "For you",
   "Following": "Following",
-  "No connections yet": "No connections yet",
+  "Recommended": "Recommended",
+  "Recommended by": "Recommended by",
+  "friends love this": "friends love this",
   "Connect with other users to see events they are interested in": "Connect with other users to see events they are interested in",
   "Profile photo": "Profile photo",
   "email@example.com": "email@example.com",
@@ -284,6 +286,7 @@
   "Obtained at": "Obtained at",
   "Requested": "Pending",
   "Connect": "Connect",
+  "Request sent": "Request sent",
   "Connected": "Connected",
   "Connections": "Connections",
   "Approve connection": "Approve connection",
@@ -418,5 +421,16 @@
     "nadal": "Christmas"
   },
   "has_accepted_your_request": "has accepted your connection request",
-  "connection_accepted": "Connection accepted"
+  "connection_accepted": "Connection accepted",
+  "badge": "badge",
+  "badges": "badges",
+  "Edit Profile": "Edit Profile",
+  "Connections": "Connections",
+  "Complete events and activities to earn badges!": "Complete events and activities to earn badges!",
+  "more": "more",
+  "Level": "Level",
+  "Category": "Category",
+  "Condition": "Condition",
+  "Obtained at": "Obtained at",
+  "Close": "Close"
 }

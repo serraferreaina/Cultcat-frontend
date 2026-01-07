@@ -23,7 +23,9 @@
   "No hi ha events pròxims": "No hi ha events pròxims",
   "For you": "Per a tú",
   "Following": "Seguint",
-  "No connections yet": "Encara no tens connexions",
+  "Recommended": "Recomanat",
+  "Recommended by": "Recomanat per",
+  "friends love this": "amics ho estimen",
   "Connect with other users to see events they are interested in": "Connecta amb altres usuaris per veure els esdeveniments que els interessen",
   "Profile photo": "Foto de perfil",
   "email@example.com": "correu@exemple.com",
@@ -285,6 +287,7 @@
   "Obtained at": "Obtingut el",
   "Requested": "Pendent",
   "Connect": "Connecta",
+  "Request sent": "Sol·licitud enviada",
   "Connected": "Connectats",
   "Connections": "Connexions",
   "Approve connection": "Aprovar connexió",
@@ -419,5 +422,16 @@
     "nadal": "Nadal"
   },
   "has_accepted_your_request": "ha acceptat la teva sol·licitud de connexió",
-  "connection_accepted": "Connexió acceptada"
+  "connection_accepted": "Connexió acceptada",
+  "badge": "insígnia",
+  "badges": "insígnies",
+  "Edit Profile": "Editar Perfil",
+  "Connections": "Connexions",
+  "Complete events and activities to earn badges!": "Completa events i activitats per obtenir insígnies!",
+  "more": "més",
+  "Level": "Nivell",
+  "Category": "Categoria",
+  "Condition": "Condició",
+  "Obtained at": "Obtingut el",
+  "Close": "Tancar"
 }

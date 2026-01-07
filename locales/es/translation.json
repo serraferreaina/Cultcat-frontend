@@ -23,7 +23,9 @@
   "No hi ha events pròxims": "No hay eventos próximos",
   "For you": "Para ti",
   "Following": "Siguiendo",
-  "No connections yet": "Aún no tienes conexiones",
+  "Recommended": "Recomendado",
+  "Recommended by": "Recomendado por",
+  "friends love this": "amigos aman esto",
   "Connect with other users to see events they are interested in": "Conecta con otros usuarios para ver los eventos que les interesan",
   "Profile photo": "Foto de perfil",
   "email@example.com": "correo@ejemplo.com",
@@ -285,6 +287,7 @@
   "Obtained at": "Conseguido el",
   "Requested": "Pendiente",
   "Connect": "Conecta",
+  "Request sent": "Solicitud enviada",
   "Connected": "Conectados",
   "Connections": "Conexiones",
   "Approve connection": "Aprobar conexión",
@@ -419,5 +422,16 @@
     "nadal": "Navidad"
   },
   "has_accepted_your_request": "ha aceptado tu solicitud de conexión",
-  "connection_accepted": "Conexión aceptada"
+  "connection_accepted": "Conexión aceptada",
+  "badge": "insignia",
+  "badges": "insignias",
+  "Edit Profile": "Editar Perfil",
+  "Connections": "Conexiones",
+  "Complete events and activities to earn badges!": "¡Completa eventos y actividades para ganar insignias!",
+  "more": "más",
+  "Level": "Nivel",
+  "Category": "Categoría",
+  "Condition": "Condición",
+  "Obtained at": "Obtenido el",
+  "Close": "Cerrar"
 }

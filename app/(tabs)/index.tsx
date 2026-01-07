@@ -327,93 +327,60 @@ const FeedCard: React.FC<FeedCardProps> = ({
   return (
     <>
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
-        {/* Recommendation Badge - Before Event */}
+        {/* Recommendation Badge - Enhanced */}
         {item.recommended_by && item.recommended_by.length > 0 && (
           <View
             style={[
               styles.recommendationRow,
               {
-                borderColor: Colors.accent + '20',
-                backgroundColor: Colors.accent + '05',
+                borderColor: Colors.accent + '30',
+                backgroundColor: Colors.accent + '10',
               },
             ]}
           >
-            <View style={styles.recommendationLeft}>
-              <View style={styles.avatarsStack}>
+            <View style={styles.recommendationContent}>
+              <View style={styles.recommendationHeader}>
+                <Ionicons name="heart" size={18} color={Colors.accent} />
+                <Text style={[styles.recommendationLabel, { color: Colors.accent }]}>
+                  {t('Recommended')}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.avatarsScrollContainer}
+              >
                 {item.recommended_by
-                  .slice(0, 3)
                   .filter((user) => user && user.username)
                   .map((user, index) => (
                     <View
                       key={user.username}
                       style={[
-                        styles.avatarContainer,
+                        styles.avatarPill,
                         {
-                          zIndex: 3 - index,
-                          marginLeft: index > 0 ? -10 : 0,
+                          marginLeft: index > 0 ? 6 : 0,
                           borderColor: Colors.card,
                         },
                       ]}
                     >
                       {user.profile_picture ? (
-                        <Image source={{ uri: user.profile_picture }} style={styles.avatar} />
+                        <Image source={{ uri: user.profile_picture }} style={styles.avatarSmall} />
                       ) : (
-                        <View style={[styles.avatar, { backgroundColor: Colors.accent }]}>
-                          <Text style={[styles.avatarText, { color: Colors.card }]}>
+                        <View style={[styles.avatarSmall, { backgroundColor: Colors.accent }]}>
+                          <Text style={[styles.avatarSmallText, { color: Colors.card }]}>
                             {user.username?.charAt(0).toUpperCase() || '?'}
                           </Text>
                         </View>
                       )}
+                      <Text
+                        style={[styles.avatarUsername, { color: Colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {user.username || 'Unknown'}
+                      </Text>
                     </View>
                   ))}
-              </View>
-              <View style={styles.recommendationContent}>
-                <Text
-                  style={[styles.recommendationUsers, { color: Colors.text }]}
-                  numberOfLines={1}
-                >
-                  {item.recommended_by.length === 1 ? (
-                    <>
-                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
-                        {t('Recommended by')}{' '}
-                      </Text>
-                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                        {item.recommended_by[0]?.username || 'Unknown'}
-                      </Text>
-                    </>
-                  ) : item.recommended_by.length === 2 ? (
-                    <>
-                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
-                        {t('Recommended by')}{' '}
-                      </Text>
-                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                        {item.recommended_by[0]?.username || 'Unknown'}
-                      </Text>
-                      <Text> & </Text>
-                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                        {item.recommended_by[1]?.username || 'Unknown'}
-                      </Text>
-                    </>
-                  ) : (
-                    <>
-                      <Text style={{ color: Colors.textSecondary, fontSize: 12 }}>
-                        {t('Recommended by')}{' '}
-                      </Text>
-                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                        {item.recommended_by[0]?.username || 'Unknown'}
-                      </Text>
-                      <Text>, </Text>
-                      <Text style={{ color: Colors.text, fontWeight: '600' }}>
-                        {item.recommended_by[1]?.username || 'Unknown'}
-                      </Text>
-                      <Text style={{ color: Colors.accent, fontWeight: '700' }}>
-                        {' '}
-                        +{item.recommended_by.length - 2}
-                      </Text>
-                    </>
-                  )}
-                </Text>
-              </View>
+              </ScrollView>
             </View>
           </View>
         )}
@@ -1336,21 +1303,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.1)',
+    marginTop: 8,
+    gap: 12,
   },
   leftFooter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   button: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   buttonText: { fontWeight: '600', fontSize: 13 },
   actionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    minWidth: 100,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionButtonText: {
-    fontWeight: '600',
-    fontSize: 12,
+    fontWeight: '700',
+    fontSize: 14,
   },
   messageText: {
     fontSize: 12,
@@ -1359,57 +1335,76 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  descriptionText: { fontSize: 14, marginTop: 4, marginHorizontal: 12, marginBottom: 12 },
-  seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 12, marginBottom: 12 },
+  descriptionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 16, marginBottom: 12 },
   cardHeader: {
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 8,
   },
   recommendationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    marginHorizontal: 12,
-    marginTop: 10,
-    marginBottom: 6,
-    borderWidth: 0.5,
-    borderRadius: 12,
-  },
-  recommendationLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    flex: 1,
-  },
-  avatarsStack: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  avatarContainer: {
-    borderWidth: 2,
-    borderRadius: 14,
-  },
-  avatar: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
-  avatarText: {
-    fontSize: 11,
-    fontWeight: '700',
+    marginTop: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
   },
   recommendationContent: {
     flex: 1,
   },
-  recommendationUsers: {
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  recommendationLabel: {
     fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  avatarsStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+  },
+  avatarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  avatarSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  avatarSmallText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  avatarUsername: {
+    fontSize: 12,
     fontWeight: '600',
+    maxWidth: 90,
+  },
+  avatarsScrollContainer: {
+    marginRight: -16,
+    paddingRight: 16,
   },
   dateModalOverlay: {
     flex: 1,

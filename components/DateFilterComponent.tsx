@@ -96,11 +96,28 @@ export default function DateFilterComponent({
   return (
     <View>
       <TouchableOpacity
-        style={[styles.filterButton, { backgroundColor }]}
+        style={[
+          styles.filterButton,
+          {
+            backgroundColor,
+            shadowColor: backgroundColor === accentColor ? accentColor : 'transparent',
+            shadowOffset: { width: 0, height: 4 },
+            shadowOpacity: backgroundColor === accentColor ? 0.25 : 0,
+            shadowRadius: 8,
+            elevation: backgroundColor === accentColor ? 5 : 1,
+            borderWidth: backgroundColor === accentColor ? 0 : 1.5,
+            borderColor: backgroundColor === accentColor ? 'transparent' : borderColor,
+          },
+        ]}
         onPress={() => setModalVisible(true)}
       >
-        <Ionicons name="calendar-outline" size={18} color={textColor} style={{ marginTop: -3 }} />
-        <Text style={[styles.filterText, { color: textColor, marginTop: -1 }]}>{t('Date')}</Text>
+        <Ionicons name="calendar-outline" size={18} color={textColor} />
+        <Text style={[styles.filterText, { color: textColor }]}>{t('Date')}</Text>
+        {backgroundColor === accentColor && (
+          <View style={[styles.filterBadge, { backgroundColor: textColor + '40' }]}>
+            <Text style={styles.filterBadgeText}>✓</Text>
+          </View>
+        )}
       </TouchableOpacity>
 
       <Modal visible={modalVisible} transparent animationType="fade">
@@ -185,14 +202,27 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 12,
-    marginHorizontal: 4,
-    minHeight: 38,
+    marginHorizontal: 0,
+    minHeight: 40,
   },
   filterText: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  filterBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
     fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
   modalOverlay: {
     flex: 1,
