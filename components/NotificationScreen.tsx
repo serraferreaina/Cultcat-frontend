@@ -119,8 +119,7 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
   // Verificar i eliminar notificacions d'usuaris eliminats
   const checkAndCleanupDeletedUsers = async (notificationsList: Notification[]) => {
     const connectionNotifications = notificationsList.filter(
-      (n) =>
-        n.type === 'connection_request_received' || n.type === 'connection_request_accepted',
+      (n) => n.type === 'connection_request_received' || n.type === 'connection_request_accepted',
     );
 
     for (const notification of connectionNotifications) {
