@@ -38,7 +38,7 @@ export default function ChatList() {
   const [groupName, setGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
+  const [connectionsList, setConnectionsList] = useState<any[]>([]);
   const [chats, setChats] = useState<any[]>([]);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function ChatList() {
           getProfile(), // TU
         ]);
 
-        setUsers(usersResponse);
+        setConnectionsList(connections); // Only use connections for group creation
         setCurrentUserId(profile.id);
 
         // 2️⃣ afegim avatar correcte a cada xat individual
@@ -59,7 +59,7 @@ export default function ChatList() {
           // xat individual → busquem l'altre usuari
           const other = chat.participants.find((p: any) => p.id !== currentUserId);
 
-          const fullUser = users.find((u: any) => u.id === other?.id);
+          const fullUser = usersResponse.find((u: any) => u.id === other?.id);
 
           return {
             ...chat,
@@ -298,15 +298,17 @@ export default function ChatList() {
 
             {/* Llista de participants */}
             <FlatList
-              data={users}
-              keyExtractor={(u) => u.id.toString()}
+              data={connectionsList}
+              keyExtractor={(u) => u.user_id.toString()}
               renderItem={({ item }) => {
-                const selected = selectedUsers.includes(item.id);
+                const selected = selectedUsers.includes(item.user_id);
                 return (
                   <TouchableOpacity
                     onPress={() => {
                       setSelectedUsers((prev) =>
-                        selected ? prev.filter((id) => id !== item.id) : [...prev, item.id],
+                        selected
+                          ? prev.filter((id) => id !== item.user_id)
+                          : [...prev, item.user_id],
                       );
                     }}
                     style={{
