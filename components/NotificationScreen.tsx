@@ -1,5 +1,5 @@
 // components/NotificationScreen.tsx
-// Versió amb push notification quan s'obre la pantalla amb notificacions noves
+// Versió completa amb push notifications i gestió de connection_request_accepted
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
@@ -118,11 +118,11 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
   // Verificar i eliminar notificacions d'usuaris eliminats
   const checkAndCleanupDeletedUsers = async (notificationsList: Notification[]) => {
-    const connectionRequestNotifications = notificationsList.filter(
-      (n) => n.type === 'connection_request_received',
+    const connectionNotifications = notificationsList.filter(
+      (n) => n.type === 'connection_request_received' || n.type === 'connection_request_accepted',
     );
 
-    for (const notification of connectionRequestNotifications) {
+    for (const notification of connectionNotifications) {
       const userId = notification.payload.from_user_id;
       if (userId) {
         const userExists = await checkUserExists(userId);
@@ -133,16 +133,50 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
   };
 
+  // Obtenir username d'un usuari
+  const fetchUsername = async (userId: number): Promise<string | null> => {
+    try {
+      const response = await api(`/users/${userId}/`);
+      return response.username || null;
+    } catch (err) {
+      console.error(`Error fetching username for user ${userId}:`, err);
+      return null;
+    }
+  };
+
   // Obtenir notificacions del backend
   const fetchNotifications = async () => {
     setLoading(true);
     setError(null);
     try {
       const data = await api('/notifications/');
-      setNotifications(data);
+
+      // Enriquir notificacions amb usernames si cal
+      const enrichedNotifications = await Promise.all(
+        data.map(async (notification: Notification) => {
+          if (
+            (notification.type === 'connection_request_received' ||
+              notification.type === 'connection_request_accepted') &&
+            notification.payload.from_user_id &&
+            !notification.payload.from_username
+          ) {
+            const username = await fetchUsername(notification.payload.from_user_id);
+            return {
+              ...notification,
+              payload: {
+                ...notification.payload,
+                from_username: username || t('someone'),
+              },
+            };
+          }
+          return notification;
+        }),
+      );
+
+      setNotifications(enrichedNotifications);
 
       // Netejar notificacions d'usuaris eliminats després de carregar
-      await checkAndCleanupDeletedUsers(data);
+      await checkAndCleanupDeletedUsers(enrichedNotifications);
     } catch (err: any) {
       setError(err.message || t('error_loading_notifications'));
       console.error('Error fetching notifications:', err);
@@ -241,6 +275,9 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
       } else if (notification.type === 'connection_request_received') {
         title = `👥 ${t('new_connection_request')}`;
         body = `${notification.payload.from_username || t('someone')} ${t('wants_to_connect')}`;
+      } else if (notification.type === 'connection_request_accepted') {
+        title = `✅ ${t('connection_accepted')}`;
+        body = `${notification.payload.from_username || t('someone')} ${t('has_accepted_your_request')}`;
       } else if (notification.type === 'event_soon') {
         title = `📅 ${t('event_tomorrow')}`;
         body =
@@ -253,19 +290,22 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
           `${t('what_did_you_think')} '${notification.payload.title}'?`;
       }
 
-      await Notifications.scheduleNotificationAsync({
-        content: {
-          title,
-          body,
-          data: {
-            notificationId: notification.id,
-            type: notification.type,
+      // Només enviar si tenim títol i cos
+      if (title && body) {
+        await Notifications.scheduleNotificationAsync({
+          content: {
+            title,
+            body,
+            data: {
+              notificationId: notification.id,
+              type: notification.type,
+            },
+            sound: true,
+            priority: Notifications.AndroidNotificationPriority.HIGH,
           },
-          sound: true,
-          priority: Notifications.AndroidNotificationPriority.HIGH,
-        },
-        trigger: null,
-      });
+          trigger: null,
+        });
+      }
     } catch (error) {
       console.error('❌ Error sending push notification:', error);
     }
@@ -325,10 +365,14 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
     }
 
     if (notification.type === 'connection_request_received') {
-      return `${notification.payload.from_username || t('someone')} ${t('wants_to_connect')}`;
+      const username = notification.payload.from_username || t('someone');
+      return `${username} ${t('wants_to_connect')}`;
     }
 
-    // A getNotificationText i sendPushForNotification, canvia:
+    if (notification.type === 'connection_request_accepted') {
+      const username = notification.payload.from_username || t('someone');
+      return `${username} ${t('has_accepted_your_request')}`;
+    }
 
     if (notification.type === 'event_soon') {
       const eventTitle = notification.payload.title || t('an_event');
@@ -350,6 +394,8 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
         return 'trophy';
       case 'connection_request_received':
         return 'person-add';
+      case 'connection_request_accepted':
+        return 'checkmark-circle';
       case 'event_soon':
         return 'time-outline';
       case 'event_review_pending':
@@ -374,6 +420,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     if (notification.type === 'reward_unlocked') {
       return '#FFD700';
+    }
+
+    if (notification.type === 'connection_request_accepted') {
+      return '#4CAF50';
     }
 
     if (notification.type === 'event_soon') {
@@ -404,7 +454,10 @@ const NotificationsScreen: React.FC<NotificationsScreenProps> = ({
 
     if (notification.type === 'reward_unlocked') {
       await loadBadgeDetails(notification.reference_id);
-    } else if (notification.type === 'connection_request_received') {
+    } else if (
+      notification.type === 'connection_request_received' ||
+      notification.type === 'connection_request_accepted'
+    ) {
       const userId = notification.payload.from_user_id;
       if (!userId) {
         console.warn('No user ID in notification');

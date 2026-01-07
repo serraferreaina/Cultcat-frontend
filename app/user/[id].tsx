@@ -125,6 +125,11 @@ export default function PublicProfile() {
           setConnectionStatus('Connected');
           setActiveConnection({ connection_id: match.connection_id, chat_id: match.chat_id });
           setPendingRequestId(null);
+        } else if (normalized.connection_status === 'pending') {
+          // If status is pending (request sent by current user), keep it
+          setConnectionStatus('pending');
+          setPendingRequestId(null);
+          setActiveConnection(null);
         } else {
           // If not connected, check if there is a pending request received from this user
           try {
@@ -179,6 +184,7 @@ export default function PublicProfile() {
     try {
       setIsSending(true);
       await sendConnectionRequest(String(id));
+      setConnectionStatus('pending');
       showToastMessage(t('Connection request sent'));
     } catch (e) {
     } finally {
@@ -213,11 +219,19 @@ export default function PublicProfile() {
       showToastMessage(t('Connection deleted'));
       // Refresh full user and connections state after deletion
       await fetchUser();
+      // Reload page after brief delay to ensure UI updates properly
+      setTimeout(() => {
+        router.replace({
+          pathname: '/user/[id]',
+          params: { id: String(id) },
+        });
+      }, 500);
     } catch (e) {}
   };
 
   const getButtonText = () => {
     if (connectionStatus === 'Connected') return t('Connected');
+    if (connectionStatus === 'pending') return t('Request sent');
     if (pendingRequestId) return t('Approve connection');
     return t('Connect');
   };
@@ -263,35 +277,35 @@ export default function PublicProfile() {
                 {user.username}
               </Text>
 
-              <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
+              <Text style={{ fontSize: 16, marginBottom: 16, color: Colors.text }}>
                 {user.profile_description || t('This user has no description.')}
               </Text>
 
-              <View style={{ marginTop: 16 }}>
-                <View style={[styles.progressBg, { backgroundColor: Colors.background }]}>
-                  <View
-                    style={[styles.progressFill, { width: '60%', backgroundColor: Colors.accent }]}
-                  />
-                </View>
-                <Text style={[styles.progressHint, { color: Colors.muted }]}>900 pts.</Text>
-              </View>
-
-              {/* Connection actions */}
-              <View style={{ marginTop: 20 }}>
+              {/* Connection actions - Enhanced */}
+              <View style={styles.connectionSection}>
                 {connectionStatus === 'Connected' ? (
-                  <View>
+                  <View style={{ width: '100%' }}>
                     <TouchableOpacity
                       onPress={() => setShowConnectedMenu((v) => !v)}
-                      style={[styles.connectedRow, { borderColor: Colors.border }]}
+                      style={[
+                        styles.connectedRow,
+                        {
+                          borderColor: Colors.accent,
+                          backgroundColor: Colors.accent + '15',
+                        },
+                      ]}
                     >
-                      <Ionicons name="checkmark-circle" size={18} color={Colors.going} />
-                      <Text style={{ color: Colors.text, fontWeight: '700', marginLeft: 8 }}>
-                        {t('Connected')}
-                      </Text>
-                      <View style={{ flex: 1 }} />
+                      <View
+                        style={{ flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 }}
+                      >
+                        <Ionicons name="people" size={20} color={Colors.accent} />
+                        <Text style={[styles.connectedText, { color: Colors.text }]}>
+                          {t('Connected')}
+                        </Text>
+                      </View>
                       <Ionicons
                         name={showConnectedMenu ? 'chevron-up' : 'chevron-down'}
-                        size={18}
+                        size={20}
                         color={Colors.text}
                       />
                     </TouchableOpacity>
@@ -299,7 +313,14 @@ export default function PublicProfile() {
                       <View
                         style={[
                           styles.connectedMenu,
-                          { backgroundColor: Colors.card, borderColor: Colors.border },
+                          {
+                            backgroundColor: Colors.card,
+                            borderColor: Colors.border,
+                            shadowColor: Colors.shadow,
+                            shadowOpacity: 0.1,
+                            shadowRadius: 8,
+                            elevation: 3,
+                          },
                         ]}
                       >
                         <TouchableOpacity
@@ -314,17 +335,18 @@ export default function PublicProfile() {
                             }
                           }}
                         >
-                          <Ionicons name="chatbubbles-outline" size={16} color={Colors.text} />
-                          <Text style={{ color: Colors.text, marginLeft: 8 }}>
+                          <Ionicons name="chatbubble" size={18} color={Colors.accent} />
+                          <Text style={[styles.menuItemText, { color: Colors.text }]}>
                             {t('Send message')}
                           </Text>
                         </TouchableOpacity>
+                        <View style={[styles.menuDivider, { borderColor: Colors.border }]} />
                         <TouchableOpacity
                           style={styles.connectedMenuItem}
                           onPress={handleDeleteConnection}
                         >
-                          <Ionicons name="trash-outline" size={16} color={Colors.accent} />
-                          <Text style={{ color: Colors.accent, marginLeft: 8 }}>
+                          <Ionicons name="close-circle" size={18} color="#ff4444" />
+                          <Text style={[styles.menuItemText, { color: '#ff4444' }]}>
                             {t('Delete connection')}
                           </Text>
                         </TouchableOpacity>
@@ -333,60 +355,93 @@ export default function PublicProfile() {
                   </View>
                 ) : (
                   <TouchableOpacity
-                    disabled={isSending}
+                    disabled={isSending || connectionStatus === 'pending'}
                     onPress={pendingRequestId ? handleApproveRequest : handleSendRequest}
                     style={[
                       styles.actionBtn,
                       {
-                        backgroundColor: pendingRequestId ? Colors.going : Colors.accent,
+                        backgroundColor:
+                          connectionStatus === 'pending'
+                            ? Colors.muted
+                            : pendingRequestId
+                              ? Colors.going
+                              : Colors.accent,
+                        shadowColor:
+                          connectionStatus === 'pending'
+                            ? 'transparent'
+                            : pendingRequestId
+                              ? Colors.going
+                              : Colors.accent,
+                        shadowOpacity: connectionStatus === 'pending' ? 0 : 0.2,
+                        shadowRadius: connectionStatus === 'pending' ? 0 : 8,
+                        elevation: connectionStatus === 'pending' ? 0 : 4,
                       },
                     ]}
                   >
-                    <Text style={[styles.actionText, { color: Colors.card }]}>
-                      {getButtonText()}
-                    </Text>
+                    <Ionicons
+                      name={
+                        connectionStatus === 'pending'
+                          ? 'time-outline'
+                          : pendingRequestId
+                            ? 'checkmark'
+                            : 'person-add'
+                      }
+                      size={18}
+                      color="#fff"
+                      style={{ marginRight: 8 }}
+                    />
+                    <Text style={[styles.actionText, { color: '#fff' }]}>{getButtonText()}</Text>
                   </TouchableOpacity>
                 )}
               </View>
             </View>
           </View>
 
-          {/* Botó de compartir */}
+          {/* Botó de compartir - Enhanced */}
           <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: Colors.background }]}
+            style={[
+              styles.shareButton,
+              {
+                backgroundColor: Colors.accent,
+                shadowColor: Colors.accent,
+                shadowOpacity: 0.15,
+                shadowRadius: 6,
+              },
+            ]}
             onPress={() => setShareModalVisible(true)}
           >
-            <Ionicons name="share-social-outline" size={18} color={Colors.accent} />
-            <Text style={[styles.shareButtonText, { color: Colors.accent }]}>
-              {t('Share profile')}
-            </Text>
+            <Ionicons name="share-social" size={18} color="#fff" />
+            <Text style={[styles.shareButtonText, { color: '#fff' }]}>{t('Share profile')}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Insignias */}
-        <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <View
-            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+        {/* Insignias - Enhanced */}
+        <View
+          style={[styles.section, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}
+        >
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <Ionicons name="ribbon" size={24} color={Colors.accent} />
+              <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+            </View>
 
             {badges.length > 0 && (
               <TouchableOpacity
                 onPress={() =>
                   router.push({
                     pathname: '/badges',
-                    params: { userId: String(user.id) },
+                    params: { userId: String(user?.id) },
                   })
                 }
               >
-                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more')}</Text>
+                <Text style={[styles.seeMoreLink, { color: Colors.accent }]}>{t('See more')}</Text>
               </TouchableOpacity>
             )}
           </View>
 
           {badges.length === 0 ? (
             <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-              <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
+              <Ionicons name="ribbon-outline" size={32} color={Colors.muted} />
               <Text style={[styles.emptyText, { color: Colors.muted }]}>
                 {t('No achievements yet')}
               </Text>
@@ -507,104 +562,128 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   card: {
-    borderRadius: 16,
-    padding: SCREEN_WIDTH * 0.04,
+    borderRadius: 20,
+    padding: SCREEN_WIDTH * 0.045,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 3,
     marginBottom: 16,
   },
   topRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
+    marginBottom: 8,
   },
   avatar: {
-    width: SCREEN_WIDTH * 0.2,
-    height: SCREEN_WIDTH * 0.2,
-    borderRadius: SCREEN_WIDTH * 0.1,
+    width: SCREEN_WIDTH * 0.22,
+    height: SCREEN_WIDTH * 0.22,
+    borderRadius: SCREEN_WIDTH * 0.11,
     backgroundColor: '#DDD',
-  },
-  progressBg: {
-    height: 6,
-    borderRadius: 999,
-  },
-  progressFill: {
-    height: 6,
-    borderRadius: 999,
-  },
-  progressHint: {
-    fontSize: SCREEN_WIDTH * 0.032,
-    marginTop: 6,
-    textAlign: 'right',
   },
   shareButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 8,
-    marginTop: 16,
-    paddingVertical: 10,
-    borderRadius: 12,
+    gap: 10,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    elevation: 4,
   },
   shareButtonText: {
-    fontSize: SCREEN_WIDTH * 0.04,
-    fontWeight: '600',
+    fontSize: SCREEN_WIDTH * 0.042,
+    fontWeight: '700',
   },
   section: {
-    borderRadius: 16,
-    padding: SCREEN_WIDTH * 0.04,
+    borderRadius: 20,
+    padding: SCREEN_WIDTH * 0.045,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 3,
     marginBottom: 16,
   },
   sectionTitle: {
     fontWeight: '800',
-    fontSize: SCREEN_WIDTH * 0.042,
-    marginBottom: 10,
+    fontSize: SCREEN_WIDTH * 0.045,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  seeMoreLink: {
+    fontWeight: '600',
+    fontSize: 14,
   },
   emptyBox: {
-    borderRadius: 12,
-    paddingVertical: 18,
+    borderRadius: 14,
+    paddingVertical: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
-    marginTop: 6,
+    marginTop: 12,
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  connectionSection: {
+    marginTop: 20,
+    width: '100%',
   },
   actionText: {
     fontWeight: '700',
+    fontSize: 16,
   },
   actionBtn: {
-    flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    width: '100%',
+    flexDirection: 'row',
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowOffset: { width: 0, height: 3 },
   },
   connectedRow: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: SCREEN_WIDTH * 0.03,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    borderRadius: 14,
+    borderWidth: 2,
+  },
+  connectedText: {
+    fontWeight: '700',
+    fontSize: 16,
   },
   connectedMenu: {
-    marginTop: 8,
-    borderRadius: 10,
+    marginTop: 10,
+    borderRadius: 14,
     borderWidth: 1,
     overflow: 'hidden',
+    shadowOffset: { width: 0, height: 4 },
   },
   connectedMenuItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: SCREEN_WIDTH * 0.03,
+    paddingVertical: 14,
+    paddingHorizontal: 14,
+    gap: 10,
+  },
+  menuDivider: {
+    height: 1,
+    borderBottomWidth: 1,
+    marginHorizontal: 14,
+  },
+  menuItemText: {
+    fontWeight: '600',
+    fontSize: 15,
   },
   // Toast styles similar to profile screen
   toast: {

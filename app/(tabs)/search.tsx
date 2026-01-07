@@ -1228,7 +1228,11 @@ export default function CercaScreen() {
       <View
         style={[
           styles.filtersContainer,
-          { backgroundColor: 'transparent', borderBottomColor: Colors.border },
+          {
+            backgroundColor: Colors.card,
+            borderBottomColor: Colors.border,
+            borderBottomWidth: 1,
+          },
         ]}
       >
         <ScrollView
@@ -1244,11 +1248,20 @@ export default function CercaScreen() {
             <TouchableOpacity
               style={[
                 styles.filterButton,
-                { backgroundColor: '#fee', borderWidth: 1, borderColor: '#fcc' },
+                {
+                  backgroundColor: Colors.background,
+                  borderWidth: 1.5,
+                  borderColor: '#ff4444',
+                  shadowColor: '#ff4444',
+                  shadowOffset: { width: 0, height: 3 },
+                  shadowOpacity: 0.2,
+                  shadowRadius: 6,
+                  elevation: 3,
+                },
               ]}
               onPress={clearFilters}
             >
-              <Ionicons name="trash-outline" size={18} color="#d00" />
+              <Ionicons name="trash-outline" size={18} color="#ff4444" />
             </TouchableOpacity>
           )}
 
@@ -1257,7 +1270,13 @@ export default function CercaScreen() {
               styles.filterButton,
               {
                 backgroundColor: selectedMunicipi ? Colors.accent : Colors.card,
-                borderWidth: selectedMunicipi ? 0 : 0,
+                borderWidth: selectedMunicipi ? 0 : 1.5,
+                borderColor: Colors.border,
+                shadowColor: selectedMunicipi ? Colors.accent : 'transparent',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: selectedMunicipi ? 0.25 : 0,
+                shadowRadius: 8,
+                elevation: selectedMunicipi ? 5 : 1,
               },
             ]}
             onPress={() => setIsMunicipiModalVisible(true)}
@@ -1266,6 +1285,11 @@ export default function CercaScreen() {
             <Text style={[styles.filterText, { color: selectedMunicipi ? '#fff' : Colors.text }]}>
               {selectedMunicipi || t('Select municipality')}
             </Text>
+            {selectedMunicipi && (
+              <View style={[styles.filterBadge, { backgroundColor: '#fff' + '40' }]}>
+                <Text style={styles.filterBadgeText}>✓</Text>
+              </View>
+            )}
           </TouchableOpacity>
 
           <DateFilterComponent
@@ -1303,7 +1327,13 @@ export default function CercaScreen() {
               styles.filterButton,
               {
                 backgroundColor: selectedTopics.length > 0 ? Colors.accent : Colors.card,
-                borderWidth: selectedTopics.length > 0 ? 0 : 0,
+                borderWidth: selectedTopics.length > 0 ? 0 : 1.5,
+                borderColor: Colors.border,
+                shadowColor: selectedTopics.length > 0 ? Colors.accent : 'transparent',
+                shadowOffset: { width: 0, height: 4 },
+                shadowOpacity: selectedTopics.length > 0 ? 0.25 : 0,
+                shadowRadius: 8,
+                elevation: selectedTopics.length > 0 ? 5 : 1,
               },
             ]}
             onPress={() => setIsTopicsModalVisible(true)}
@@ -1317,6 +1347,11 @@ export default function CercaScreen() {
             >
               {t('Category')}
             </Text>
+            {selectedTopics.length > 0 && (
+              <View style={[styles.filterBadge, { backgroundColor: '#fff' + '40' }]}>
+                <Text style={styles.filterBadgeText}>{selectedTopics.length}</Text>
+              </View>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -1830,29 +1865,45 @@ const styles = StyleSheet.create({
     shadowRadius: 2,
   },
   filtersScroll: {
-    marginTop: 4,
+    marginTop: 0,
   },
   filtersRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'flex-start',
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
   },
   filterButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 12,
     borderRadius: 12,
-    marginHorizontal: 4,
+    marginHorizontal: 0,
+    position: 'relative',
+  },
+  filterBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  filterBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
   },
   dateButtonWrapper: {
     marginHorizontal: 4,
   },
   filterText: {
-    fontSize: 10,
+    fontSize: 12,
+    fontWeight: '600',
   },
   dateText: {
     marginTop: 12,

@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { View, Text, FlatList, ActivityIndicator, StyleSheet } from 'react-native';
+import { View, Text, FlatList, ActivityIndicator, StyleSheet, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
@@ -31,28 +31,75 @@ export default function PreviousEventsScreen() {
 
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const loadPreviousEvents = async () => {
     try {
+      setError(null);
       setLoading(true);
-
-      const savedEvents: SavedEvent[] = await getSavedEvents('wantToGo');
-
-      const detailedEvents = await Promise.all(savedEvents.map((e) => getEventById(e.event_id)));
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      const previousEvents = detailedEvents.filter((event) => {
-        if (!event?.start_date) return false;
+      // Fetch attended and wantToGo saved events
+      const [attended, wantToGo] = await Promise.all([
+        getSavedEvents('attended'),
+        getSavedEvents('wantToGo'),
+      ]);
 
-        const eventDate = new Date(event.start_date);
-        return eventDate < today;
+      // Filter wantToGo with attendance_date before today
+      const expiredWantToGo = (wantToGo || []).filter((e: SavedEvent) => {
+        if (!e.attendance_date) return false;
+        const d = new Date(e.attendance_date);
+        d.setHours(0, 0, 0, 0);
+        return d < today;
       });
 
-      setEvents(previousEvents);
+      // Combine both sets with a type marker
+      const combined = [
+        ...(attended || []).map((e: SavedEvent) => ({ type: 'attended' as const, meta: e })),
+        ...expiredWantToGo.map((e: SavedEvent) => ({ type: 'expired_wantToGo' as const, meta: e })),
+      ];
+
+      // Fetch full event details
+      const detailed = (
+        await Promise.all(
+          combined.map(async (entry) => {
+            try {
+              const ev = await getEventById(entry.meta.event_id);
+              return { ev, meta: entry.meta, type: entry.type };
+            } catch {
+              return null;
+            }
+          }),
+        )
+      ).filter(Boolean) as { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }[];
+
+      // Deduplicate by event id in case of overlaps
+      const byId = new Map<
+        number,
+        { ev: any; meta: SavedEvent; type: 'attended' | 'expired_wantToGo' }
+      >();
+      detailed.forEach((d) => {
+        if (!byId.has(d.ev.id)) byId.set(d.ev.id, d);
+      });
+
+      const unique = Array.from(byId.values());
+
+      // Sort by effective date: attendance_date if present, else created_at
+      unique.sort((a, b) => {
+        const daStr = a.meta.attendance_date || a.meta.created_at;
+        const dbStr = b.meta.attendance_date || b.meta.created_at;
+        const da = new Date(daStr).getTime();
+        const db = new Date(dbStr).getTime();
+        return db - da;
+      });
+
+      setEvents(unique.map((u) => u.ev));
     } catch (error) {
       console.error('❌ Error loading previous events:', error);
+      setError(t('There was a problem fetching events'));
     } finally {
       setLoading(false);
     }
@@ -64,6 +111,12 @@ export default function PreviousEventsScreen() {
       loadPreviousEvents();
     }, []),
   );
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadPreviousEvents();
+    setRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -80,21 +133,39 @@ export default function PreviousEventsScreen() {
           <Ionicons name="arrow-back" size={24} color={Colors.text} />
         </TouchableOpacity>
 
-        <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Previus events')}</Text>
+        <Text style={[styles.headerTitle, { color: Colors.text }]}>{t('Previous events')}</Text>
 
         {/* Spacer per centrar el títol */}
         <View style={{ width: 24 }} />
       </View>
-
-      {(events ?? []).length === 0 ? (
-        <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
-          {t('No previous events')}
-        </Text>
+      {error ? (
+        <View style={styles.center}>
+          <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>{error}</Text>
+          <TouchableOpacity onPress={loadPreviousEvents} style={{ marginTop: 12 }}>
+            <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('Retry')}</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (events ?? []).length === 0 ? (
+        <View style={styles.center}>
+          <Text style={[styles.emptyText, { color: Colors.textSecondary }]}>
+            {t('No attended events yet')}
+          </Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/search')} style={{ marginTop: 12 }}>
+            <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('Discover events')}</Text>
+          </TouchableOpacity>
+        </View>
       ) : (
         <FlatList
           data={events ?? []}
           keyExtractor={(item) => item.id.toString()}
           renderItem={({ item }) => <EventCard item={item} router={router} Colors={Colors} />}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              tintColor={Colors.accent}
+            />
+          }
           contentContainerStyle={{ paddingBottom: 20 }}
         />
       )}

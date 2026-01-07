@@ -375,16 +375,36 @@ export default function Profile() {
           </View>
         </View>
 
-        {/* Perfil */}
-        <View style={[styles.card, { backgroundColor: Colors.card }]}>
+        {/* Perfil Card - Enhanced */}
+        <View
+          style={[
+            styles.card,
+            {
+              backgroundColor: Colors.card,
+              shadowColor: Colors.shadow,
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 4,
+            },
+          ]}
+        >
           <View style={styles.topRow}>
-            <View>
+            <View style={styles.avatarContainer}>
               <Image
                 source={{ uri: user?.profile_picture ?? DEFAULT_AVATAR }}
                 style={styles.avatar}
               />
-              <TouchableOpacity style={styles.addPhoto} onPress={pickImage}>
-                <Ionicons name="add" size={16} color={Colors.accent} />
+              <TouchableOpacity
+                style={[
+                  styles.addPhoto,
+                  {
+                    backgroundColor: Colors.accent,
+                    borderColor: Colors.card,
+                  },
+                ]}
+                onPress={pickImage}
+              >
+                <Ionicons name="add" size={16} color="#fff" />
               </TouchableOpacity>
             </View>
 
@@ -392,95 +412,256 @@ export default function Profile() {
               <Text
                 style={{
                   marginTop: 10,
-                  marginBottom: 10,
-                  fontSize: 15,
-                  fontWeight: '600',
+                  marginBottom: 6,
+                  fontSize: 17,
+                  fontWeight: '700',
                   color: Colors.text,
                 }}
               >
                 {user?.username}
               </Text>
 
-              <Text style={{ fontSize: 16, marginBottom: -10, color: Colors.text }}>
+              <Text
+                style={{
+                  fontSize: 14,
+                  marginBottom: 12,
+                  color: Colors.muted,
+                  lineHeight: 20,
+                }}
+                numberOfLines={2}
+              >
                 {user?.profile_description || t('No description added yet')}
               </Text>
 
-              <Text style={[styles.points, { color: Colors.text }]}></Text>
               <TouchableOpacity
-                style={[styles.pastBtn, { backgroundColor: Colors.background }]}
-                activeOpacity={0.8}
+                style={[
+                  styles.pastBtn,
+                  {
+                    backgroundColor: Colors.background,
+                    borderWidth: 1.5,
+                    borderColor: Colors.accent,
+                  },
+                ]}
+                activeOpacity={0.7}
                 onPress={() => router.push('/previous_events')}
               >
-                <Text style={[styles.pastBtnText, { color: Colors.accent }]}>
-                  {t('Previus events')}
+                <Ionicons name="time-outline" size={14} color={Colors.accent} />
+                <Text style={[styles.pastBtnText, { color: Colors.accent, marginLeft: 4 }]}>
+                  {t('Previous events')}
                 </Text>
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Acciones */}
+          {/* Actions - Enhanced */}
           <View style={styles.actionsRow}>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: Colors.background }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: Colors.background,
+                  borderWidth: 1.5,
+                  borderColor: Colors.border,
+                  shadowColor: 'transparent',
+                },
+              ]}
               onPress={() => router.push('/userconfig')}
+              activeOpacity={0.7}
             >
-              <Ionicons name="pencil-outline" size={16} color={Colors.text} />
-              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
-                {t('Edit')}
+              <Ionicons name="pencil-outline" size={17} color={Colors.accent} />
+              <Text style={[styles.actionText, { color: Colors.accent, marginLeft: 6 }]}>
+                {t('Edit Profile')}
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.actionBtn, { backgroundColor: Colors.background }]}
+              style={[
+                styles.actionBtn,
+                {
+                  backgroundColor: Colors.accent,
+                  shadowColor: Colors.accent,
+                  shadowOpacity: 0.15,
+                  shadowRadius: 8,
+                  elevation: 3,
+                },
+              ]}
               onPress={openConnectionsModal}
+              activeOpacity={0.8}
             >
-              <Ionicons name="people-outline" size={16} color={Colors.text} />
-              <Text style={[styles.actionText, { color: Colors.text, marginLeft: 4 }]}>
+              <Ionicons name="people" size={17} color="#fff" />
+              <Text style={[styles.actionText, { color: '#fff', marginLeft: 6 }]}>
                 {t('Connections')}
               </Text>
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Insignias */}
-        <View style={[styles.section, { backgroundColor: Colors.card }]}>
-          <View
-            style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}
-          >
-            <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+        {/* Insignias Section - Enhanced A LOT */}
+        <View
+          style={[
+            styles.section,
+            {
+              backgroundColor: Colors.card,
+              shadowColor: Colors.shadow,
+              shadowOpacity: 0.1,
+              shadowRadius: 12,
+              elevation: 4,
+            },
+          ]}
+        >
+          <View style={styles.sectionHeader}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <View
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 12,
+                  backgroundColor: Colors.accent + '20',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <Ionicons name="ribbon" size={22} color={Colors.accent} />
+              </View>
+              <Text style={[styles.sectionTitle, { color: Colors.text }]}>{t('Achivements')}</Text>
+            </View>
 
             {badges.length > 0 && (
-              <TouchableOpacity onPress={() => router.push('/badges')}>
-                <Text style={{ color: Colors.accent, fontWeight: '600' }}>{t('See more...')}</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/badges')}
+                style={{
+                  backgroundColor: Colors.accent + '15',
+                  paddingHorizontal: 12,
+                  paddingVertical: 6,
+                  borderRadius: 10,
+                }}
+              >
+                <Text style={{ color: Colors.accent, fontWeight: '700', fontSize: 12 }}>
+                  {t('See more')}
+                </Text>
               </TouchableOpacity>
             )}
           </View>
 
           {badges.length === 0 ? (
-            <View style={[styles.emptyBox, { backgroundColor: Colors.background }]}>
-              <Ionicons name="ribbon-outline" size={20} color={Colors.muted} />
-              <Text style={[styles.emptyText, { color: Colors.muted }]}>
+            <View
+              style={[
+                styles.emptyBox,
+                {
+                  backgroundColor: Colors.background,
+                  borderRadius: 16,
+                  borderWidth: 1.5,
+                  borderColor: Colors.border,
+                  paddingVertical: 40,
+                },
+              ]}
+            >
+              <View
+                style={{
+                  width: 70,
+                  height: 70,
+                  borderRadius: 16,
+                  backgroundColor: Colors.accent + '15',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: 12,
+                }}
+              >
+                <Ionicons name="ribbon-outline" size={36} color={Colors.accent} />
+              </View>
+              <Text
+                style={[styles.emptyText, { color: Colors.muted, fontSize: 15, fontWeight: '600' }]}
+              >
                 {t('No achievements yet')}
+              </Text>
+              <Text
+                style={{
+                  color: Colors.muted,
+                  fontSize: 13,
+                  marginTop: 8,
+                  lineHeight: 18,
+                  textAlign: 'center',
+                }}
+              >
+                {t('Complete events and activities to earn badges!')}
               </Text>
             </View>
           ) : (
-            <View style={styles.badgesGrid}>
-              {badges.slice(0, 6).map((badge, index) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.badgeItem}
-                  onPress={() => openBadgeModal(badge)}
-                >
-                  <Image
-                    source={{ uri: badge.icon }}
-                    style={{ width: 60, height: 60, borderRadius: 8 }}
-                  />
-                  <Text
-                    style={{ fontSize: 12, marginTop: 4, color: Colors.text, textAlign: 'center' }}
+            <View>
+              <View style={styles.badgesGrid}>
+                {badges.slice(0, 6).map((badge, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      styles.badgeItem,
+                      {
+                        backgroundColor: Colors.background,
+                        borderRadius: 16,
+                        borderWidth: 1.5,
+                        borderColor: Colors.border,
+                        paddingVertical: 12,
+                        shadowColor: Colors.shadow,
+                        shadowOpacity: 0.06,
+                        shadowRadius: 6,
+                        elevation: 1,
+                      },
+                    ]}
+                    onPress={() => openBadgeModal(badge)}
+                    activeOpacity={0.7}
                   >
-                    {t(badge.name)}
+                    <View
+                      style={{
+                        width: 65,
+                        height: 65,
+                        borderRadius: 14,
+                        backgroundColor: Colors.accent + '15',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginBottom: 8,
+                      }}
+                    >
+                      <Image
+                        source={{ uri: badge.icon }}
+                        style={{ width: 50, height: 50, borderRadius: 10 }}
+                      />
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '600',
+                        color: Colors.text,
+                        textAlign: 'center',
+                      }}
+                      numberOfLines={2}
+                    >
+                      {t(badge.name)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {badges.length > 6 && (
+                <TouchableOpacity
+                  style={[
+                    styles.seeMoreBtn,
+                    {
+                      backgroundColor: Colors.accent + '15',
+                      borderColor: Colors.accent,
+                    },
+                  ]}
+                  onPress={() => router.push('/badges')}
+                  activeOpacity={0.7}
+                >
+                  <Text
+                    style={{
+                      color: Colors.accent,
+                      fontWeight: '700',
+                      fontSize: 14,
+                    }}
+                  >
+                    +{badges.length - 6} {t('more')}
                   </Text>
                 </TouchableOpacity>
-              ))}
+              )}
             </View>
           )}
         </View>
@@ -494,52 +675,286 @@ export default function Profile() {
         animationType="fade"
         onRequestClose={closeBadgeModal}
       >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalContent, { backgroundColor: Colors.card }]}>
-            {selectedBadge && (
-              <>
-                <Image
-                  source={{ uri: selectedBadge.icon }}
-                  style={{ width: 100, height: 100, alignSelf: 'center', marginBottom: 16 }}
-                />
+        <View style={[styles.modalOverlay, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+          <TouchableWithoutFeedback onPress={closeBadgeModal}>
+            <View style={{ flex: 1 }} />
+          </TouchableWithoutFeedback>
 
+          <View
+            style={[
+              styles.modalContent,
+              {
+                backgroundColor: Colors.card,
+                shadowColor: Colors.shadow,
+                shadowOpacity: 0.25,
+                shadowRadius: 20,
+                elevation: 15,
+              },
+            ]}
+          >
+            {selectedBadge && (
+              <ScrollView
+                scrollEnabled={true}
+                bounces={false}
+                showsVerticalScrollIndicator={false}
+                contentContainerStyle={{ paddingBottom: 20 }}
+              >
+                {/* Close Button */}
+                <TouchableOpacity onPress={closeBadgeModal} style={styles.modalCloseButton}>
+                  <Ionicons name="close" size={24} color={Colors.text} />
+                </TouchableOpacity>
+
+                {/* Badge Icon Container - Enhanced */}
+                <View
+                  style={{
+                    width: 140,
+                    height: 140,
+                    borderRadius: 24,
+                    backgroundColor: Colors.accent + '20',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    alignSelf: 'center',
+                    marginBottom: 24,
+                    shadowColor: Colors.accent,
+                    shadowOpacity: 0.2,
+                    shadowRadius: 10,
+                    elevation: 5,
+                  }}
+                >
+                  <Image
+                    source={{ uri: selectedBadge.icon }}
+                    style={{ width: 110, height: 110, borderRadius: 18 }}
+                  />
+                </View>
+
+                {/* Badge Name - Enhanced */}
                 <Text
                   style={{
-                    fontSize: 22,
-                    fontWeight: 'bold',
+                    fontSize: 26,
+                    fontWeight: '800',
                     color: Colors.text,
                     textAlign: 'center',
+                    marginBottom: 4,
+                    letterSpacing: 0.5,
                   }}
                 >
                   {t(selectedBadge.name)}
                 </Text>
 
-                <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                {/* Badge Level - Enhanced */}
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: 12,
+                    marginBottom: 20,
+                    paddingHorizontal: 16,
+                  }}
                 >
-                  🏅 {selectedBadge.level_label} · {t('Nivell')} {selectedBadge.level}
-                </Text>
+                  <View
+                    style={{
+                      backgroundColor: Colors.going + '25',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Ionicons name="star-half" size={16} color={Colors.going} />
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: Colors.going,
+                      }}
+                    >
+                      {selectedBadge.level_label}
+                    </Text>
+                  </View>
 
-                <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
+                  <View
+                    style={{
+                      backgroundColor: Colors.accent + '25',
+                      paddingHorizontal: 12,
+                      paddingVertical: 6,
+                      borderRadius: 10,
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                      gap: 6,
+                    }}
+                  >
+                    <Ionicons name="medal" size={16} color={Colors.accent} />
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        fontWeight: '700',
+                        color: Colors.accent,
+                      }}
+                    >
+                      {t('Level')} {selectedBadge.level}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Divider */}
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: Colors.border,
+                    marginBottom: 20,
+                  }}
+                />
+
+                {/* Details Grid - Enhanced */}
+                <View style={{ gap: 14, marginBottom: 20 }}>
+                  <View
+                    style={{
+                      backgroundColor: Colors.background,
+                      padding: 14,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: Colors.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: Colors.accent + '20',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="bookmark" size={18} color={Colors.accent} />
+                      </View>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: Colors.muted,
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {t('Category')}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: '700',
+                        color: Colors.text,
+                        marginLeft: 46,
+                      }}
+                    >
+                      {selectedBadge.category}
+                    </Text>
+                  </View>
+
+                  <View
+                    style={{
+                      backgroundColor: Colors.background,
+                      padding: 14,
+                      borderRadius: 14,
+                      borderWidth: 1,
+                      borderColor: Colors.border,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: 10,
+                        marginBottom: 6,
+                      }}
+                    >
+                      <View
+                        style={{
+                          width: 36,
+                          height: 36,
+                          borderRadius: 10,
+                          backgroundColor: Colors.going + '20',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Ionicons name="calendar" size={18} color={Colors.going} />
+                      </View>
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: Colors.muted,
+                          fontWeight: '600',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.5,
+                        }}
+                      >
+                        {t('Obtained at')}
+                      </Text>
+                    </View>
+                    <Text
+                      style={{
+                        fontSize: 15,
+                        fontWeight: '700',
+                        color: Colors.text,
+                        marginLeft: 46,
+                      }}
+                    >
+                      {new Date(selectedBadge.obtained_at).toLocaleDateString(i18n.language, {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                      })}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Close Button - Enhanced */}
+                <TouchableOpacity
+                  onPress={closeBadgeModal}
+                  style={[
+                    styles.modalButton,
+                    {
+                      backgroundColor: Colors.accent,
+                      shadowColor: Colors.accent,
+                      shadowOpacity: 0.15,
+                      shadowRadius: 8,
+                      elevation: 3,
+                    },
+                  ]}
+                  activeOpacity={0.8}
                 >
-                  ⭐ {t('Category')}: {selectedBadge.category}
-                </Text>
-
-                <Text
-                  style={{ fontSize: 14, textAlign: 'center', color: Colors.muted, marginTop: 8 }}
-                >
-                  📅 {t('Obtained at')}: {new Date(selectedBadge.obtained_at).toLocaleDateString()}
-                </Text>
-
-                <TouchableOpacity onPress={closeBadgeModal} style={styles.modalButton}>
-                  <Text style={{ color: '#fff', fontWeight: 'bold', textAlign: 'center' }}>
+                  <Text
+                    style={{
+                      color: '#fff',
+                      fontWeight: '700',
+                      textAlign: 'center',
+                      fontSize: 16,
+                      letterSpacing: 0.5,
+                    }}
+                  >
                     {t('Close')}
                   </Text>
                 </TouchableOpacity>
-              </>
+              </ScrollView>
             )}
           </View>
+
+          <TouchableWithoutFeedback onPress={closeBadgeModal}>
+            <View style={{ flex: 0.3 }} />
+          </TouchableWithoutFeedback>
         </View>
       </Modal>
       {user && (
@@ -644,8 +1059,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   username: {
-    fontSize: 22,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: '800',
+    letterSpacing: -0.5,
   },
   headerIcons: {
     flexDirection: 'row',
@@ -665,7 +1081,7 @@ const styles = StyleSheet.create({
     right: SCREEN_WIDTH * 0.04,
     top: 50,
     padding: 14,
-    borderRadius: 14,
+    borderRadius: 16,
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: 4 },
@@ -684,96 +1100,127 @@ const styles = StyleSheet.create({
   },
   menuItemText: {
     fontSize: SCREEN_WIDTH * 0.04,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   menuDivider: {
     height: 1,
     marginVertical: 8,
   },
   card: {
-    borderRadius: 16,
-    padding: SCREEN_WIDTH * 0.04,
+    borderRadius: 20,
+    padding: SCREEN_WIDTH * 0.045,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
     marginBottom: 16,
   },
   topRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
+  },
+  avatarContainer: {
+    position: 'relative',
   },
   avatar: {
-    width: SCREEN_WIDTH * 0.2,
-    height: SCREEN_WIDTH * 0.2,
-    borderRadius: SCREEN_WIDTH * 0.1,
+    width: SCREEN_WIDTH * 0.22,
+    height: SCREEN_WIDTH * 0.22,
+    borderRadius: SCREEN_WIDTH * 0.11,
     backgroundColor: '#DDD',
+    borderWidth: 3,
   },
   addPhoto: {
     position: 'absolute',
-    right: -2,
-    bottom: -2,
-    width: SCREEN_WIDTH * 0.062,
-    height: SCREEN_WIDTH * 0.062,
-    borderRadius: SCREEN_WIDTH * 0.031,
+    right: -4,
+    bottom: -4,
+    width: SCREEN_WIDTH * 0.08,
+    height: SCREEN_WIDTH * 0.08,
+    borderRadius: SCREEN_WIDTH * 0.04,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E1DA',
+    borderWidth: 3,
   },
   points: {},
   pastBtn: {
     alignSelf: 'flex-start',
-    marginTop: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
+    marginTop: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   pastBtnText: {
     fontWeight: '700',
-    paddingBottom: 2,
-    paddingTop: 2,
+    fontSize: 13,
   },
   actionsRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 14,
+    marginTop: 16,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 10,
-    borderRadius: 12,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
     flexDirection: 'row',
   },
   actionText: {
     fontWeight: '700',
+    fontSize: 15,
   },
   section: {
-    borderRadius: 16,
-    padding: SCREEN_WIDTH * 0.04,
+    borderRadius: 20,
+    padding: SCREEN_WIDTH * 0.045,
     shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 4 },
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 16,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 16,
   },
   sectionTitle: {
     fontWeight: '800',
-    fontSize: SCREEN_WIDTH * 0.042,
-    marginBottom: 10,
+    fontSize: SCREEN_WIDTH * 0.048,
+    letterSpacing: -0.3,
+  },
+  sectionLink: {
+    fontWeight: '600',
+    fontSize: 12,
+  },
+  seeMoreBtn: {
+    marginTop: 16,
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    flexDirection: 'row',
+  },
+  seeMoreLink: {
+    fontWeight: '600',
+    fontSize: 14,
   },
   emptyBox: {
-    borderRadius: 12,
-    paddingVertical: 18,
+    borderRadius: 16,
+    paddingVertical: 40,
     alignItems: 'center',
     justifyContent: 'center',
   },
   emptyText: {
-    marginTop: 6,
+    marginTop: 12,
+    fontSize: 16,
+    fontWeight: '600',
   },
   notification: {
     flexDirection: 'row',
@@ -782,7 +1229,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     marginTop: 8,
     marginHorizontal: SCREEN_WIDTH * 0.04,
-    borderRadius: 10,
+    borderRadius: 12,
     gap: 10,
     zIndex: 1001,
   },
@@ -795,30 +1242,43 @@ const styles = StyleSheet.create({
   badgesGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    marginTop: 10,
-    gap: 15,
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 12,
   },
   badgeItem: {
-    width: '30%',
+    width: '31%',
     alignItems: 'center',
-    marginBottom: 12,
   },
   modalOverlay: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: 'rgba(0,0,0,0.7)',
   },
   modalContent: {
-    width: '80%',
-    borderRadius: 20,
-    padding: 20,
+    width: '92%',
+    borderRadius: 28,
+    padding: 24,
+    paddingTop: 20,
+    marginBottom: 20,
+    maxHeight: '85%',
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
   },
   modalButton: {
-    marginTop: 20,
-    padding: 12,
-    borderRadius: 10,
+    marginTop: 12,
+    padding: 16,
+    borderRadius: 14,
     backgroundColor: '#6C5CE7',
   },
   modalScreen: {
@@ -867,12 +1327,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: SCREEN_WIDTH * 0.03,
     paddingVertical: 12,
     marginBottom: 8,
-    borderRadius: 12,
+    borderRadius: 14,
     shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 1 },
-    shadowRadius: 3,
-    elevation: 1,
+    shadowOpacity: 0.08,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 2,
   },
   connectionAvatar: {
     width: SCREEN_WIDTH * 0.13,
@@ -891,7 +1351,7 @@ const styles = StyleSheet.create({
   },
   connectionUsername: {
     fontSize: SCREEN_WIDTH * 0.04,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   connectionChatName: {
     fontSize: SCREEN_WIDTH * 0.035,

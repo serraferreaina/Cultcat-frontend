@@ -25,6 +25,7 @@ import CommentSection from '../../components/CommentSection';
 import ReviewSection from '../../components/ReviewSection';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { api } from '../../api';
+import { getUsers } from '../../api/users';
 import NotificationsScreen from '../../components/NotificationScreen';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
@@ -47,6 +48,10 @@ interface Events {
   infoHorari?: string | null;
   telefon?: string | null;
   email?: string | null;
+  // Friends feed metadata
+  recommended_by?: Array<{ username: string; profile_picture?: string }>;
+  recommended_by_count?: number;
+  score?: number | null;
 }
 
 interface PointsImages {
@@ -322,6 +327,64 @@ const FeedCard: React.FC<FeedCardProps> = ({
   return (
     <>
       <View style={[styles.card, { backgroundColor: Colors.card, shadowColor: Colors.shadow }]}>
+        {/* Recommendation Badge - Enhanced */}
+        {item.recommended_by && item.recommended_by.length > 0 && (
+          <View
+            style={[
+              styles.recommendationRow,
+              {
+                borderColor: Colors.accent + '30',
+                backgroundColor: Colors.accent + '10',
+              },
+            ]}
+          >
+            <View style={styles.recommendationContent}>
+              <View style={styles.recommendationHeader}>
+                <Ionicons name="heart" size={18} color={Colors.accent} />
+                <Text style={[styles.recommendationLabel, { color: Colors.accent }]}>
+                  {t('Recommended')}
+                </Text>
+              </View>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={false}
+                style={styles.avatarsScrollContainer}
+              >
+                {item.recommended_by
+                  .filter((user) => user && user.username)
+                  .map((user, index) => (
+                    <View
+                      key={user.username}
+                      style={[
+                        styles.avatarPill,
+                        {
+                          marginLeft: index > 0 ? 6 : 0,
+                          borderColor: Colors.card,
+                        },
+                      ]}
+                    >
+                      {user.profile_picture ? (
+                        <Image source={{ uri: user.profile_picture }} style={styles.avatarSmall} />
+                      ) : (
+                        <View style={[styles.avatarSmall, { backgroundColor: Colors.accent }]}>
+                          <Text style={[styles.avatarSmallText, { color: Colors.card }]}>
+                            {user.username?.charAt(0).toUpperCase() || '?'}
+                          </Text>
+                        </View>
+                      )}
+                      <Text
+                        style={[styles.avatarUsername, { color: Colors.text }]}
+                        numberOfLines={1}
+                      >
+                        {user.username || 'Unknown'}
+                      </Text>
+                    </View>
+                  ))}
+              </ScrollView>
+            </View>
+          </View>
+        )}
+
         {/* Header */}
         <View style={styles.cardHeader}>
           <TouchableOpacity onPress={() => router.push(`../events/${item.id}`)} style={{ flex: 1 }}>
@@ -514,7 +577,7 @@ export default function Home() {
   const Colors = theme === 'dark' ? DarkColors : LightColors;
   const router = useRouter();
 
-  const [selectedFeed, setSelectedFeed] = useState('paraTi');
+  const [selectedFeed, setSelectedFeed] = useState('siguiendo');
   const [isDropdownVisible, setIsDropdownVisible] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(3);
   const [events, setEvents] = useState<Events[]>([]);
@@ -679,8 +742,32 @@ export default function Home() {
       // Handle different response formats
       let allEvents: Events[] = [];
       if (selectedFeed === 'siguiendo') {
-        // Friends endpoint returns: { event: {...}, recommended_by: "username", score: 0.42 }
-        allEvents = (data.results || []).map((item: any) => item.event);
+        // Friends endpoint returns: { event: {...}, recommended_by: [{username, profile_picture}], recommended_by_count: 1, score: 0.42 }
+        // Fetch all users to get profile pictures
+        const allUsers = await getUsers();
+
+        allEvents = (data.results || []).map((item: any) => {
+          const recommendedByWithPics = Array.isArray(item.recommended_by)
+            ? item.recommended_by.map((user: any) => {
+                const username = typeof user === 'string' ? user : user.username || user;
+                // Find user in allUsers list by exact username match
+                const userDetails = allUsers.find((u: any) => u.username === username);
+                return {
+                  username: username,
+                  profile_picture: userDetails?.profilePic || undefined,
+                };
+              })
+            : [];
+
+          return {
+            ...item.event,
+            recommended_by: recommendedByWithPics,
+            recommended_by_count:
+              item.recommended_by_count ??
+              (Array.isArray(item.recommended_by) ? item.recommended_by.length : 0),
+            score: item.score ?? null,
+          };
+        });
       } else {
         allEvents = data.results || data || [];
       }
@@ -1216,21 +1303,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(128, 128, 128, 0.1)',
+    marginTop: 8,
+    gap: 12,
   },
   leftFooter: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   button: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20 },
   buttonText: { fontWeight: '600', fontSize: 13 },
   actionButton: {
-    paddingVertical: 8,
-    paddingHorizontal: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
     borderRadius: 20,
-    minWidth: 100,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
   },
   actionButtonText: {
-    fontWeight: '600',
-    fontSize: 12,
+    fontWeight: '700',
+    fontSize: 14,
   },
   messageText: {
     fontSize: 12,
@@ -1239,12 +1335,76 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     textAlign: 'center',
   },
-  descriptionText: { fontSize: 14, marginTop: 4, marginHorizontal: 12, marginBottom: 12 },
-  seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 12, marginBottom: 12 },
+  descriptionText: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginHorizontal: 16,
+    marginTop: 10,
+    marginBottom: 2,
+  },
+  seeMore: { fontSize: 14, fontWeight: '600', marginHorizontal: 16, marginBottom: 12 },
   cardHeader: {
     paddingHorizontal: 12,
     paddingTop: 12,
     paddingBottom: 8,
+  },
+  recommendationRow: {
+    marginTop: 0,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+  },
+  recommendationContent: {
+    flex: 1,
+  },
+  recommendationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  recommendationLabel: {
+    fontSize: 13,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  avatarsStack: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+  },
+  avatarPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  avatarSmall: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+  },
+  avatarSmallText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  avatarUsername: {
+    fontSize: 12,
+    fontWeight: '600',
+    maxWidth: 90,
+  },
+  avatarsScrollContainer: {
+    marginRight: -16,
+    paddingRight: 16,
   },
   dateModalOverlay: {
     flex: 1,
