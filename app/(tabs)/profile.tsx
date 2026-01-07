@@ -394,18 +394,7 @@ export default function Profile() {
                 source={{ uri: user?.profile_picture ?? DEFAULT_AVATAR }}
                 style={styles.avatar}
               />
-              <TouchableOpacity
-                style={[
-                  styles.addPhoto,
-                  {
-                    backgroundColor: Colors.accent,
-                    borderColor: Colors.card,
-                  },
-                ]}
-                onPress={pickImage}
-              >
-                <Ionicons name="add" size={16} color="#fff" />
-              </TouchableOpacity>
+              {/* Add photo button removed as requested */}
             </View>
 
             <View style={{ flex: 1, marginLeft: 16 }}>
