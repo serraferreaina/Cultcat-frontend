@@ -344,7 +344,24 @@ const FeedCard: React.FC<FeedCardProps> = ({
                 <Text style={[styles.recommendationLabel, { color: Colors.accent }]}>
                   {t('Recommended')}
                 </Text>
+                <View
+                  style={[
+                    styles.chip,
+                    {
+                      borderColor: Colors.accent + '50',
+                      backgroundColor: Colors.accent + '15',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    },
+                  ]}
+                >
+                  <Ionicons name="people" size={12} color={Colors.accent} />
+                  <Text style={[styles.chipText, { color: Colors.accent, marginLeft: 4 }]}>
+                    {item.recommended_by_count ?? item.recommended_by.length}
+                  </Text>
+                </View>
               </View>
+
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
@@ -353,7 +370,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                 {item.recommended_by
                   .filter((user) => user && user.username)
                   .map((user, index) => (
-                    <View
+                    <TouchableOpacity
                       key={user.username}
                       style={[
                         styles.avatarPill,
@@ -362,6 +379,27 @@ const FeedCard: React.FC<FeedCardProps> = ({
                           borderColor: Colors.card,
                         },
                       ]}
+                      onPress={async () => {
+                        try {
+                          // Check using global.currentUser for consistency
+                          const currentUserId = global.currentUser?.id;
+                          const currentUsername = global.currentUser?.username;
+
+                          if (user.username === currentUsername) {
+                            router.push('../profile');
+                          } else {
+                            const allUsers = await getUsers();
+                            const userDetails = allUsers.find(
+                              (u: any) => u.username === user.username,
+                            );
+                            if (userDetails?.id) {
+                              router.push(`../user/${userDetails.id}`);
+                            }
+                          }
+                        } catch (error) {
+                          console.error('Error navigating to user:', error);
+                        }
+                      }}
                     >
                       {user.profile_picture ? (
                         <Image source={{ uri: user.profile_picture }} style={styles.avatarSmall} />
@@ -378,7 +416,7 @@ const FeedCard: React.FC<FeedCardProps> = ({
                       >
                         {user.username || 'Unknown'}
                       </Text>
-                    </View>
+                    </TouchableOpacity>
                   ))}
               </ScrollView>
             </View>
@@ -1499,5 +1537,15 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     lineHeight: 24,
+  },
+  chip: {
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+  },
+  chipText: {
+    fontSize: 11,
+    fontWeight: '700',
   },
 });
