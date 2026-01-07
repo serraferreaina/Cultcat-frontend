@@ -68,22 +68,38 @@ export default function ChatList() {
         });
 
         // 3️⃣ guardem a l’estat
-        setChats(chatsWithAvatar);
-
-        const individual = connections.map((c: any) => {
-          // busquem l'altre usuari (NO tu)
-          const otherUser = usersResponse.find(
-            (u: any) => u.id !== profile.id && u.id === c.user_id,
-          );
-
-          return {
-            id: c.chat_id,
-            username: c.username,
-            lastMessage: '',
-            profile: otherUser?.profilePic ?? null,
-            isGroup: false,
-          };
+        // Ordenem els xats per data de missatge més recent (descendent)
+        const sortedChats = [...chatsWithAvatar].sort((a: any, b: any) => {
+          const aTime = new Date(
+            a.last_message_time || a.updated_at || a.created_at || 0,
+          ).getTime();
+          const bTime = new Date(
+            b.last_message_time || b.updated_at || b.created_at || 0,
+          ).getTime();
+          return bTime - aTime;
         });
+        setChats(sortedChats);
+
+        const individual = connections
+          .map((c: any) => {
+            // busquem l'altre usuari (NO tu)
+            const otherUser = usersResponse.find(
+              (u: any) => u.id !== profile.id && u.id === c.user_id,
+            );
+
+            return {
+              id: c.chat_id,
+              username: c.username,
+              lastMessage: '',
+              profile: otherUser?.profilePic ?? null,
+              isGroup: false,
+              lastMessageTime: c.last_message_time || c.updated_at || c.created_at || 0,
+            };
+          })
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime(),
+          );
 
         const groups = chats
           .filter((c: any) => c.participants?.length > 2)
@@ -93,7 +109,12 @@ export default function ChatList() {
             lastMessage: '',
             profile: null, // els grups NO tenen foto d’usuari
             isGroup: true,
-          }));
+            lastMessageTime: c.last_message_time || c.updated_at || c.created_at || 0,
+          }))
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime(),
+          );
 
         setIndividualChats(individual);
         setGroupChats(groups);
