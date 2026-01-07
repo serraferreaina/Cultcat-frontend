@@ -49,7 +49,7 @@ export default function PreviousEventsScreen() {
       ]);
 
       // Filter wantToGo with attendance_date before today
-      const expiredWantToGo = (wantToGo || []).filter((e) => {
+      const expiredWantToGo = (wantToGo || []).filter((e: SavedEvent) => {
         if (!e.attendance_date) return false;
         const d = new Date(e.attendance_date);
         d.setHours(0, 0, 0, 0);
@@ -58,8 +58,8 @@ export default function PreviousEventsScreen() {
 
       // Combine both sets with a type marker
       const combined = [
-        ...(attended || []).map((e) => ({ type: 'attended' as const, meta: e })),
-        ...expiredWantToGo.map((e) => ({ type: 'expired_wantToGo' as const, meta: e })),
+        ...(attended || []).map((e: SavedEvent) => ({ type: 'attended' as const, meta: e })),
+        ...expiredWantToGo.map((e: SavedEvent) => ({ type: 'expired_wantToGo' as const, meta: e })),
       ];
 
       // Fetch full event details
