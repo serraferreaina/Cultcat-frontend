@@ -5,7 +5,15 @@ import reactNativePlugin from 'eslint-plugin-react-native';
 
 export default [
   {
-    ignores: ['node_modules/**', 'build/**', 'dist/**'],
+    // Skip config/build artifacts so ESLint doesn't try to type-check them with parserOptions.project
+    ignores: [
+      'node_modules/**',
+      'build/**',
+      'dist/**',
+      '**/*.config.js',
+      '**/*.config.cjs',
+      'jest.setup.js',
+    ],
   },
   {
     plugins: {
