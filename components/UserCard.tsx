@@ -27,6 +27,8 @@ export const UserCard: React.FC<UserCardProps> = ({ user, onPress }) => {
     >
       <Image
         source={{ uri: user.profilePic || DEFAULT_AVATAR }}
+        accessibilityRole="image"
+        testID="user-avatar"
         style={[styles.avatar, { borderColor: Colors.border }]}
       />
       <View style={styles.info}>
