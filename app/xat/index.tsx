@@ -38,7 +38,7 @@ export default function ChatList() {
   const [groupName, setGroupName] = useState('');
   const [selectedUsers, setSelectedUsers] = useState<number[]>([]);
   const [currentUserId, setCurrentUserId] = useState<number | null>(null);
-  const [users, setUsers] = useState<any[]>([]);
+  const [connectionsList, setConnectionsList] = useState<any[]>([]);
   const [chats, setChats] = useState<any[]>([]);
 
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function ChatList() {
           getProfile(), // TU
         ]);
 
-        setUsers(usersResponse);
+        setConnectionsList(connections); // Only use connections for group creation
         setCurrentUserId(profile.id);
 
         // 2️⃣ afegim avatar correcte a cada xat individual
@@ -59,7 +59,7 @@ export default function ChatList() {
           // xat individual → busquem l'altre usuari
           const other = chat.participants.find((p: any) => p.id !== currentUserId);
 
-          const fullUser = users.find((u: any) => u.id === other?.id);
+          const fullUser = usersResponse.find((u: any) => u.id === other?.id);
 
           return {
             ...chat,
@@ -68,22 +68,38 @@ export default function ChatList() {
         });
 
         // 3️⃣ guardem a l’estat
-        setChats(chatsWithAvatar);
-
-        const individual = connections.map((c: any) => {
-          // busquem l'altre usuari (NO tu)
-          const otherUser = usersResponse.find(
-            (u: any) => u.id !== profile.id && u.id === c.user_id,
-          );
-
-          return {
-            id: c.chat_id,
-            username: c.username,
-            lastMessage: '',
-            profile: otherUser?.profilePic ?? null,
-            isGroup: false,
-          };
+        // Ordenem els xats per data de missatge més recent (descendent)
+        const sortedChats = [...chatsWithAvatar].sort((a: any, b: any) => {
+          const aTime = new Date(
+            a.last_message_time || a.updated_at || a.created_at || 0,
+          ).getTime();
+          const bTime = new Date(
+            b.last_message_time || b.updated_at || b.created_at || 0,
+          ).getTime();
+          return bTime - aTime;
         });
+        setChats(sortedChats);
+
+        const individual = connections
+          .map((c: any) => {
+            // busquem l'altre usuari (NO tu)
+            const otherUser = usersResponse.find(
+              (u: any) => u.id !== profile.id && u.id === c.user_id,
+            );
+
+            return {
+              id: c.chat_id,
+              username: c.username,
+              lastMessage: '',
+              profile: otherUser?.profilePic ?? null,
+              isGroup: false,
+              lastMessageTime: c.last_message_time || c.updated_at || c.created_at || 0,
+            };
+          })
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime(),
+          );
 
         const groups = chats
           .filter((c: any) => c.participants?.length > 2)
@@ -93,7 +109,12 @@ export default function ChatList() {
             lastMessage: '',
             profile: null, // els grups NO tenen foto d’usuari
             isGroup: true,
-          }));
+            lastMessageTime: c.last_message_time || c.updated_at || c.created_at || 0,
+          }))
+          .sort(
+            (a: any, b: any) =>
+              new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime(),
+          );
 
         setIndividualChats(individual);
         setGroupChats(groups);
@@ -298,15 +319,17 @@ export default function ChatList() {
 
             {/* Llista de participants */}
             <FlatList
-              data={users}
-              keyExtractor={(u) => u.id.toString()}
+              data={connectionsList}
+              keyExtractor={(u) => u.user_id.toString()}
               renderItem={({ item }) => {
-                const selected = selectedUsers.includes(item.id);
+                const selected = selectedUsers.includes(item.user_id);
                 return (
                   <TouchableOpacity
                     onPress={() => {
                       setSelectedUsers((prev) =>
-                        selected ? prev.filter((id) => id !== item.id) : [...prev, item.id],
+                        selected
+                          ? prev.filter((id) => id !== item.user_id)
+                          : [...prev, item.user_id],
                       );
                     }}
                     style={{

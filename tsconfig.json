@@ -3,6 +3,8 @@
   "compilerOptions": {
     "strict": true,
     "noImplicitAny": true,
-    "skipLibCheck": true
-  }
+    "skipLibCheck": true,
+    "types": ["jest", "@testing-library/jest-native", "node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "types/**/*.d.ts"]
 }

@@ -51,7 +51,7 @@ export function ThemeToggle({ theme, accentColor, onToggle, permanent = false }:
   });
 
   return (
-    <Pressable onPress={handlePress} style={styles.container}>
+    <Pressable testID="theme-toggle" onPress={handlePress} style={styles.container}>
       <Animated.View
         style={{
           transform: [{ rotate: rotation }, { scale: scaleAnim }],

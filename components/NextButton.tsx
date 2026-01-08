@@ -171,7 +171,12 @@ export function NextButton({ accentColor, onPress }: NextButtonProps) {
       />
 
       {/* Button */}
-      <Pressable onPressIn={handlePressIn} onPressOut={handlePressOut} style={styles.pressable}>
+      <Pressable
+        testID="next-button"
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        style={styles.pressable}
+      >
         <Animated.View
           style={[
             styles.iconContainer,

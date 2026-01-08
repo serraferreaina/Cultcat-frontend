@@ -75,6 +75,8 @@ export default function EventDetail() {
   const [averageRating, setAverageRating] = useState<number | null>(null);
   const [isSaved, setIsSaved] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [currentImageIndex, setCurrentImageIndex] = useState(0);
+  const [imageModalVisible, setImageModalVisible] = useState(false);
 
   const eventLogic = useEventLogic(
     event || {
@@ -286,6 +288,39 @@ export default function EventDetail() {
   const canWriteReview =
     event && userAttendanceDate ? hasAttendanceDatePassed(userAttendanceDate) : false;
 
+  // Parse all images from the event - MUST be before any conditional returns
+  const eventImages = React.useMemo(() => {
+    if (!event) return ['https://via.placeholder.com/400x300?text=No+Image'];
+
+    const images: string[] = [];
+
+    // Add images from 'imatges' field (comma-separated)
+    if (event.imatges && event.imatges.trim() !== '') {
+      const imageUrls = event.imatges.split(',').map((url) => {
+        const trimmedUrl = url.trim();
+        const decodedUrl = decodeURIComponent(trimmedUrl);
+        return `https://agenda.cultura.gencat.cat${decodedUrl}`;
+      });
+      images.push(...imageUrls);
+    }
+
+    // Add img_app if not already included and exists
+    if (event.imgApp && event.imgApp.trim() !== '') {
+      const decodedUrl = decodeURIComponent(event.imgApp.trim());
+      const imgAppUrl = `https://agenda.cultura.gencat.cat${decodedUrl}`;
+      if (!images.includes(imgAppUrl)) {
+        images.unshift(imgAppUrl); // Add to beginning
+      }
+    }
+
+    // Fallback placeholder if no images
+    if (images.length === 0) {
+      images.push('https://via.placeholder.com/400x300?text=No+Image');
+    }
+
+    return images;
+  }, [event?.imatges, event?.imgApp]);
+
   const formatEventDate = (startDate: string | null, endDate: string | null): string => {
     if (!startDate) return t('Date not available');
 
@@ -454,11 +489,8 @@ export default function EventDetail() {
   };
 
   const Link = event.enllacos ? Object.values(event.enllacos)[0] : null;
-  const imageUri = event.imgApp
-    ? `https://agenda.cultura.gencat.cat${event.imgApp}`
-    : event.imatges
-      ? `https://agenda.cultura.gencat.cat${event.imatges.split(',')[0]}`
-      : null;
+
+  const imageUri = eventImages[currentImageIndex];
 
   const today = new Date();
   today.setHours(0, 0, 0, 0);
@@ -491,17 +523,71 @@ export default function EventDetail() {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {imageUri && (
+        {eventImages.length > 0 && (
           <View style={styles.imageContainer}>
-            <Image source={{ uri: imageUri }} style={styles.image} />
+            <TouchableOpacity activeOpacity={0.9} onPress={() => setImageModalVisible(true)}>
+              <Image source={{ uri: imageUri }} style={styles.image} />
+            </TouchableOpacity>
             <View style={styles.imageOverlay} />
+
+            {/* Image counter badge */}
+            {eventImages.length > 1 && (
+              <View style={[styles.imageCountBadge, { backgroundColor: 'rgba(0,0,0,0.7)' }]}>
+                <Ionicons name="images" size={14} color="#FFF" />
+                <Text style={styles.imageCountText}>
+                  {currentImageIndex + 1}/{eventImages.length}
+                </Text>
+              </View>
+            )}
+
+            {/* Navigation arrows */}
+            {eventImages.length > 1 && (
+              <>
+                {currentImageIndex > 0 && (
+                  <TouchableOpacity
+                    style={[styles.imageNavButton, styles.imageNavLeft]}
+                    onPress={() => setCurrentImageIndex(currentImageIndex - 1)}
+                  >
+                    <Ionicons name="chevron-back" size={28} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+                {currentImageIndex < eventImages.length - 1 && (
+                  <TouchableOpacity
+                    style={[styles.imageNavButton, styles.imageNavRight]}
+                    onPress={() => setCurrentImageIndex(currentImageIndex + 1)}
+                  >
+                    <Ionicons name="chevron-forward" size={28} color="#FFF" />
+                  </TouchableOpacity>
+                )}
+              </>
+            )}
+
+            {/* Dot indicators */}
+            {eventImages.length > 1 && eventImages.length <= 10 && (
+              <View style={styles.imageDotsContainer}>
+                {eventImages.map((_, index) => (
+                  <TouchableOpacity
+                    key={index}
+                    onPress={() => setCurrentImageIndex(index)}
+                    style={[
+                      styles.imageDot,
+                      {
+                        backgroundColor:
+                          index === currentImageIndex ? '#FFF' : 'rgba(255,255,255,0.4)',
+                      },
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+
             <TouchableOpacity onPress={() => router.back()} style={styles.floatingBackButton}>
               <Ionicons name="arrow-back" size={24} color="#FFF" />
             </TouchableOpacity>
           </View>
         )}
 
-        {!imageUri && (
+        {eventImages.length === 0 && (
           <View style={styles.headerRow}>
             <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
               <Ionicons name="arrow-back" size={28} color={Colors.text} />
@@ -828,6 +914,58 @@ export default function EventDetail() {
         <View style={{ height: 40 }} />
       </ScrollView>
 
+      {/* Full-screen Image Modal */}
+      <Modal
+        visible={imageModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setImageModalVisible(false)}
+      >
+        <View style={styles.fullScreenImageModal}>
+          <TouchableOpacity
+            style={styles.closeFullScreenButton}
+            onPress={() => setImageModalVisible(false)}
+          >
+            <Ionicons name="close" size={32} color="#FFF" />
+          </TouchableOpacity>
+
+          <View style={{ flex: 1, justifyContent: 'center' }}>
+            <Image
+              source={{ uri: eventImages[currentImageIndex] }}
+              style={styles.fullScreenImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          {eventImages.length > 1 && (
+            <>
+              {currentImageIndex > 0 && (
+                <TouchableOpacity
+                  style={[styles.fullScreenNavButton, styles.fullScreenNavLeft]}
+                  onPress={() => setCurrentImageIndex(currentImageIndex - 1)}
+                >
+                  <Ionicons name="chevron-back" size={40} color="#FFF" />
+                </TouchableOpacity>
+              )}
+              {currentImageIndex < eventImages.length - 1 && (
+                <TouchableOpacity
+                  style={[styles.fullScreenNavButton, styles.fullScreenNavRight]}
+                  onPress={() => setCurrentImageIndex(currentImageIndex + 1)}
+                >
+                  <Ionicons name="chevron-forward" size={40} color="#FFF" />
+                </TouchableOpacity>
+              )}
+
+              <View style={styles.fullScreenCounter}>
+                <Text style={styles.fullScreenCounterText}>
+                  {currentImageIndex + 1} / {eventImages.length}
+                </Text>
+              </View>
+            </>
+          )}
+        </View>
+      </Modal>
+
       <Modal
         visible={showDateModal}
         transparent
@@ -970,6 +1108,122 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 5,
+  },
+  imageCountBadge: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  imageCountText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  imageNavButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -22,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 5,
+  },
+  imageNavLeft: {
+    left: 16,
+  },
+  imageNavRight: {
+    right: 16,
+  },
+  imageDotsContainer: {
+    position: 'absolute',
+    bottom: 16,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 8,
+  },
+  imageDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.3,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  fullScreenImageModal: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.95)',
+  },
+  fullScreenImage: {
+    width: SCREEN_WIDTH,
+    height: SCREEN_HEIGHT,
+  },
+  closeFullScreenButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenNavButton: {
+    position: 'absolute',
+    top: '50%',
+    marginTop: -30,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullScreenNavLeft: {
+    left: 20,
+  },
+  fullScreenNavRight: {
+    right: 20,
+  },
+  fullScreenCounter: {
+    position: 'absolute',
+    bottom: 40,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+  },
+  fullScreenCounterText: {
+    color: '#FFF',
+    fontSize: 16,
+    fontWeight: '700',
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
   },
   headerRow: {
     flexDirection: 'row',

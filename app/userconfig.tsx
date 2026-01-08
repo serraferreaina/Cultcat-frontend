@@ -310,9 +310,9 @@ export default function UserConfig() {
     }
   };
 
-  const handleDeletePhotoPress = () => {
-    setShowDeletePhotoModal(true);
-  };
+  // const handleDeletePhotoPress = () => {
+  //   setShowDeletePhotoModal(true);
+  // };
 
   const confirmDeletePhoto = async () => {
     setShowDeletePhotoModal(false);
@@ -352,14 +352,14 @@ export default function UserConfig() {
                   {t('Canviar foto')}
                 </Text>
               </TouchableOpacity>
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 style={[styles.removePhotoBtn, { backgroundColor: colors.background }]}
                 onPress={handleDeletePhotoPress}
               >
                 <Text style={[styles.removePhotoText, { color: colors.accent }]}>
                   {t('Eliminar foto')}
                 </Text>
-              </TouchableOpacity>
+              </TouchableOpacity> */}
             </View>
           </View>
         </View>

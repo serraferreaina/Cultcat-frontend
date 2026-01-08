@@ -34,6 +34,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { ShareEventModal } from '../../components/ShareEventModal';
 import { useFocusEffect } from '@react-navigation/native';
 import { useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function CercaScreen() {
   const { t, i18n } = useTranslation();
@@ -838,7 +839,39 @@ export default function CercaScreen() {
       const textData = await res.text();
       const responseData = textData ? JSON.parse(textData) : {};
       let data = responseData.results || responseData || [];
-      const userData = Array.isArray(data) ? data : [];
+      let userData = Array.isArray(data) ? data : [];
+
+      // Filter out current user using global.currentUser or fetch profile
+      let currentUserId = global.currentUser?.id;
+      let currentUsername = global.currentUser?.username;
+
+      // If not in global, try to fetch profile
+      if (!currentUserId || !currentUsername) {
+        try {
+          const token = await AsyncStorage.getItem('authToken');
+          if (token) {
+            const profileRes = await fetch('http://nattech.fib.upc.edu:40490/profile/', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (profileRes.ok) {
+              const profileData = await profileRes.json();
+              currentUserId = profileData.id;
+              currentUsername = profileData.username;
+            }
+          }
+        } catch (err) {
+          console.error('Error fetching profile:', err);
+        }
+      }
+
+      // Filter out current user by ID or username
+      if (currentUserId || currentUsername) {
+        userData = userData.filter((u: any) => {
+          if (currentUserId && u.id === currentUserId) return false;
+          if (currentUsername && u.username === currentUsername) return false;
+          return true;
+        });
+      }
 
       if (reset) {
         setUsers(userData);
@@ -1752,7 +1785,20 @@ export default function CercaScreen() {
           data={users}
           keyExtractor={(item) => String(item.id ?? item.username)}
           renderItem={({ item }) => (
-            <UserCard user={item} onPress={() => router.push(`/user/${item.id}`)} />
+            <UserCard
+              user={item}
+              onPress={async () => {
+                // Check using global.currentUser for consistency
+                const currentUserId = global.currentUser?.id;
+                const currentUsername = global.currentUser?.username;
+
+                if (item.id === currentUserId || item.username === currentUsername) {
+                  router.push('/profile');
+                } else {
+                  router.push(`/user/${item.id}`);
+                }
+              }}
+            />
           )}
           onEndReached={handleLoadMoreUsers}
           onEndReachedThreshold={0.5}
