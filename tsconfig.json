@@ -4,6 +4,7 @@
     "strict": true,
     "noImplicitAny": true,
     "skipLibCheck": true,
-    "types": ["jest", "@testing-library/jest-native"]
-  }
+    "types": ["jest", "@testing-library/jest-native", "node"]
+  },
+  "include": ["**/*.ts", "**/*.tsx", "types/**/*.d.ts"]
 }
