@@ -90,6 +90,8 @@ npx expo start
 └── tsconfig.json
 ```
 ## 🎬 Demo
+Watch the **CultCat demo app** on YouTube:
+[![CultCat Demo](https://img.youtube.com/vi/aNZ0Af0BQRI/0.jpg)](https://youtu.be/aNZ0Af0BQRI)
 
 ## 👥 Authors
 - Aina Serra  
